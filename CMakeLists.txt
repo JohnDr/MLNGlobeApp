@@ -45,6 +45,22 @@ target_link_libraries(
         QMapLibre::Core
 )
 
+# Copy the QMapLibre runtime next to the executable so the app (and the
+# MapLibre QML plugin, which depends on QMapLibre's private libraries) can be
+# run directly, e.g. from Qt Creator, without QMapLibre's bin directory on PATH.
+if(WIN32)
+    get_filename_component(_QMapLibre_prefix "${QMapLibre_DIR}/../../.." ABSOLUTE)
+    file(GLOB _QMapLibre_runtime_dlls "${_QMapLibre_prefix}/bin/*.dll")
+    if(_QMapLibre_runtime_dlls)
+        add_custom_command(
+            TARGET MapLibreEarth POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${_QMapLibre_runtime_dlls} "$<TARGET_FILE_DIR:MapLibreEarth>/"
+            COMMENT "Copying QMapLibre runtime next to the executable"
+        )
+    endif()
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     target_link_options(
         MapLibreEarth
@@ -92,8 +108,9 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Android")
     # default. Without it QImage/QImageReader cannot decode WebP, so WebP raster
     # tiles fail (e.g. the Open Waters elevation/terrain source).
     if(DEFINED ENV{QT_ROOT_DIR})
+        file(TO_CMAKE_PATH "$ENV{QT_ROOT_DIR}" _qmaplibre_qt_root)
         set(_qmaplibre_webp_plugin
-            "$ENV{QT_ROOT_DIR}/plugins/imageformats/libplugins_imageformats_qwebp_${ANDROID_ABI}.so")
+            "${_qmaplibre_qt_root}/plugins/imageformats/libplugins_imageformats_qwebp_${ANDROID_ABI}.so")
         if(EXISTS "${_qmaplibre_webp_plugin}")
             set_property(TARGET MapLibreEarth APPEND PROPERTY
                 QT_ANDROID_EXTRA_LIBS "${_qmaplibre_webp_plugin}")
