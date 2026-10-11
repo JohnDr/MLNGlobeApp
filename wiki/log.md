@@ -102,3 +102,11 @@ Append-only. One dated entry per generation or refresh run.
 - **Both build clean** on MSVC/Vulkan; the thirteen-patch chain (0001-0013) reproduces the tree. Committed `75c1318` (9b) and (9d).
 - **Remaining:** phase 8 — symbols/labels on the globe (placement/collision, ~40 files); not started.
 - **References:** [Globe projection](./concepts/globe-projection.md) · [Fork patches](./references/fork-patches.md).
+
+## 2026-10-11 — Symbols/labels on the globe (phase 8) — all layer families done
+
+- **Implemented:** globe **phase 8** (`3a217519`, PR #4533) for Vulkan. The symbol projection (`layout/symbol_projection`), collision index (`text/collision_index`) and placement (`text/placement`) now work on the sphere; the symbol vertex shaders project through a new `projectTileWithElevation` prelude helper; the symbol render layer switches projection variant. Added `src/mln/map/tile_projector.hpp` and the `mercator_projection`/`vertical_perspective_projection` symbol methods. Skipped the feature-query-only parts (TileProjector capture and the label-plane capture).
+- **Patch:** added `patches/maplibre-native-0014-globe-symbols-vulkan.patch`; the fourteen-patch chain (0001-0014) reproduces the tree.
+- **Built clean** on MSVC/Vulkan.
+- **Milestone:** every layer family in the design proposal's phase plan is now globe-aware on Vulkan — fills, background, lines, rasters/hillshade/color-relief, circles/heatmaps, fill-extrusions and symbols. Remaining work is verification and polish, not porting. See [Next steps](./next-steps.md).
+- **References:** [Globe projection](./concepts/globe-projection.md) · [Fork patches](./references/fork-patches.md).

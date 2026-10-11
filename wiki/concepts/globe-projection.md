@@ -86,7 +86,7 @@ Native's shaders are authored **once** in GLSL (`shaders/*.glsl` + a shared `_pr
 
 ## What has been implemented
 
-Thirteen increments have landed:
+Fourteen increments have landed:
 
 - **API seam** — a projection setter/getter threaded through `mln::MapOptions`, `TransformState`, `mln::Map`, and the Qt `QMapLibre::Map` / QML `MapLibre` item, so a projection is **selectable** end to end (`projectionType: MapLibre.Globe`).
 - **Phase 1 — the projection seam** — ported from `955e04af` (PR #4533): `ProjectionBase` + `ProjectionData`, a `MercatorProjection`, routed through `TransformState` and carried through every layer tweaker into a per-drawable `ProjectionUBO` on all four backends.
@@ -108,9 +108,9 @@ Thirteen increments have landed:
 - **Phase 9b — circles & heatmaps** — ported to Vulkan: their extruded corners are projected on the sphere (`projectToSphere` + `globeRotateVector` + `interpolateProjection`) using a new `globe_extrude_scale` drawable field.
 - **Phase 9d — fill-extrusions (3D buildings)** — ported to Vulkan: vertices project through `projectTileFor3D`, and a new **`GlobeDepthPass`** writes the planet into the depth buffer ahead of the translucent pass so 3D geometry behind the horizon is hidden. Adds `projectionVariant` to `RenderLayer`, the globe depth shader, and 3D prelude helpers.
 
-Phases 1–7, the hand-off, 9a (lines), 9b (circle/heatmap), 9c (rasters) and 9d (fill-extrusion) are carried as eleven downstream patches — `…-0003` through `…-0013-globe-fill-extrusion-vulkan.patch` (see [Fork patches](../references/fork-patches.md)).
+- **Phase 8 — symbols & labels** — ported to Vulkan: the symbol projection, collision index and placement work on the sphere; the symbol vertex shaders project through `projectTileWithElevation` and the symbol render layer switches the projection variant. Adds `src/mln/map/tile_projector.hpp`.
 
-**Still ahead:** **symbols/labels on the globe** (phase 8) — the largest remaining port (placement, collision and shaping on the sphere). See [Next steps](../next-steps.md).
+**Every layer family in the design proposal's phase plan is now globe-aware on Vulkan** — fills, background, **lines (9a)**, **rasters/hillshade/color-relief (9c)**, **circles/heatmaps (9b)**, **fill-extrusions (9d)** and **symbols (8)** — carried as twelve downstream patches, `…-0003` through `…-0014-globe-symbols-vulkan.patch` (see [Fork patches](../references/fork-patches.md)).
 
 ## Verification
 

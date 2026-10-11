@@ -19,13 +19,14 @@ Ordered to-do list. Update it at the end of each session and record results in [
 
 ## Globe port — resume here
 
-The globe **renders on Vulkan**: curved, covers the visible hemisphere, morphs back to flat past zoom ~11, and draws **fills, background, lines and rasters/hillshade/color-relief** (see [Globe projection](./concepts/globe-projection.md)). It is driven by **thirteen** downstream patches in `maplibre-native-qt/patches/` (`maplibre-native-0001`…`0013`), which reproduce the vendored tree. **Lines (9a), rasters/hillshade/color-relief (9c), circles/heatmaps (9b) and fill-extrusions (9d) are now done.**
+The globe **renders on Vulkan**: curved, covers the visible hemisphere, morphs back to flat past zoom ~11, and draws **fills, background, lines and rasters/hillshade/color-relief** (see [Globe projection](./concepts/globe-projection.md)). It is driven by **fourteen** downstream patches in `maplibre-native-qt/patches/` (`maplibre-native-0001`…`0014`), which reproduce the vendored tree. **Every layer family in the design proposal's phase plan is now globe-aware on Vulkan** — fills, background, lines (9a), rasters/hillshade/color-relief (9c), circles/heatmaps (9b), fill-extrusions (9d) and symbols (8).
 
-**Remaining:**
+**Remaining work is verification and polish, not porting:**
 
-- [ ] **Symbols / labels on the globe (phase 8)** — the largest remaining port: symbol placement, collision detection and shaping on the sphere (~40 files upstream). Not yet started; build-verify as usual.
+- [ ] Eyeball the globe with a style that exercises each family at low zoom — the ports are compile-verified, but the app's styles may not exercise every one end to end.
+- [ ] Optional: upstream's feature-query paths (the TileProjector capture and the symbol label-plane capture) were skipped; they affect querying, not rendering.
 
-Each is a hand-reconciled port (the vendored tree is an older release) plus a matching Vulkan shader change, following the pattern of patches 0006/0010/0011/0012/0013. See [Fork patches](./references/fork-patches.md) and the [globe log](./log.md).
+See [Fork patches](./references/fork-patches.md) and the [globe log](./log.md).
 - [ ] Decide whether to keep the `line-dasharray` data-expression part of the [style-spec patch](./references/fork-patches.md). It is non-conformant (the spec marks `line-dasharray` cross-faded / zoom-only) and is what forced the [assert-relaxation patch](./decisions/d3-downstream-patches.md).
 - [ ] Take the draft PRs out of Draft and merge when stable; rebase #324–#326 after #323.
 - [ ] Optional: raise the style-spec gaps upstream — [`icon-overlap`/`text-overlap`](./references/upstream-issues.md) (issue #251), data-driven `line-dasharray`, and the Open Waters `resampling` misuse.
