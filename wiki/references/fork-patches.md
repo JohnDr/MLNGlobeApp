@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries fourteen patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries fifteen patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -92,7 +92,11 @@ The hand-off was not optional: without it the globe radius grows without bound w
 
 ## Patch 0014 — symbols/labels on the globe (Vulkan)
 
-`maplibre-native-0014-globe-symbols-vulkan.patch` is globe **phase 8** (`3a217519`, PR #4533) for Vulkan: the symbol projection (`layout/symbol_projection`), collision index (`text/collision_index`) and placement (`text/placement`) work on the sphere; the symbol vertex shaders project through `projectTileWithElevation` (new prelude helper); the symbol render layer switches projection variant. Adds `src/mln/map/tile_projector.hpp` and the `mercator_projection`/`vertical_perspective_projection` symbol methods. This is the last layer family — every layer in the phase plan is now globe-aware on Vulkan. Applies **after** 0013.
+`maplibre-native-0014-globe-symbols-vulkan.patch` is globe **phase 8** (`3a217519`, PR #4533) for Vulkan: the symbol projection (`layout/symbol_projection`), collision index (`text/collision_index`) and placement (`text/placement`) work on the sphere; the symbol vertex shaders project through `projectTileWithElevation` (new prelude helper); the symbol render layer switches projection variant. Adds `src/mln/map/tile_projector.hpp` and the `mercator_projection`/`vertical_perspective_projection` symbol methods. Applies **after** 0013.
+
+## Patch 0015 — globe clip masks (Vulkan)
+
+`maplibre-native-0015-globe-clip-masks-vulkan.patch` is the Vulkan half of globe **phase 9f** (`ea76633b`): a globe clip-mask pass (`Context::renderGlobeTileClippingMasks`) writes each tile's pole-capped mesh to the stencil, driven by the `shaders::GlobeClipMask` block (projection + stencil ref + tile), so layers outside their tile are clipped on the sphere. Adds the globe branch to the Vulkan `clipping_mask` shader, a `granularity` parameter to `rawGlobeTileMesh`, and the shared `paint_parameters` globe branch. Applies **after** 0014.
 
 ## Regenerating a patch
 

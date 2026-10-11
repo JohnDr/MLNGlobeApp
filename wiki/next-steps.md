@@ -19,12 +19,12 @@ Ordered to-do list. Update it at the end of each session and record results in [
 
 ## Globe port — resume here
 
-The globe **renders on Vulkan**: curved, covers the visible hemisphere, morphs back to flat past zoom ~11, and draws **fills, background, lines and rasters/hillshade/color-relief** (see [Globe projection](./concepts/globe-projection.md)). It is driven by **fourteen** downstream patches in `maplibre-native-qt/patches/` (`maplibre-native-0001`…`0014`), which reproduce the vendored tree. **Every layer family in the design proposal's phase plan is now globe-aware on Vulkan** — fills, background, lines (9a), rasters/hillshade/color-relief (9c), circles/heatmaps (9b), fill-extrusions (9d) and symbols (8).
+The globe **renders on Vulkan**: curved, covers the visible hemisphere, morphs back to flat past zoom ~11, and draws **fills, background, lines and rasters/hillshade/color-relief** (see [Globe projection](./concepts/globe-projection.md)). It is driven by **fifteen** downstream patches in `maplibre-native-qt/patches/` (`maplibre-native-0001`…`0015`), which reproduce the vendored tree. **Every layer family in the design proposal's phase plan is now globe-aware on Vulkan** — fills, background, lines (9a), rasters/hillshade/color-relief (9c), circles/heatmaps (9b), fill-extrusions (9d), symbols (8) and **clip masks (9f)**.
 
-**Remaining work is verification and polish, not porting:**
+**Remaining:**
 
-- [ ] Eyeball the globe with a style that exercises each family at low zoom — the ports are compile-verified, but the app's styles may not exercise every one end to end.
-- [ ] Optional: upstream's feature-query paths (the TileProjector capture and the symbol label-plane capture) were skipped; they affect querying, not rendering.
+- [ ] **Phase 12o — draw only the uncovered parts of raster tiles on the globe.** This is the fix for the raster-tile overlap/blend that shows as large translucent rectangles flickering while rotating the globe. It needs the globe mesh **cache** refactor and a per-tile **mask** on the raster/hillshade buckets (not yet in our tree) — a multi-file port.
+- [ ] Eyeball the globe with a style that exercises each family at low zoom.
 
 See [Fork patches](./references/fork-patches.md) and the [globe log](./log.md).
 - [ ] Decide whether to keep the `line-dasharray` data-expression part of the [style-spec patch](./references/fork-patches.md). It is non-conformant (the spec marks `line-dasharray` cross-faded / zoom-only) and is what forced the [assert-relaxation patch](./decisions/d3-downstream-patches.md).

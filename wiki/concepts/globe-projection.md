@@ -86,7 +86,7 @@ Native's shaders are authored **once** in GLSL (`shaders/*.glsl` + a shared `_pr
 
 ## What has been implemented
 
-Fourteen increments have landed:
+Fifteen increments have landed:
 
 - **API seam** — a projection setter/getter threaded through `mln::MapOptions`, `TransformState`, `mln::Map`, and the Qt `QMapLibre::Map` / QML `MapLibre` item, so a projection is **selectable** end to end (`projectionType: MapLibre.Globe`).
 - **Phase 1 — the projection seam** — ported from `955e04af` (PR #4533): `ProjectionBase` + `ProjectionData`, a `MercatorProjection`, routed through `TransformState` and carried through every layer tweaker into a per-drawable `ProjectionUBO` on all four backends.
@@ -110,7 +110,9 @@ Fourteen increments have landed:
 
 - **Phase 8 — symbols & labels** — ported to Vulkan: the symbol projection, collision index and placement work on the sphere; the symbol vertex shaders project through `projectTileWithElevation` and the symbol render layer switches the projection variant. Adds `src/mln/map/tile_projector.hpp`.
 
-**Every layer family in the design proposal's phase plan is now globe-aware on Vulkan** — fills, background, **lines (9a)**, **rasters/hillshade/color-relief (9c)**, **circles/heatmaps (9b)**, **fill-extrusions (9d)** and **symbols (8)** — carried as twelve downstream patches, `…-0003` through `…-0014-globe-symbols-vulkan.patch` (see [Fork patches](../references/fork-patches.md)).
+- **Phase 9f — clip masks** — ported to Vulkan: a globe clip-mask pass writes each tile's pole-capped mesh to the stencil so layers outside their tile are clipped on the sphere.
+
+**Every layer family in the design proposal's phase plan is now globe-aware on Vulkan** — fills, background, **lines (9a)**, **rasters/hillshade/color-relief (9c)**, **circles/heatmaps (9b)**, **fill-extrusions (9d)**, **symbols (8)** and **clip masks (9f)** — carried as thirteen downstream patches, `…-0003` through `…-0015-globe-clip-masks-vulkan.patch` (see [Fork patches](../references/fork-patches.md)).
 
 ## Verification
 
