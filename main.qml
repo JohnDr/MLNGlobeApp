@@ -372,6 +372,10 @@ Window {
         zoomLevel: 4
         coordinate: [59.91, 10.75]
 
+        // Globe projection (WIP fast-path): renders the world on a sphere.
+        // Remove or set to MapLibre.Mercator to go back to the flat map.
+        projectionType: MapLibre.Globe
+
         // The 3D-buildings opacity override is added dynamically in C++/QML via
         // syncBuildingOverride() (see the Component at the top level).
 

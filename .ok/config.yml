@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://unpkg.com/@inkeep/open-knowledge@latest/dist/schemas/v0/config.project.schema.json
+# OpenKnowledge — project configuration
+#
+# dir: where the CRDT editor reads/writes documents. Relative to the project
+# root (the directory containing .ok/), NOT to this file.
+
+content:
+  dir: wiki

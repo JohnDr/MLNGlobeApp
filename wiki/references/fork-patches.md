@@ -1,0 +1,93 @@
+---
+type: Reference
+title: Downstream patches
+description: The three fork-only patches applied to the vendored MapLibre Native at configure time.
+tags: [ reference, patches ]
+status: draft
+---
+## Summary
+
+The fork of MapLibre Native Qt carries ten patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+
+## Patch 0001 — style-spec properties
+
+`maplibre-native-0001-style-spec-properties.patch` changes three files:
+
+| File | Change |
+|------|--------|
+| `src/mln/style/layers/symbol_layer.cpp` | Handle `icon-overlap` / `text-overlap` in `setPropertyInternal` → `icon-allow-overlap` / `text-allow-overlap` (`never` → false; `always`/`cooperative` → true). |
+| `src/mln/style/layers/line_layer.cpp` | Allow **data expressions** for `line-dasharray` (`convert<...>(value, error, true, false)`). |
+| `src/mln/style/layers/color_relief_layer.cpp` | Accept `resampling` (no-op). |
+
+See [Style-spec properties](../concepts/style-spec-properties.md).
+
+## Patch 0002 — relax evaluate asserts
+
+`maplibre-native-0002-relax-evaluate-asserts.patch` removes the two asserts in `include/mln/style/property_expression.hpp::evaluate(float zoom)`:
+
+```cpp
+assert(!isZoomConstant());
+assert(isFeatureConstant());
+```
+
+They reject legitimate callers such as `CrossFadedPropertyEvaluator`, which evaluates a cross-faded property (e.g. `line-dasharray`) at z-1/z/z+1 even for a data expression. Release has asserts compiled out; the patch keeps **Debug** in sync with Release. See [D3](../decisions/d3-downstream-patches.md).
+
+## Patch 0003 — globe projection seam
+
+`maplibre-native-0003-globe-projection-seam.patch` is the ported **globe phase 1** (plus the projection selection API) — see [Globe projection](../concepts/globe-projection.md). It adds `src/mln/map/projection_base.hpp` (`ProjectionBase` + `ProjectionData`), `src/mln/map/mercator_projection.{hpp,cpp}`, routes `TransformState` through the projection, and carries a per-drawable `ProjectionUBO` through every layer tweaker on all four backends. **Mercator only, no behaviour change.**
+
+It is by far the largest patch (~560 lines, 58 files). Unlike 0001/0002, it is a direct port of upstream work (`maplibre-native` PR #4533, commit `955e04af`) rather than a fork-only workaround, so the intent is to **drop it** once a release carrying globe is the vendored submodule.
+
+## Patch 0004 — globe phase 2 (`projectTile`)
+
+`maplibre-native-0004-globe-phase-2-projecttile.patch` is the verbatim upstream **globe phase 2** (PR #4533, commit `642c2973`). It adds `ProjectionUBO` + `projectTile()` to the shared vertex prelude and switches the whole **fill family** (GL, Metal, Vulkan, WebGPU) to project through it instead of `drawable.matrix` — still pixel-identical. It applies **after** 0003 (it edits the same shader headers).
+
+## Patch 0005 — globe phase 3 (the `projection` style property)
+
+`maplibre-native-0005-globe-phase-3-projection-property.patch` is **globe phase 3** (PR #4533, commit `69376bbd`), ported with manual reconciliation. It adds `style::Projection` / `ProjectionDefinition`, parses the style-root `projection` property, gives it an expression type and a `Style`/`Style::Impl` API, and plumbs its transition scalar to the transform (still Mercator). It applies **after** 0004.
+
+Unlike 0003/0004 this was **not** a clean apply: our `android-v13.6.1` style subsystem predates upstream (e.g. no `colorSpace` on `InterpolateImpl`, no `global-state` expression), so 7 files were reconciled by hand (`style.hpp`, `style_impl.hpp`, `parser.{hpp,cpp}`, `expression/interpolate.cpp`, `test/style/style.test.cpp`, and the phase-1 `transform_state.hpp`). **This is the pattern for phases 4+: each will need reconciliation against the drifted tree.**
+
+## Patch 0006 — globe on Vulkan (phase 4 fast-path)
+
+`maplibre-native-0006-globe-phase-4-vulkan.patch` makes the globe **render** — see [Globe projection](../concepts/globe-projection.md). It takes globe **phase 4**'s projection math (`VerticalPerspectiveProjection`, `gfx::ProjectionVariant`, the per-drawable `depth_offset`) and delivers the globe **on Vulkan** rather than Metal:
+
+- A globe `projectTile` prelude in `include/mln/shaders/vulkan/common.hpp` (translated from phase 4's Metal prelude), the Vulkan **fill** and **background** shaders projecting through it, and the `PROJECTION_GLOBE` define plumbed through the Vulkan `ShaderGroup`/`Context`.
+- The renderer (`RenderFillLayer`, `RenderBackgroundLayer`) requests the globe variant when `TransformState::isGlobeRendering()`.
+- `mln::Map::setProjectionType` sets the style's projection, so both the QML `MapLibre.projectionType` and the root style `projection` property drive it.
+
+It is **not** an upstream phase as-is: it folds phase 4 with the Vulkan half of phase 10b and skips Metal/GL/WebGPU. Upstream's metrics, changelog and render-test fixtures are deliberately excluded (source only). Applies **after** 0005.
+
+## Patch 0007 — globe subdivision (phase 5)
+
+`maplibre-native-0007-globe-phase-5-subdivision.patch` is globe **phase 5** (`aef0619`, PR #4533): subdivide fill/line geometry and cap the tile meshes at the poles, so the sphere curves instead of faceting. It adds `util/subdivision`, `util/tile_mesh`, `renderer/globe_tile_mesh.hpp`, and threads `SubdivisionGranularitySetting` through `BucketParameters` → `GeometryTileWorker` → the fill/line buckets; the Vulkan shaders gain the pole-aware `projectTile(pos, rawPos)` variant.
+
+Upstream ships phase 5 as a single commit bundling subdivision, globe gestures, and the raster/hillshade/fill-extrusion layer families. This patch carries the **subdivision and pole-cap** parts (plus the Vulkan shader half, which upstream had not done yet); the gesture and extra-layer-family work is not included. Applies **after** 0006.
+
+## Patch 0008 — globe tile cover (phase 7)
+
+`maplibre-native-0008-globe-phase-7-tile-cover.patch` is globe **phase 7** (`4e83526f`, PR #4533): the globe tile cover. It adds `util/bounding_volumes` (frustum volume/plane intersection) and `util/mat3`, and a globe branch in `util/tile_cover` that tests each tile against the camera frustum in unit-sphere space plus the horizon plane, so only the visible hemisphere is loaded (`TileCoverParameters::transformState` becomes a reference). This removes the limb gaps that moved with rotation. Applies **after** 0007.
+
+## Patch 0009 — globe transform (phase 6) and the globe→Mercator hand-off
+
+`maplibre-native-0009-globe-phase-6-transform.patch` is globe **phase 6** (`2f7bcd9e`, PR #4533) — globe unproject, anchored zoom, constrain, camera-state caching and the projection-type rename — plus the **zoom 11–12 globe→Mercator hand-off** from `style::Projection::Impl::evaluate` (the core of phase 9e).
+
+The hand-off was not optional: without it the globe radius grows without bound while `cameraToCenterDistance` stays fixed, so the camera ends up on the sphere's surface and zooming in renders a single flat colour. It also merges the native `ProjectionType` from `ProjectionDefinition` and drops the ad-hoc `mln::map/projection_type.hpp`. Applies **after** 0008.
+
+## Patch 0010 — lines on the globe (Vulkan)
+
+`maplibre-native-0010-globe-lines-vulkan.patch` switches the four Vulkan line vertex shaders (`line`, `line-gradient`, `line-pattern`, `line-sdf`) from `drawable.matrix` to the globe `projectTile` and binds the projection UBO — the line half of upstream's "render lines on the globe" (phase 9a). Without it, the road-casing lines smeared across the whole window in their colour on the globe, which read as a single-colour fill. This is a hand-written Vulkan change (upstream did it for Metal). Applies **after** 0009.
+
+## Regenerating a patch
+
+Edit the files in `vendor/maplibre-native`, then dump the diff with a UTF-8 writer (PowerShell's `>` writes UTF-16, which `git apply` rejects):
+
+```
+git -C vendor/maplibre-native diff --no-color -- src > patches\....patch
+```
+
+After configure the submodule shows ` m vendor/maplibre-native`; the committed gitlink stays clean and the patches re-apply on a fresh checkout.
+
+## Related
+
+- [Style-spec properties](../concepts/style-spec-properties.md) · [D3](../decisions/d3-downstream-patches.md) · [MapLibre Native core](../modules/maplibre-native-core.md)
