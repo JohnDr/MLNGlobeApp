@@ -17,9 +17,15 @@ Ordered to-do list. Update it at the end of each session and record results in [
 
 ## Open items
 
+## Globe tile-edge thin line — resume here (2026-10-12)
+
+Since patch **0017** the globe renders correctly (no blank, no wide band), but a **thin ~1px line remains at every globe tile edge** (both axes). Root cause: the anti-aliasing seam between separately-drawn tiles — each tile is its own primitive clipped at the shared meridian, and the two edges' projected vertices differ by float rounding, so their AA fringes do not coincide.
+
+**Next:** apply the raster technique to globe **fills** — draw tiles with a small overlap but use the **stencil** to mark drawn pixels and discard already-marked ones ("draw once"), so there is neither a gap nor a double-blend. The fill layer already enables stencil (`render_fill_layer.cpp:187/196`); the two-pass draw-once pass is what is missing. See the [globe log](./log.md) entry dated 2026-10-12.
+
 ## Globe port — resume here
 
-The globe **renders on Vulkan**: curved, covers the visible hemisphere, morphs back to flat past zoom ~11, and draws **fills, background, lines and rasters/hillshade/color-relief** (see [Globe projection](./concepts/globe-projection.md)). It is driven by **sixteen** downstream patches in `maplibre-native-qt/patches/` (`maplibre-native-0001`…`0016`), which reproduce the vendored tree. **The whole design-proposal phase plan is now ported for Vulkan** — every layer family (fills, background, lines, rasters/hillshade/color-relief, circles/heatmaps, fill-extrusions, symbols), clip masks, subdivision, tile cover, gestures, the globe→Mercator morph, and the raster uncovered-parts fix.
+The globe **renders on Vulkan**: curved, covers the visible hemisphere, morphs back to flat past zoom ~11, and draws **fills, background, lines and rasters/hillshade/color-relief** (see [Globe projection](./concepts/globe-projection.md)). It is driven by **seventeen** downstream patches in `maplibre-native-qt/patches/` (`maplibre-native-0001`…`0017`), which reproduce the vendored tree (`0017` is the tile-edge/blank fix — see the [log](./log.md), 2026-10-12). **The whole design-proposal phase plan is now ported for Vulkan** — every layer family (fills, background, lines, rasters/hillshade/color-relief, circles/heatmaps, fill-extrusions, symbols), clip masks, subdivision, tile cover, gestures, the globe→Mercator morph, and the raster uncovered-parts fix.
 
 **Remaining is verification, not porting:**
 

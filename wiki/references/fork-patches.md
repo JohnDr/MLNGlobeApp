@@ -102,6 +102,10 @@ The hand-off was not optional: without it the globe radius grows without bound w
 
 `maplibre-native-0016-globe-raster-uncovered-vulkan.patch` is globe **phase 12o** (`9fa47e1f`): `GlobeTileMesh` now grids only the parts of a tile its **`TileMask`** keeps (splitting an overlapped parent tile into quadrant parts), and a `GlobeTileMeshCache` keyed by zoom/pole/mask dedupes them. The raster/hillshade/color-relief render layers build their globe meshes through the cache with the bucket's mask, so overlapping raster tiles stop blending. Applies **after** 0015.
 
+## Patch 0017 — globe tile-edge fixes
+
+`maplibre-native-0017-globe-tile-edge-fixes.patch` fixes the globe **blank band at z8-10** and the **wide darker band along globe tile edges**. Three files: `renderer/tile_pyramid.cpp` (size the `bounds` `TileRange` guard over the full source zoom range when the cover is in variable-zoom mode, so the globe cover's finer tiles are not rejected — otherwise the layer gets ~1 tile and the view is blank); `util/subdivision.cpp` (mirror GL JS `removeTrianglesOutsideTileX` / `removeLinesOutsideTileX` — drop a triangle when **any** vertex is outside, not only when all are, which is a port translation bug; z0-only); and `gfx/fill_generator.cpp` (clip fill polygons to `[0, EXTENT]` on both axes before subdivision so the grid cannot place vertices past the tile edge). A **thin ~1px AA line remains at tile edges** — see [Next steps](../next-steps.md). Applies **after** 0016.
+
 ## Regenerating a patch
 
 Edit the files in `vendor/maplibre-native`, then dump the diff with a UTF-8 writer (PowerShell's `>` writes UTF-16, which `git apply` rejects):

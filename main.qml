@@ -925,6 +925,20 @@ Window {
 
         Rectangle {
             width: 44
+            height: 26
+            radius: 6
+            color: "#cc000000"
+            Text {
+                anchors.centerIn: parent
+                text: map.zoomLevel.toFixed(1)
+                color: "white"
+                font.pixelSize: 13
+                font.bold: true
+            }
+        }
+
+        Rectangle {
+            width: 44
             height: 44
             radius: width / 2
             color: "#cc000000"
