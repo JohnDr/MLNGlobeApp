@@ -118,3 +118,10 @@ Append-only. One dated entry per generation or refresh run.
 - **Patch:** `patches/maplibre-native-0015-globe-clip-masks-vulkan.patch`; the fifteen-patch chain (0001-0015) reproduces the tree. Built clean on MSVC/Vulkan.
 - **Remaining:** **phase 12o** (draw only the uncovered parts of raster tiles) — the direct fix for the raster-overlap flicker — needs the globe mesh **cache** refactor and a per-tile **mask** on the raster/hillshade buckets, which our tree lacks; it is a multi-file port, not yet started.
 - **References:** [Globe projection](./concepts/globe-projection.md) · [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-11 — Raster uncovered-parts on the globe (phase 12o, Vulkan)
+
+- **Implemented:** globe **phase 12o** (`9fa47e1f`). `GlobeTileMesh` now grids only the parts of a tile its **`TileMask`** keeps — an overlapped parent tile is split into quadrant parts gridded at the finer zoom — and a new `GlobeTileMeshCache` keyed by zoom/pole/mask dedupes the meshes. The raster, hillshade and color-relief render layers build their globe meshes through the cache with the bucket's mask. This stops overlapping raster tiles from blending, which is the cause of the translucent rectangles that flickered while rotating the globe.
+- **Patch:** `patches/maplibre-native-0016-globe-raster-uncovered-vulkan.patch`; the sixteen-patch chain (0001-0016) reproduces the tree. Built clean on MSVC/Vulkan.
+- **Milestone:** the whole design-proposal phase plan is now ported for Vulkan (plus the clip-mask and raster-coverage polish phases). Remaining is verification and the optional feature-query paths.
+- **References:** [Globe projection](./concepts/globe-projection.md) · [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
