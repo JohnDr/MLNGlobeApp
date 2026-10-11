@@ -86,7 +86,7 @@ Native's shaders are authored **once** in GLSL (`shaders/*.glsl` + a shared `_pr
 
 ## What has been implemented
 
-Eleven increments have landed:
+Thirteen increments have landed:
 
 - **API seam** — a projection setter/getter threaded through `mln::MapOptions`, `TransformState`, `mln::Map`, and the Qt `QMapLibre::Map` / QML `MapLibre` item, so a projection is **selectable** end to end (`projectionType: MapLibre.Globe`).
 - **Phase 1 — the projection seam** — ported from `955e04af` (PR #4533): `ProjectionBase` + `ProjectionData`, a `MercatorProjection`, routed through `TransformState` and carried through every layer tweaker into a per-drawable `ProjectionUBO` on all four backends.
@@ -105,9 +105,12 @@ Eleven increments have landed:
 
 - **Phase 9c — raster, hillshade and color-relief** — ported to Vulkan: their vertex shaders project through `projectTile` and their render layers build the subdivided pole-capped `GlobeTileMesh` instead of the flat quad. The `natural_earth` shaded relief now wraps onto the sphere instead of showing as a flat block.
 
-Phases 1–7, the hand-off, the line fix and phase 9c are carried as nine downstream patches — `…-0003` through `…-0011-globe-raster-vulkan.patch` (see [Fork patches](../references/fork-patches.md)).
+- **Phase 9b — circles & heatmaps** — ported to Vulkan: their extruded corners are projected on the sphere (`projectToSphere` + `globeRotateVector` + `interpolateProjection`) using a new `globe_extrude_scale` drawable field.
+- **Phase 9d — fill-extrusions (3D buildings)** — ported to Vulkan: vertices project through `projectTileFor3D`, and a new **`GlobeDepthPass`** writes the planet into the depth buffer ahead of the translucent pass so 3D geometry behind the horizon is hidden. Adds `projectionVariant` to `RenderLayer`, the globe depth shader, and 3D prelude helpers.
 
-**Still ahead — these layer families are not globe-aware yet:** fill-extrusion (3D buildings), circle/heatmap, and symbols/labels (phase 8). See [Next steps](../next-steps.md).
+Phases 1–7, the hand-off, 9a (lines), 9b (circle/heatmap), 9c (rasters) and 9d (fill-extrusion) are carried as eleven downstream patches — `…-0003` through `…-0013-globe-fill-extrusion-vulkan.patch` (see [Fork patches](../references/fork-patches.md)).
+
+**Still ahead:** **symbols/labels on the globe** (phase 8) — the largest remaining port (placement, collision and shaping on the sphere). See [Next steps](../next-steps.md).
 
 ## Verification
 

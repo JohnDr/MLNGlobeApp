@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries eleven patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries thirteen patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -81,6 +81,14 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0011 — rasters on the globe (Vulkan)
 
 `maplibre-native-0011-globe-raster-vulkan.patch` is globe **phase 9c** (`5d5a1ca9`, PR #4533) for Vulkan: the raster, hillshade and color-relief vertex shaders bind the projection UBO and project through `projectTile`, and their render layers build the subdivided pole-capped `GlobeTileMesh` (instead of the flat quad) when the globe is active. The `natural_earth` shaded relief then wraps onto the sphere instead of showing as a flat block. Adds the `projectionVariant` plumbing to those render layers. Applies **after** 0010.
+
+## Patch 0012 — circles & heatmaps on the globe (Vulkan)
+
+`maplibre-native-0012-globe-circle-heatmap-vulkan.patch` is globe **phase 9b** (`3f24993a`, PR #4533) for Vulkan: the circle and heatmap vertex shaders project extruded corners onto the sphere (`projectToSphere` + `globeRotateVector` + `interpolateProjection`), driven by a new `globe_extrude_scale` drawable field. Adds `LayerTweaker::globeExtrudeScale` and the `globeRotateVector` prelude helper. Applies **after** 0011.
+
+## Patch 0013 — fill-extrusions on the globe (Vulkan)
+
+`maplibre-native-0013-globe-fill-extrusion-vulkan.patch` is globe **phase 9d** (`29d6dcd8`, PR #4533) for Vulkan: fill-extrusion vertices project through `projectTileFor3D`; a new **`GlobeDepthPass`** draws the planet into the depth buffer before the translucent pass so 3D geometry behind the horizon is hidden; fill-extrusion buckets subdivide walls/roofs on the globe. Adds `RenderLayer::projectionVariant` + `updateProjectionVariant`, the `GlobeDepthShader` (Vulkan) and registration, and 3D prelude helpers. Upstream's TileProjector feature-query path is not ported (rendering does not need it). Applies **after** 0012.
 
 ## Regenerating a patch
 
