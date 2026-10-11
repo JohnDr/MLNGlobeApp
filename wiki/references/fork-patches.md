@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries ten patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries eleven patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -77,6 +77,10 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0010 — lines on the globe (Vulkan)
 
 `maplibre-native-0010-globe-lines-vulkan.patch` switches the four Vulkan line vertex shaders (`line`, `line-gradient`, `line-pattern`, `line-sdf`) from `drawable.matrix` to the globe `projectTile` and binds the projection UBO — the line half of upstream's "render lines on the globe" (phase 9a). Without it, the road-casing lines smeared across the whole window in their colour on the globe, which read as a single-colour fill. This is a hand-written Vulkan change (upstream did it for Metal). Applies **after** 0009.
+
+## Patch 0011 — rasters on the globe (Vulkan)
+
+`maplibre-native-0011-globe-raster-vulkan.patch` is globe **phase 9c** (`5d5a1ca9`, PR #4533) for Vulkan: the raster, hillshade and color-relief vertex shaders bind the projection UBO and project through `projectTile`, and their render layers build the subdivided pole-capped `GlobeTileMesh` (instead of the flat quad) when the globe is active. The `natural_earth` shaded relief then wraps onto the sphere instead of showing as a flat block. Adds the `projectionVariant` plumbing to those render layers. Applies **after** 0010.
 
 ## Regenerating a patch
 

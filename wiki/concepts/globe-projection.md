@@ -86,7 +86,7 @@ Native's shaders are authored **once** in GLSL (`shaders/*.glsl` + a shared `_pr
 
 ## What has been implemented
 
-Ten increments have landed:
+Eleven increments have landed:
 
 - **API seam** — a projection setter/getter threaded through `mln::MapOptions`, `TransformState`, `mln::Map`, and the Qt `QMapLibre::Map` / QML `MapLibre` item, so a projection is **selectable** end to end (`projectionType: MapLibre.Globe`).
 - **Phase 1 — the projection seam** — ported from `955e04af` (PR #4533): `ProjectionBase` + `ProjectionData`, a `MercatorProjection`, routed through `TransformState` and carried through every layer tweaker into a per-drawable `ProjectionUBO` on all four backends.
@@ -103,9 +103,11 @@ Ten increments have landed:
 
 - **Lines on the globe (the first slice of 9a)** — the Vulkan line vertex shaders (`line`, `line-gradient`, `line-pattern`, `line-sdf`) had not been switched to the globe, so they projected with the Mercator matrix. On the globe the road-casing lines smeared across the whole window in their colour (`#E9AC77`), which looked like the map filling with one colour at many zoom levels. They now project through `projectTile` like the fill family. (This was found by hand and verified with a screenshot of the fixed globe.)
 
-Phases 1–7, the hand-off and the line fix are carried as eight downstream patches — `…-0003` through `…-0010-globe-lines-vulkan.patch` (see [Fork patches](../references/fork-patches.md)).
+- **Phase 9c — raster, hillshade and color-relief** — ported to Vulkan: their vertex shaders project through `projectTile` and their render layers build the subdivided pole-capped `GlobeTileMesh` instead of the flat quad. The `natural_earth` shaded relief now wraps onto the sphere instead of showing as a flat block.
 
-**Still ahead — the other layer families are not globe-aware yet and produce artifacts on the sphere:** the `natural_earth` **raster** renders as a flat block (needs the subdivided tile mesh), then hillshade, color-relief, fill-extrusion (3D buildings) and circle/heatmap, plus symbols/labels (phase 8). See [Next steps](../next-steps.md).
+Phases 1–7, the hand-off, the line fix and phase 9c are carried as nine downstream patches — `…-0003` through `…-0011-globe-raster-vulkan.patch` (see [Fork patches](../references/fork-patches.md)).
+
+**Still ahead — these layer families are not globe-aware yet:** fill-extrusion (3D buildings), circle/heatmap, and symbols/labels (phase 8). See [Next steps](../next-steps.md).
 
 ## Verification
 

@@ -19,17 +19,15 @@ Ordered to-do list. Update it at the end of each session and record results in [
 
 ## Globe port — resume here
 
-The globe **renders on Vulkan**: curved, covers the visible hemisphere, morphs back to flat past zoom ~11, and draws **fills, background and lines** (see [Globe projection](./concepts/globe-projection.md)). It is driven by ten downstream patches in `maplibre-native-qt/patches/` (`maplibre-native-0001`…`0010`), which reproduce the vendored tree.
+The globe **renders on Vulkan**: curved, covers the visible hemisphere, morphs back to flat past zoom ~11, and draws **fills, background, lines and rasters/hillshade/color-relief** (see [Globe projection](./concepts/globe-projection.md)). It is driven by **eleven** downstream patches in `maplibre-native-qt/patches/` (`maplibre-native-0001`…`0011`), which reproduce the vendored tree. **Rasters, hillshade and color-relief are now done** (phase 9c).
 
-**Next up — the remaining layer families are still not globe-aware and produce artifacts:**
+**Next up — these layer families are still not globe-aware:**
 
-- [ ] **Rasters on the globe (highest impact).** The `natural_earth` shaded-relief raster currently renders as a flat block on the globe. Needs the **subdivided tile mesh** so the raster lies on the sphere (more work than lines) — upstream phase 9c. Then hillshade and color-relief.
 - [ ] **Fill-extrusion on the globe** (3D buildings) — upstream phase 9d.
 - [ ] **Symbols / labels on the globe** — upstream phase 8.
-- [ ] **Circle / heatmap** layers on the globe.
-- [ ] Optional quick stopgap: while the globe is active, hide non-globe-aware layers (raster/hillshade/fill-extrusion) so the sphere looks clean.
+- [ ] **Circle / heatmap** layers on the globe — upstream phase 9b.
 
-Each is a hand-reconciled port (the vendored tree is an older release) plus a matching Vulkan shader change, following the pattern of patches 0006/0010. See [Fork patches](./references/fork-patches.md) and the [globe log](./log.md).
+Each is a hand-reconciled port (the vendored tree is an older release) plus a matching Vulkan shader change, following the pattern of patches 0006/0010/0011. See [Fork patches](./references/fork-patches.md) and the [globe log](./log.md).
 - [ ] Decide whether to keep the `line-dasharray` data-expression part of the [style-spec patch](./references/fork-patches.md). It is non-conformant (the spec marks `line-dasharray` cross-faded / zoom-only) and is what forced the [assert-relaxation patch](./decisions/d3-downstream-patches.md).
 - [ ] Take the draft PRs out of Draft and merge when stable; rebase #324–#326 after #323.
 - [ ] Optional: raise the style-spec gaps upstream — [`icon-overlap`/`text-overlap`](./references/upstream-issues.md) (issue #251), data-driven `line-dasharray`, and the Open Waters `resampling` misuse.
