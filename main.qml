@@ -414,13 +414,12 @@ Window {
             }
         }
 
-        // Single-finger / left-mouse pan, implemented as a one-point
-        // PinchHandler. Unlike a DragHandler it resets its translation baseline
-        // each time it (re)activates, so when a pinch ends it does not apply a
-        // stale translation to the remaining finger (which made the map jump).
+        // Single-finger touch pan, as a one-point PinchHandler (touch only, so the
+        // mouse gestures below own the mouse buttons).
         PinchHandler {
             id: panHandler
             target: null
+            acceptedDevices: PointerDevice.TouchScreen
             minimumPointCount: 1
             maximumPointCount: 1
             enabled: !window.dialogOpen
@@ -431,42 +430,37 @@ Window {
             }
         }
 
-        // Mouse / trackpad: right drag zooms continuously toward the cursor
-        // (drag down = zoom in, drag up = zoom out). Wheel clicks remain the stepped
-        // zoom below.
-        PinchHandler {
-            id: zoomDrag
-            target: null
-            acceptedButtons: Qt.RightButton
-            minimumPointCount: 1
-            maximumPointCount: 1
+        // Mouse gestures, handled explicitly so each button is deterministic:
+        //   left = pan, middle = tilt/rotate, right = continuous zoom.
+        MouseArea {
+            id: mouseGestures
+            anchors.fill: parent
             enabled: !window.dialogOpen
-            onTranslationChanged: (delta) => {
-                map.scale(Math.pow(2.0, delta.y / 250.0), zoomDrag.centroid.position)
-            }
-        }
+            acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+            property point lastPos
+            property int activeButton: Qt.NoButton
 
-        // Mouse / trackpad: middle-button drag tilts the map. Vertical drag changes the
-        // pitch (drag up = tilt, drag down = un-tilt); horizontal drag rotates the
-        // bearing.
-        DragHandler {
-            id: tiltDrag
-            target: null
-            acceptedButtons: Qt.MiddleButton
-            enabled: !window.dialogOpen
-            property real startTilt: 0
-            property real startBearing: 0
-            onActiveChanged: {
-                if (active) {
-                    startTilt = window.mapTilt;
-                    startBearing = window.mapBearing;
-                }
+            onPressed: (mouse) => {
+                lastPos = Qt.point(mouse.x, mouse.y);
+                activeButton = mouse.button;
             }
-            onTranslationChanged: {
-                const t = tiltDrag.translation;
-                window.mapTilt = Math.max(0, Math.min(85, startTilt - t.y * 0.3));
-                window.mapBearing = startBearing + t.x * 0.3;
-                window.applyCamera(false);
+            onReleased: activeButton = Qt.NoButton
+            onPositionChanged: (mouse) => {
+                if (activeButton === Qt.NoButton) {
+                    return;
+                }
+                const dx = mouse.x - lastPos.x;
+                const dy = mouse.y - lastPos.y;
+                lastPos = Qt.point(mouse.x, mouse.y);
+                if (activeButton === Qt.LeftButton) {
+                    map.pan(Qt.point(dx, dy));
+                } else if (activeButton === Qt.MiddleButton) {
+                    window.mapTilt = Math.max(0, Math.min(85, window.mapTilt - dy * 0.3));
+                    window.mapBearing = window.mapBearing + dx * 0.3;
+                    window.applyCamera(false);
+                } else if (activeButton === Qt.RightButton) {
+                    map.scale(Math.pow(2.0, dy / 250.0), Qt.point(mouse.x, mouse.y));
+                }
             }
         }
 
@@ -979,6 +973,21 @@ Window {
                 text: map.zoomLevel.toFixed(1)
                 color: "white"
                 font.pixelSize: 13
+                font.bold: true
+            }
+        }
+
+        // Camera readout (tilt / bearing).
+        Rectangle {
+            width: 56
+            height: 26
+            radius: 6
+            color: "#cc000000"
+            Text {
+                anchors.centerIn: parent
+                text: "p" + window.mapTilt.toFixed(0) + " b" + window.mapBearing.toFixed(0)
+                color: "white"
+                font.pixelSize: 11
                 font.bold: true
             }
         }
