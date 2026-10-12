@@ -451,6 +451,11 @@ Window {
                 window.mapBearing = 0;
                 applyCamera(true);
             }
+        } else if (window.terrainEnabled) {
+            // The terrain toggle only applies to the draped-terrain style (it has a "dem" source); leave it off
+            // for other styles so we don't ask for a source they don't have.
+            window.terrainEnabled = false;
+            appState.setValue("map/terrainEnabled", false);
         }
     }
 
