@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries twenty-six patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries twenty-seven patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -141,6 +141,10 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0026 — consolidated projection UBO and tile matrix
 
 `maplibre-native-0026-terrain-consolidated-projection-ubo.patch` makes the terrain **render**: with `MLN_UBO_CONSOLIDATION` (on for Vulkan) the shader reads the **layer group's** shared projection buffer indexed by each drawable's `uboIndex`, which nothing populated — now filled in `TerrainPass::update` (as the layer tweakers' `uploadProjectionUBOs` does), with per-drawable `uboIndex` assigned. It also uses `projMatrix * state.matrixFor(tileID)` (what `LayerTweaker::getProjectionData` composes) as the tile→clip matrix instead of `PaintParameters::projectionDataForTile`. Applies **after** 0025.
+
+## Patch 0027 — terrain screen-space drape (first cut)
+
+`maplibre-native-0027-terrain-screen-space-drape.patch` renders the map layers into a full-viewport offscreen `RenderTarget` (owned by the orchestrator, registered via `addRenderTarget`, populated with the live layer groups) and samples its texture in the terrain shader at each fragment's screen position, so the map content sits on the relief. **First cut:** screen-space (parallax error under tilt, gap artifacts, layers rendered twice); the per-tile RTT split is the proper GL JS approach. Applies **after** 0026.
 
 ## Regenerating a patch
 

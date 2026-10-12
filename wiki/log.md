@@ -239,3 +239,10 @@ Append-only. One dated entry per generation or refresh run.
 - Earlier fixes along the way: the colour-write mask (`ColorMode::unblended()`, the default `disabled()` writes no colour) and repaint-on-tile-load (patch 0024). Vulkan validation reported no errors throughout — it was never a validation bug.
 - **Next:** phase 5 — drape the map layers (raster/fill/line, then symbols) onto the terrain via per-tile render targets, replacing the current flat-layer-under-terrain look. Then phase 6 (depth pass/occlusion), phase 7 (symbol elevation), phase 8 (globe × terrain).
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — phase 5: screen-space drape (first cut)
+
+- **Implemented a first-cut drape** (patch **0027**): the orchestrator owns a full-viewport offscreen `RenderTarget` (registered via `addRenderTarget`, populated with the live layer groups); `TerrainPass` binds its texture to the terrain drawables; the terrain shader samples it at each fragment's screen position (`v_uv` from `gl_Position`) and multiplies by the hillshade. The map content now sits on the relief.
+- **Confirmed on-device:** the grey map background appears draped over the terrain with hillshading.
+- **Known issues (to refine):** it is **screen-space**, so imagery has parallax error under tilt (a per-tile RTT split is the proper GL JS approach); and **uncovered regions of the render target show as blue artifacts** (the RTT's clear/gap handling needs work). The layer groups are also rendered twice (into the RTT and to the screen), which is wasteful.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).

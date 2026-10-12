@@ -45,7 +45,7 @@ Aerial imagery draped over terrain (the GL JS render-to-texture approach), built
 - [x] **Phase 2 — camera elevation** (patch **0020**, commit `8473c72`): `TransformState`/`Transform` `getElevation`/`setElevation` (the centre altitude as the ground elevation under it, GL JS's `transform.elevation`) + `getCameraAltitude`. Inert until terrain drives it.
 - [x] **Phase 3 — terrain tile manager + elevation provider** (patches **0021** `e24d058`, **0022** `bb3b9bc`): `DEMData::getElevation` bilinear sampler, and a **terrain-owned** `TerrainTileManager` (`renderer/terrain_tile_manager`) that fetches/decodes raster-dem tiles via the `FileSource`, caches `DEMData`, and exposes `getElevation(latLng, zoom)`. Unit tests for both. Not yet wired into the map.
 - [x] **Phase 4 — terrain mesh + Vulkan terrain shader** (patches **0023**–**0026**): the terrain now renders as a shaded elevated surface. Fixes that got it visible: colour-write mode (0025), consolidated projection UBO + per-drawable `uboIndex` (0026), and the tile→clip matrix `projMatrix · matrixFor(tile)` (0026). shader, `TerrainPass`, wiring into `UpdateParameters`/`RenderOrchestrator`/`RendererImpl`, and the repaint-on-tile-load fix.
-- [ ] Phase 5 — drape split: render drape-eligible layers into per-tile `RenderTarget`s and sample them in the terrain shader.
+- [~] **Phase 5 — drape** (patch **0027**, first cut): a **screen-space** drape renders the map onto the terrain, but has parallax error under tilt and RTT gap artifacts, and renders layers twice. The proper **per-tile RTT** split remains.
 - [ ] Phase 6 — Vulkan depth-attachment offscreen texture + terrain depth pass / occlusion.
 - [ ] Phase 7 — symbol / label elevation.
 - [ ] Phase 8 — globe × terrain, fog/sky.
