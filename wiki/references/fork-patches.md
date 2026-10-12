@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries twenty-nine patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries thirty patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -153,6 +153,10 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0029 — drape symbols + per-tile cache
 
 `maplibre-native-0029-terrain-drape-symbols-and-cache.patch` (1) restricts the per-tile drape to the **drape-eligible** layers (background/fill/line/raster/hillshade/color-relief — GL JS `LAYERS_TO_TEXTURES`); symbols and other layers draw **live on top of the terrain** (the translucent pass draws the terrain first, then the non-draped layer groups). (2) Adds a **per-tile texture cache**: a tile is re-rendered only when new or when its fingerprint changes (layer/source/image identity, DEM zoom, group/layer counts, and a generation bumped on any source tile change), so idle frames stop re-rendering every tile. Applies **after** 0028.
+
+## Patch 0030 — terrain symbol elevation
+
+`maplibre-native-0030-terrain-symbol-elevation.patch` lifts symbols onto the terrain surface. `PaintParameters` gains a `terrainElevationFn` sampling the DEM elevation (world pixels) at a tile centre; the symbol layer tweaker feeds it into a new `SymbolDrawableUBO` field (repurposed `pad1`), and the symbol shaders pass `drawable.elevation` into the existing `projectTileWithElevation` (previously `0.0`). Note: `field` symbols (along-line / variable anchors) aren't yet handled. **Compile-verified only** — this sandbox can't load the glyphs needed to render symbol text, so the elevation isn't visually confirmed. Applies **after** 0029.
 
 ## Regenerating a patch
 

@@ -269,3 +269,11 @@ Append-only. One dated entry per generation or refresh run.
 - **Per-tile texture cache** (patch **0029**): each drape tile stores a fingerprint (layer/source/image identity, DEM zoom, group/layer counts, plus a `drapeGeneration` bumped in `onTileChanged`); a tile re-renders only when new or when its fingerprint changes. Idle frames no longer re-render every tile. First-cut bug (the first render cached an empty layer set as black) was fixed by folding the group/layer counts into the fingerprint.
 - **Verified on-device** with the background+drape style (steady #8899aa×hillshade). Note: a quick OSM-raster test style showed black at zoom 12 (OSM tiles did not load in the sandbox) — unrelated to the drape code.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — phase 7: symbol elevation (compile-verified)
+
+- **Implemented symbol elevation** (patch **0030**): `PaintParameters::terrainElevationFn` samples the DEM elevation (world pixels) at a tile centre; the symbol tweaker writes it into a new `SymbolDrawableUBO` field (repurposed `pad1`); the symbol shaders pass `drawable.elevation` into the existing `projectTileWithElevation` calls (were `0.0`). So symbols sit on the draped surface. Uses a per-tile-centre approximation (≈ a few px error at typical zooms). `field` symbols (along-line / variable anchors) aren't yet elevated.
+- **Note:** phase 6 (a separate depth-attachment texture) turned out unnecessary — the terrain already writes depth to the main buffer and symbols draw after it; real occlusion comes from elevation + depth, which this patch moves toward.
+- **Verification:** compiles (mbgl-core). **Not visually confirmed** — the sandbox can't load the glyphs (`demotiles.maplibre.org/font`) needed to render symbol text, so no labels appeared even with terrain off. The elevation path only runs when symbol drawables exist.
+- **Next:** phase 8 — globe × terrain, fog/sky (large; no upstream reference for globe terrain).
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
