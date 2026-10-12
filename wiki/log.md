@@ -162,3 +162,12 @@ Append-only. One dated entry per generation or refresh run.
 - **Verified:** `mbgl-core`, `MLNQtCore`, `MLNQtQuickPrivate` and `declarative_maplibre` all build (Release, MSVC / Vulkan); patch 0019 applies cleanly to a pristine + `0001`–`0018` tree and reproduces the working tree.
 - **Next:** phase 2 — camera elevation in `Transform`/`TransformState` (+ synchronous centre anchoring in render setup). See [Next steps](./next-steps.md) and [Fork patches](./references/fork-patches.md).
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md) · [Project history](./history.md).
+
+## 2026-10-12 (terrain) — 3D terrain: phase 2 (transform elevation)
+
+- **Implemented phase 2** (patch **0020**, commit `8473c72` on `main`/fork): `TransformState`/`Transform` gain `getElevation()` / `setElevation()` — naming the map centre's altitude as the ground elevation under it (GL JS's `transform.elevation`) — and `getCameraAltitude()`.
+- **Why it is thin:** the GL JS formulas confirm the mapping. GL JS's `getCameraAltitude() = cos(pitch)·cameraToCenterDistance/pixelsPerMeter + elevation` is exactly what Native's `updateCameraState()` already derives from the centre altitude (`z`), which the style's `centerAltitude` / `setCenterAltitude` already drive. So in this port `setElevation` is the existing centre-altitude path, and the camera is lifted with the terrain for free.
+- **Deferred:** GL JS's `recalculateZoomAndCenter` (which keeps the camera fixed and moves the centre/zoom when the terrain under the centre changes) is **not** ported yet — it is only meaningful once something samples terrain, so it will land with the DEM provider / mesh phases where it can be tested.
+- **Verified:** `mbgl-core` builds (Release, MSVC / Vulkan); patch 0020 applies cleanly to a pristine + `0001`–`0019` tree and reproduces the working tree.
+- **Next:** phase 3 — terrain tile manager + DEM elevation provider (reuse `DEMData` / `RasterDEMTile`). See [Next steps](./next-steps.md) and [Fork patches](./references/fork-patches.md).
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md) · [Project history](./history.md).

@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries nineteen patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries twenty patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -113,6 +113,10 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0019 — terrain style property
 
 `maplibre-native-0019-terrain-style-property.patch` adds the style's root `terrain` object — a `raster-dem` source plus an `exaggeration` — modelled on the existing `projection`/`light` root objects (which 0005 introduced). New files: `include/mln/style/terrain.hpp`, `include/mln/style/conversion/terrain.hpp`, `src/mln/style/terrain.cpp`, `terrain_impl.hpp`, `terrain_observer.hpp`, `src/mln/style/conversion/terrain.cpp`. It wires the parser (`terrain` member + `parseTerrain`) and `Style`/`Style::Impl` (`setTerrain`/`getTerrain` + `TerrainObserver`), and adds `Map::setTerrain` / `clearTerrain` / `hasTerrain` / `getTerrainSource` / `getTerrainExaggeration`. Sources are validated as `raster-dem`. The Qt `Map` gains `setTerrain`/`clearTerrain`; the QML `MapLibre` element exposes `terrainSource` + `terrainExaggeration`, re-applied after each style load (like `projectionType`). Rendering is unchanged — the renderer still draws flat; this is the first slice of [3D terrain](../next-steps.md). Applies **after** 0018.
+
+## Patch 0020 — terrain transform elevation
+
+`maplibre-native-0020-terrain-transform-elevation.patch` gives `TransformState`/`Transform` the elevation surface the terrain renderer needs: `getElevation()` / `setElevation()` name the map **centre's altitude as the ground elevation under it** (GL JS's `transform.elevation`), and `getCameraAltitude()` reports the camera's height above sea level. The formulas match GL JS exactly — GL JS's `getCameraAltitude() = cos(pitch)·cameraToCenterDistance/pixelsPerMeter + elevation` is precisely what the existing `updateCameraState()` already derives from the centre altitude, so here an elevation setter is the existing centre-altitude path. Inert until something samples terrain. Applies **after** 0019.
 
 ## Regenerating a patch
 

@@ -42,7 +42,7 @@ See [Fork patches](./references/fork-patches.md) and the [globe log](./log.md).
 Aerial imagery draped over terrain (the GL JS render-to-texture approach), built on the fork's existing per-tile RTT framework (`RenderTarget`/`OffscreenTexture`, already used by hillshade/heatmap on Vulkan) rather than back-porting upstream's experimental `feature/terrain-3d` branch. Flat/Mercator first; full drape as the first milestone. See [Fork patches](./references/fork-patches.md).
 
 - [x] **Phase 1 — style property + API** (patch **0019**, commit `e3e678b`): style-root `terrain {source, exaggeration}`, `Style`/`Map` API, Qt/QML `terrainSource` / `terrainExaggeration`. The renderer still draws flat.
-- [ ] Phase 2 — camera elevation in `Transform`/`TransformState` (+ synchronous centre anchoring in render setup).
+- [x] **Phase 2 — camera elevation** (patch **0020**, commit `8473c72`): `TransformState`/`Transform` `getElevation`/`setElevation` (the centre altitude as the ground elevation under it, GL JS's `transform.elevation`) + `getCameraAltitude`. Inert until terrain drives it.
 - [ ] Phase 3 — terrain tile manager + DEM elevation provider (reuse `DEMData` / `RasterDEMTile`).
 - [ ] Phase 4 — terrain mesh (pinned to the DEM zoom) + Vulkan terrain shader.
 - [ ] Phase 5 — drape split: render drape-eligible layers into per-tile `RenderTarget`s and sample them in the terrain shader.
