@@ -48,12 +48,14 @@ Window {
     // list inside a dialog scrolled the map behind it).
     readonly property bool dialogOpen:
         presetsDialog.visible || settingsDialog.visible || mapDialog.visible
-        || nameDialog.visible || addMapDialog.visible
+        || presetDialog.visible || addMapDialog.visible
 
     // ---- Camera presets ---------------------------------------------------------
     // Each entry: { name: string, center: [lat, lon], zoom: real, globe3D: bool }
     property var presets: []
     property int presetIndex: -1
+    // Set while a preset's style is loading; the camera is applied once it loads.
+    property var pendingPreset: null
 
     // ---- Map styles (style URLs) ------------------------------------------------
     // Each entry: { name: string, url: string }
@@ -104,6 +106,7 @@ Window {
     }
 
     // 2D / 3D projection toggle: 3D = globe (sphere when zoomed out), 2D = flat Mercator.
+    // The zoom is left unchanged, so the same zoom applies in both projections.
     function toggle3D() {
         window.globe3D = !window.globe3D;
     }
@@ -173,14 +176,19 @@ Window {
         }
     }
 
-    function addPreset(name) {
+    function addPreset(name, saveMap) {
         const c = map.coordinate;
         const entry = {
             "name": name,
             "center": [c[0], c[1]],
             "zoom": map.zoomLevel,
-            "globe3D": window.globe3D
+            "globe3D": window.globe3D,
+            "tilt": window.mapTilt,
+            "bearing": window.mapBearing
         };
+        if (saveMap) {
+            entry["styleUrl"] = window.styleUrl;
+        }
         window.presets = window.presets.concat([entry]);
         window.savePresets();
         window.presetIndex = window.presets.length - 1;
@@ -197,6 +205,31 @@ Window {
         window.presetIndex = arr.length > 0 ? Math.min(i, arr.length - 1) : -1;
     }
 
+    function editPresetAt(i, name, saveMap) {
+        if (i < 0 || i >= window.presets.length) {
+            return;
+        }
+        // Editing updates all the preset values from the current camera (and the current
+        // map when "Save map" is ticked).
+        const c = map.coordinate;
+        const arr = window.presets.slice();
+        const p = Object.assign({}, arr[i]);
+        p.name = name;
+        p.center = [c[0], c[1]];
+        p.zoom = map.zoomLevel;
+        p.tilt = window.mapTilt;
+        p.bearing = window.mapBearing;
+        p.globe3D = window.globe3D;
+        if (saveMap) {
+            p.styleUrl = window.styleUrl;
+        } else {
+            delete p.styleUrl;
+        }
+        arr[i] = p;
+        window.presets = arr;
+        window.savePresets();
+    }
+
     function flyToPreset(i) {
         if (i < 0 || i >= window.presets.length) {
             return;
@@ -204,9 +237,21 @@ Window {
         window.presetIndex = i;
         const p = window.presets[i];
         window.globe3D = p.globe3D === true;
-        window.mapTilt = 0;
-        window.mapBearing = 0;
-        map.flyTo({ center: p.center, zoom: p.zoom, pitch: 0, bearing: 0 },
+        // Switch to the preset's map (style) when it was saved with one. Changing the
+        // style reloads it, which resets the camera, so defer the flyTo until the new
+        // style has loaded (see the styleLoaded Connections below).
+        if (p.styleUrl && p.styleUrl !== window.styleUrl) {
+            window.pendingPreset = p;
+            window.styleUrl = p.styleUrl;
+            return;
+        }
+        window.applyPresetCamera(p);
+    }
+
+    function applyPresetCamera(p) {
+        window.mapTilt = p.tilt !== undefined ? p.tilt : 0;
+        window.mapBearing = p.bearing !== undefined ? p.bearing : 0;
+        map.flyTo({ center: p.center, zoom: p.zoom, pitch: window.mapTilt, bearing: window.mapBearing },
                   { duration: 1500 });
     }
 
@@ -374,7 +419,15 @@ Window {
     Connections {
         target: map
         function onStyleLoadedChanged() {
-            if (map.styleLoaded) {
+            if (!map.styleLoaded) {
+                return;
+            }
+            if (window.pendingPreset) {
+                // A preset's style was just loaded; now fly the camera to the preset.
+                const p = window.pendingPreset;
+                window.pendingPreset = null;
+                window.applyPresetCamera(p);
+            } else {
                 window.applyCamera(false);
             }
         }
@@ -396,6 +449,9 @@ Window {
 
         // 2D / 3D projection. 3D = globe (sphere when zoomed out); 2D = flat Mercator.
         projectionType: window.globe3D ? MapLibre.Globe : MapLibre.Mercator
+
+        // Space backdrop shown around the globe.
+        backgroundColor: "#080b14"
 
         // The 3D-buildings opacity override is added dynamically in C++/QML via
         // syncBuildingOverride() (see the Component at the top level).
@@ -739,7 +795,18 @@ Window {
                     text: "Add"
                     onClicked: {
                         presetsDialog.close();
-                        nameDialog.open();
+                        presetDialog.editingPreset = false;
+                        presetDialog.open();
+                    }
+                }
+
+                Button {
+                    text: "Edit"
+                    enabled: window.presetIndex >= 0
+                    onClicked: {
+                        presetsDialog.close();
+                        presetDialog.editingPreset = true;
+                        presetDialog.open();
                     }
                 }
 
@@ -754,30 +821,54 @@ Window {
         }
     }
 
-    // Name prompt for preset "Add"
+    // Prompt for preset "Add" / "Edit".
     Dialog {
-        id: nameDialog
+        id: presetDialog
         parent: Overlay.overlay
         anchors.centerIn: parent
         modal: true
         width: Math.min(320, Overlay.overlay.width - 40)
-        title: "Add preset"
+        property bool editingPreset: false
+        title: editingPreset ? "Edit preset" : "Add preset"
         standardButtons: Dialog.Ok | Dialog.Cancel
         onOpened: {
-            nameField.text = "Preset " + (window.presets.length + 1);
+            if (editingPreset && window.presetIndex >= 0) {
+                const p = window.presets[window.presetIndex];
+                nameField.text = p && p.name ? p.name : "";
+                saveMapCheck.checked = p !== undefined && p.styleUrl !== undefined;
+            } else {
+                nameField.text = "Preset " + (window.presets.length + 1);
+                saveMapCheck.checked = false;
+            }
             nameField.selectAll();
             nameField.forceActiveFocus();
         }
         onAccepted: {
             const n = nameField.text.trim();
-            window.addPreset(n.length > 0 ? n : ("Preset " + (window.presets.length + 1)));
+            const fallback = "Preset " + (window.presets.length + 1);
+            const name = n.length > 0 ? n : fallback;
+            if (editingPreset) {
+                window.editPresetAt(window.presetIndex, name, saveMapCheck.checked);
+            } else {
+                window.addPreset(name, saveMapCheck.checked);
+            }
         }
 
-        TextField {
-            id: nameField
+        ColumnLayout {
             width: parent.width
-            placeholderText: "Preset name"
-            onAccepted: nameDialog.accept()
+            spacing: 8
+
+            TextField {
+                id: nameField
+                Layout.fillWidth: true
+                placeholderText: "Preset name"
+                onAccepted: presetDialog.accept()
+            }
+
+            CheckBox {
+                id: saveMapCheck
+                text: "Save map (style + projection)"
+            }
         }
     }
 
