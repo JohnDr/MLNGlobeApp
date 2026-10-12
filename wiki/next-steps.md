@@ -17,11 +17,9 @@ Ordered to-do list. Update it at the end of each session and record results in [
 
 ## Open items
 
-## Globe tile-edge thin line — resume here (2026-10-12)
+## Globe tile-edge seam — DONE (2026-10-12)
 
-Since patch **0017** the globe renders correctly (no blank, no wide band), but a **thin ~1px line remains at every globe tile edge** (both axes). Root cause: the anti-aliasing seam between separately-drawn tiles — each tile is its own primitive clipped at the shared meridian, and the two edges' projected vertices differ by float rounding, so their AA fringes do not coincide.
-
-**Next:** apply the raster technique to globe **fills** — draw tiles with a small overlap but use the **stencil** to mark drawn pixels and discard already-marked ones ("draw once"), so there is neither a gap nor a double-blend. The fill layer already enables stencil (`render_fill_layer.cpp:187/196`); the two-pass draw-once pass is what is missing. See the [globe log](./log.md) entry dated 2026-10-12.
+Resolved in patch **0017** (`8784f61`): the ~1px line at globe tile edges was the fill **antialias outline** tracing the artificial edge created where the `[0, EXTENT]` clip cut a crossing fill ring (both tiles stroked the shared meridian). Fixed by skipping outline segments that lie along the tile's vertical boundary. See the [globe log](./log.md) entry dated 2026-10-12 (later).
 
 ## Globe port — resume here
 
