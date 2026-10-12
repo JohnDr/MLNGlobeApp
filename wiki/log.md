@@ -303,3 +303,11 @@ Append-only. One dated entry per generation or refresh run.
 - **Symptom:** selecting "3D Terrain (satellite draped)" showed satellite imagery but no drape. **Cause:** the app defaults to **globe mode**, and the drape is unreliable there (the globe terrain mesh is still rough); a flat map at pitch 0 also *looks* undraped even though the drape is present.
 - **Fix (app commit `236b0e1`):** `selectMap` switches the terrain style to **flat (Mercator)** and sets a **50° tilt** (applied once the style loads, via the existing style-loaded camera apply), so the drape over the relief is immediately visible. Rebuild the app, select the map, and the relief shows without needing to tilt by hand.
 - **References:** [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — "no draping" root cause: empty terrainSource cleared the style's terrain
+
+- **The real cause** (confirmed with a diagnostic: `terrainTileset=0`): `terrainEnabled: false` makes the app's `terrainSource` empty, and the QML item's `setTerrainSource("")` calls `clearTerrain()` — which **wipes the style's own `terrain` root property**. So the draped-terrain style's terrain was deleted, and the raster drew flat.
+- **Fix (app commit `58c5faf`):** when the terrain style loads (Maps list **or** preset), `onStyleUrlChanged` turns terrain on (`terrainSource="dem"`), switches to flat projection and tilts — so the drape shows. Diagnostic confirmed `terrainTileset=1` afterwards.
+- **Pipeline verified:** a background-only terrain style drapes correctly (grey `#8899aa` over the relief).
+- **Remaining:** the satellite **raster layer isn't being captured into the drape render targets** in the current build (black → the new hypsometric fallback tint, patch `cad250e`), though it draped at patch 0029. Needs investigation. The fallback (`maplibre-native-0032`) now keeps the relief visible regardless.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
