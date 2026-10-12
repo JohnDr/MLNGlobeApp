@@ -178,3 +178,11 @@ Append-only. One dated entry per generation or refresh run.
 - **Verified:** `mbgl-core` and `mbgl-test` both compile with the change; patch 0021 applies cleanly to a pristine + `0001`–`0020` tree and reproduces the working tree. Note: `mbgl-test` in this Qt-only build is a **static library** with no runner executable, so the native gtest could not be executed here — compile only.
 - **Still to do for phase 3:** the terrain **tile manager** — fetching DEM tiles over the terrain cover and exposing sampled elevation (reusing `RasterDEMTile`/`RenderRasterDEMSource` and `DEMData`). Open architecture decision: a terrain-owned tile manager (as GL JS has) vs. reusing the source's tile pyramid (which only loads tiles a layer uses, and terrain has no layer).
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — 3D terrain: phase 3 (DEM elevation provider)
+
+- **Implemented the terrain DEM provider** (patches **0021** `e24d058`, **0022** `bb3b9bc`): `DEMData::getElevation` (bilinear sampler, GL JS `DEMData#getElevation` adapted to the one-pixel border) and a **terrain-owned `TerrainTileManager`** (`src/mln/renderer/terrain_tile_manager.{hpp,cpp}`). Decision: a raster-dem source only loads tiles a *layer* uses and terrain has no layer, so terrain manages its own tile set — the manager fetches/decodes raster-dem tiles via the `FileSource`, caches `DEMData`, and exposes `getElevation(latLng, zoom)` (0 until loaded) plus `tileFor`. `getDEMData` is virtual so tests inject data.
+- **Verified:** `mbgl-core` and `mbgl-test` compile; both patches apply cleanly to a pristine + prior tree and reproduce the working tree. Unit tests added (`test/geometry/dem_data.test.cpp`, `test/renderer/terrain_tile_manager.test.cpp`) but, as before, **not run** — `mbgl-test` in this Qt-only build is a static library with no runner executable.
+- **Not wired:** nothing constructs a `TerrainTileManager` yet; it is consumed by the terrain mesh / camera (phases 4+).
+- **Next:** phase 4 — terrain mesh (pinned to the DEM zoom) + Vulkan terrain shader; then the RTT drape split and the Vulkan depth pass. This is the bulk of the feature.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).

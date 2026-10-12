@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries twenty-one patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries twenty-two patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -121,6 +121,10 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0021 — terrain DEM elevation sampler
 
 `maplibre-native-0021-terrain-dem-elevation-sampler.patch` adds `DEMData::getElevation(x, y)`, which bilinearly interpolates the metre elevation at a continuous tile coordinate in `[0, dim]` — mirroring GL JS `DEMData#getElevation`, adapted to Native's one-pixel border. Unit tests cover the integer-coordinate and mid-point cases. This is the sampling primitive the terrain elevation provider builds on; nothing calls it yet. Applies **after** 0020.
+
+## Patch 0022 — terrain tile manager
+
+`maplibre-native-0022-terrain-tile-manager.patch` adds `renderer/terrain_tile_manager.{hpp,cpp}`: a **terrain-owned** DEM tile manager (GL JS's `TerrainTileManager` model). A `raster-dem` source only loads tiles a *layer* uses, and terrain has no layer, so it fetches and caches tiles itself via the `FileSource`, decodes them into `DEMData`, and exposes `getElevation(latLng, zoom)` by sampling the covering tile (0 until it loads), plus `tileFor`. `getDEMData` is virtual so tests inject data; `test/renderer/terrain_tile_manager.test.cpp` covers `tileFor` and uniform sampling. Still unwired — nothing constructs one yet. Applies **after** 0021.
 
 ## Regenerating a patch
 
