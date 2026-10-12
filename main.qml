@@ -334,6 +334,17 @@ Window {
         window.mapIndex = i;
         window.styleUrl = window.mapStyles[i].url;
         appState.setValue("map/styleUrl", window.styleUrl);
+        // The draped-terrain style only drapes in the flat (Mercator) projection (the globe mesh is still rough),
+        // so switch to 2D and give it a tilt so the relief is immediately visible.
+        if (window.styleUrl.indexOf("terrain-style.json") !== -1) {
+            window.globe3D = false;
+            appState.setValue("map/globe3D", false);
+            if (window.mapTilt < 5) {
+                window.mapTilt = 50;
+                window.mapBearing = 0;
+                applyCamera(true);
+            }
+        }
     }
 
     // ---- Persisted state --------------------------------------------------------
