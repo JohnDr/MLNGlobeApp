@@ -43,7 +43,7 @@ Aerial imagery draped over terrain (the GL JS render-to-texture approach), built
 
 - [x] **Phase 1 — style property + API** (patch **0019**, commit `e3e678b`): style-root `terrain {source, exaggeration}`, `Style`/`Map` API, Qt/QML `terrainSource` / `terrainExaggeration`. The renderer still draws flat.
 - [x] **Phase 2 — camera elevation** (patch **0020**, commit `8473c72`): `TransformState`/`Transform` `getElevation`/`setElevation` (the centre altitude as the ground elevation under it, GL JS's `transform.elevation`) + `getCameraAltitude`. Inert until terrain drives it.
-- [ ] Phase 3 — terrain tile manager + DEM elevation provider (reuse `DEMData` / `RasterDEMTile`).
+- [ ] Phase 3 — terrain tile manager + DEM elevation provider (reuse `DEMData` / `RasterDEMTile`). **Slice 1 done** (patch **0021**, commit `e24d058`): `DEMData::getElevation` bilinear sampler + unit tests. Still to do: the tile manager that fetches DEM tiles over the terrain cover and exposes sampled elevation (architecture decision pending: a terrain-owned tile manager, as GL JS has, vs. reusing the source's tile pyramid).
 - [ ] Phase 4 — terrain mesh (pinned to the DEM zoom) + Vulkan terrain shader.
 - [ ] Phase 5 — drape split: render drape-eligible layers into per-tile `RenderTarget`s and sample them in the terrain shader.
 - [ ] Phase 6 — Vulkan depth-attachment offscreen texture + terrain depth pass / occlusion.

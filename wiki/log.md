@@ -171,3 +171,10 @@ Append-only. One dated entry per generation or refresh run.
 - **Verified:** `mbgl-core` builds (Release, MSVC / Vulkan); patch 0020 applies cleanly to a pristine + `0001`–`0019` tree and reproduces the working tree.
 - **Next:** phase 3 — terrain tile manager + DEM elevation provider (reuse `DEMData` / `RasterDEMTile`). See [Next steps](./next-steps.md) and [Fork patches](./references/fork-patches.md).
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md) · [Project history](./history.md).
+
+## 2026-10-12 (terrain) — 3D terrain: phase 3 slice 1 (DEM elevation sampler)
+
+- **Implemented** (patch **0021**, commit `e24d058` on `main`/fork): `DEMData::getElevation(x, y)` — bilinear interpolation of the metre elevation at a continuous tile coordinate in `[0, dim]`, mirroring GL JS `DEMData#getElevation`, adapted to Native's one-pixel border. Added unit tests in `test/geometry/dem_data.test.cpp` (integer-coordinate and mid-point cases).
+- **Verified:** `mbgl-core` and `mbgl-test` both compile with the change; patch 0021 applies cleanly to a pristine + `0001`–`0020` tree and reproduces the working tree. Note: `mbgl-test` in this Qt-only build is a **static library** with no runner executable, so the native gtest could not be executed here — compile only.
+- **Still to do for phase 3:** the terrain **tile manager** — fetching DEM tiles over the terrain cover and exposing sampled elevation (reusing `RasterDEMTile`/`RenderRasterDEMSource` and `DEMData`). Open architecture decision: a terrain-owned tile manager (as GL JS has) vs. reusing the source's tile pyramid (which only loads tiles a layer uses, and terrain has no layer).
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).

@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries twenty patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries twenty-one patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -117,6 +117,10 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0020 — terrain transform elevation
 
 `maplibre-native-0020-terrain-transform-elevation.patch` gives `TransformState`/`Transform` the elevation surface the terrain renderer needs: `getElevation()` / `setElevation()` name the map **centre's altitude as the ground elevation under it** (GL JS's `transform.elevation`), and `getCameraAltitude()` reports the camera's height above sea level. The formulas match GL JS exactly — GL JS's `getCameraAltitude() = cos(pitch)·cameraToCenterDistance/pixelsPerMeter + elevation` is precisely what the existing `updateCameraState()` already derives from the centre altitude, so here an elevation setter is the existing centre-altitude path. Inert until something samples terrain. Applies **after** 0019.
+
+## Patch 0021 — terrain DEM elevation sampler
+
+`maplibre-native-0021-terrain-dem-elevation-sampler.patch` adds `DEMData::getElevation(x, y)`, which bilinearly interpolates the metre elevation at a continuous tile coordinate in `[0, dim]` — mirroring GL JS `DEMData#getElevation`, adapted to Native's one-pixel border. Unit tests cover the integer-coordinate and mid-point cases. This is the sampling primitive the terrain elevation provider builds on; nothing calls it yet. Applies **after** 0020.
 
 ## Regenerating a patch
 
