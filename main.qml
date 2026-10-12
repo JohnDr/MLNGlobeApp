@@ -449,12 +449,10 @@ Window {
         // Mouse / trackpad: middle-button drag tilts the map. Vertical drag changes the
         // pitch (drag up = tilt, drag down = un-tilt); horizontal drag rotates the
         // bearing.
-        PinchHandler {
+        DragHandler {
             id: tiltDrag
             target: null
             acceptedButtons: Qt.MiddleButton
-            minimumPointCount: 1
-            maximumPointCount: 1
             enabled: !window.dialogOpen
             property real startTilt: 0
             property real startBearing: 0
@@ -464,9 +462,10 @@ Window {
                     startBearing = window.mapBearing;
                 }
             }
-            onTranslationChanged: (delta) => {
-                window.mapTilt = Math.max(0, Math.min(85, startTilt - delta.y * 0.3));
-                window.mapBearing = startBearing + delta.x * 0.3;
+            onTranslationChanged: {
+                const t = tiltDrag.translation;
+                window.mapTilt = Math.max(0, Math.min(85, startTilt - t.y * 0.3));
+                window.mapBearing = startBearing + t.x * 0.3;
                 window.applyCamera(false);
             }
         }
