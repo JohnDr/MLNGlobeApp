@@ -1,0 +1,28 @@
+{
+  "version": 8,
+  "name": "terrain-test",
+  "sources": {
+    "dem": {
+      "type": "raster-dem",
+      "tiles": [
+        "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+      ],
+      "encoding": "terrarium",
+      "tileSize": 256,
+      "maxzoom": 15
+    }
+  },
+  "terrain": {
+    "source": "dem",
+    "exaggeration": 1.5
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#8899aa"
+      }
+    }
+  ]
+}

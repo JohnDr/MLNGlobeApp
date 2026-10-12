@@ -30,6 +30,8 @@ Window {
 
     // 3D = globe projection (sphere when zoomed out); 2D = flat Mercator.
     property bool globe3D: true
+    // 3D terrain: drape the DEM source "dem" over the map (requires a style with a raster-dem source named "dem").
+    property bool terrainEnabled: false
     // Camera tilt (pitch) and bearing (rotation) in degrees. Tracked here so the
     // middle-drag tilt gesture and the compass rose have a value to read and modify.
     property real mapTilt: 0
@@ -366,6 +368,10 @@ Window {
             window.globe3D = true;
         }
 
+        if (asBool(appState.value("map/terrainEnabled"))) {
+            window.terrainEnabled = true;
+        }
+
         const storedStyle = appState.value("map/styleUrl");
         if (storedStyle !== undefined && storedStyle !== null && storedStyle !== "") {
             window.styleUrl = storedStyle;
@@ -452,6 +458,10 @@ Window {
 
         // Space backdrop shown around the globe.
         backgroundColor: "#333366"
+
+        // 3D terrain: the DEM source ("dem") is draped as an elevated surface.
+        terrainSource: window.terrainEnabled ? "dem" : ""
+        terrainExaggeration: 1.5
 
         // The 3D-buildings opacity override is added dynamically in C++/QML via
         // syncBuildingOverride() (see the Component at the top level).

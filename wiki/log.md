@@ -186,3 +186,11 @@ Append-only. One dated entry per generation or refresh run.
 - **Not wired:** nothing constructs a `TerrainTileManager` yet; it is consumed by the terrain mesh / camera (phases 4+).
 - **Next:** phase 4 — terrain mesh (pinned to the DEM zoom) + Vulkan terrain shader; then the RTT drape split and the Vulkan depth pass. This is the bulk of the feature.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — 3D terrain: phase 4 (render pass) — in progress
+
+- **Implemented the terrain render pass** (patches **0023** `c5fcf5e`, **0024** `a0c9048`): a Vulkan `TerrainShader` (single `float4` vertex attribute — tile xy, world-pixel elevation, hillshade), a `TerrainPass` that builds a 16×16 grid mesh per DEM tile with CPU-baked elevation + hillshade and draws it with depth after the flat layers, `UpdateParameters.terrainTileset`/`terrainExaggeration` resolved from the style's terrain source in `Map::Impl`, and the pass wired into `RenderOrchestrator` + `RendererImpl`. 0024 makes the tile manager report loads so the map repaints (terrain is not a style source, so the map stopped after the first few frames otherwise).
+- **How it was tested:** a local style (`MapLibreEarth/terrain-style.json`) with an inline AWS terrarium `raster-dem` source + `terrain`, loaded via `file://C:/...` (note: `file://` + Windows path needs two slashes, not three), and `terrainSource: "dem"` from QML.
+- **Confirmed working (with temporary `fprintf` diagnostics, since removed):** the style's terrain resolves (`getTerrain` → source `dem`, `isTileset=1`), the shader is found, DEM tiles fetch + decode (`RES ... err=0 bytes≈137k`), and the pass builds **100** drawables with a valid mesh (elevation 1554–2800 m; first vertex (0,0,44.63,0.82)) and a valid projection matrix.
+- **STILL NOT VISIBLE:** the surface does not appear — the map shows only the style background. Depth on/off makes no difference. The bug is in the raw-vertex (Float4) attribute binding or the terrain shader/`projectTileFor3D` usage, not in the data. Resume there.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).

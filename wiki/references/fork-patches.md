@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries twenty-two patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries twenty-four patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -125,6 +125,14 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0022 — terrain tile manager
 
 `maplibre-native-0022-terrain-tile-manager.patch` adds `renderer/terrain_tile_manager.{hpp,cpp}`: a **terrain-owned** DEM tile manager (GL JS's `TerrainTileManager` model). A `raster-dem` source only loads tiles a *layer* uses, and terrain has no layer, so it fetches and caches tiles itself via the `FileSource`, decodes them into `DEMData`, and exposes `getElevation(latLng, zoom)` by sampling the covering tile (0 until it loads), plus `tileFor`. `getDEMData` is virtual so tests inject data; `test/renderer/terrain_tile_manager.test.cpp` covers `tileFor` and uniform sampling. Still unwired — nothing constructs one yet. Applies **after** 0021.
+
+## Patch 0023 — terrain render pass
+
+`maplibre-native-0023-terrain-render-pass.patch` adds a Vulkan `TerrainShader` (one `float4` vertex attribute: tile xy, world-pixel elevation, hillshade) and a `TerrainPass` that, per DEM tile in the cover, builds a 16×16 grid mesh with CPU-baked elevation + hillshade and draws it with depth, after the flat layers. `UpdateParameters` carries the terrain tileset + exaggeration (resolved from the style's terrain source in `Map::Impl`), and the render orchestrator owns the pass. It **builds and runs** — the style's terrain resolves, the shader is found, DEM tiles fetch/decode, and 100 terrain drawables are built with valid vertices and a valid projection matrix — but the surface **does not appear on screen yet**; the bug is in the raw-vertex attribute binding / terrain shader. See the [log](../log.md). Applies **after** 0022.
+
+## Patch 0024 — terrain repaint on tile load
+
+`maplibre-native-0024-terrain-repaint-on-tile-load.patch` makes `TerrainTileManager` report DEM tile loads via a callback; the orchestrator turns that into `RendererObserver::onInvalidate` so the map renders again and rebuilds the terrain. Without it (terrain is not a style source) the map stopped after the first few frames and never picked up loaded tiles. Applies **after** 0023.
 
 ## Regenerating a patch
 
