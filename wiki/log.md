@@ -218,3 +218,14 @@ Append-only. One dated entry per generation or refresh run.
 - **Matrix dump** for a camera-covering DEM tile (z12, 2160/1444): `m0=355254.7 m5=250329.1 m12=0 m13=0 m15=124043.9` — i.e. scaling tile coords `0..EXTENT` to clip produces values around `10^9` and `w≈-4·10^8`, so every tile lands at NDC ≈ `(-3.4, -2.0)`, off-screen. Both `PaintParameters::projectionDataForTile` and the normal-layer `LayerTweaker::getProjectionData` give the **same** (wrong-looking) matrix, so the terrain uses the same construction as fills — the discrepancy is not the call site. Using UBO index `0` vs `constant.ubo_index` changes nothing.
 - **Next:** determine why this per-tile matrix is ~`10^10` too large for the terrain tiles — check the `ProjectionUBO` C++/GLSL field-layout match, and compare the identical matrix dumped from a *working* fill/background drawable for the same tile. That comparison will show whether the matrix values are actually abnormal or whether the shader reads the UBO with a mismatched layout.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — phase 4 bug chase 4: the matrix really is inconsistent
+
+- **`mat4` is `double`-backed**, so the earlier `reinterpret_cast<const float*>` dumps were garbage. Re-dumped as `double`.
+- For a camera-covering tile the pieces are individually sane:
+  - `transformParams.projMatrix` ≈ `[2.95 ... | -3 ... | ... -0.0191 ... | -1892 1921.5 1921.5 1921.5]`; `state.matrixFor(tile)` = uniform `0.015625` scale + a world translation (`276480, 184832`).
+  - `projMatrix · matrixFor(tile)` (computed explicitly with `matrix::multiply`) gives `m0≈0.046, m15≈1921.5` — a plausible tile→clip matrix.
+- **But the matrix actually uploaded/fed to the shader (`toProjectionUBO(projectionDataForTile(tile)).matrix`) is different** — e.g. `m0=355255, m5=250329, m15=124044` (z12) / `m0=602.2, m5=611.6, m15=2125.4` (z3) — it does **not** equal `projMatrix · matrixFor(tile)`.
+- **C++/GLSL `ProjectionUBO` layouts match** (matrix, fallback_matrix, tile_mercator_coords, clipping_plane, …), so it is not a struct-layout mismatch. The discrepancy is inside the projection-data construction (`TransformState::getProjectionData` → `matrix::multiply(mercatorMatrix, projMatrix, mercatorMatrix)`) — confirm the multiply argument/order convention and which `projMatrix`/`tileMatrix` it actually composes.
+- **Next:** read `matrix::multiply`'s implementation (order of `a`,`b`) and `MercatorProjection::tileMatrix` vs `TransformState::matrixFor`; the terrain's `toProjectionUBO` result should then either match a fill drawable's or reveal the wrong operand.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
