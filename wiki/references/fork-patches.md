@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries twenty-seven patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries twenty-eight patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -145,6 +145,10 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0027 — terrain screen-space drape (first cut)
 
 `maplibre-native-0027-terrain-screen-space-drape.patch` renders the map layers into a full-viewport offscreen `RenderTarget` (owned by the orchestrator, registered via `addRenderTarget`, populated with the live layer groups) and samples its texture in the terrain shader at each fragment's screen position, so the map content sits on the relief. **First cut:** screen-space (parallax error under tilt, gap artifacts, layers rendered twice); the per-tile RTT split is the proper GL JS approach. Applies **after** 0026.
+
+## Patch 0028 — terrain per-tile RTT drape
+
+`maplibre-native-0028-terrain-per-tile-rtt-drape.patch` replaces the screen-space drape with **per-tile render targets** (the current GL JS model): each terrain tile gets its own tile-sized `RenderTarget` holding the draped map layers, rendered with a per-tile orthographic projection (`PaintParameters::projMatrixOverride`, used by `projectionDataForTile` and `multiplyWithProjectionMatrix`). The terrain mesh samples its own tile's texture at a tile-local UV — no parallax, no screen-space gap artifacts. Renders seamlessly on-device. Applies **after** 0027.
 
 ## Regenerating a patch
 

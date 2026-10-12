@@ -254,3 +254,11 @@ Append-only. One dated entry per generation or refresh run.
 - **Conclusion:** the screen-space drape's offscreen `RenderTarget` render leaves tile-shaped untouched regions (blue). The per-tile approach (**b**) sidesteps this: each terrain tile renders its own layers into a self-contained tile-sized target. Extra changes reverted; the vendored tree matches patch **0027**.
 - **Next:** implement the **per-tile RTT** drape (GL JS-style): terrain tiles render drape-eligible layers into per-tile render targets and the terrain mesh samples its own tile's texture.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — phase 5: per-tile RTT drape (works)
+
+- **Confirmed against GL JS source** (`src/webgl/render_to_texture.ts`): current GL JS renders RTT-eligible layers (`background`, `fill`, `line`, `raster`, `hillshade`, `color-relief`; **not** symbols) into **per-tile cached textures** and drapes them onto the terrain mesh — so per-tile RTT is the faithful approach (the old "one shared screen-space texture" design is outdated).
+- **Implemented per-tile RTT** (patch **0028**): each terrain tile gets its own tile-sized `RenderTarget` holding the draped layers, rendered with a **per-tile orthographic projection** (added `PaintParameters::projMatrixOverride`, honored by `projectionDataForTile` and `multiplyWithProjectionMatrix`). The terrain mesh samples its own tile's texture at a tile-local UV (`in_position.xy / EXTENT`). **Renders seamlessly on-device** — no parallax and the blue screen-space gap artifacts are gone.
+- Remaining refinements (not blockers): the per-tile targets re-render every frame (GL JS caches with per-tile fingerprints + a per-frame budget), and non-draped symbol layers are currently draped too (GL JS keeps them screen-space).
+- **Next:** phase 6 — Vulkan depth-attachment offscreen texture + terrain depth pass/occlusion; phase 7 symbol elevation; phase 8 globe × terrain.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
