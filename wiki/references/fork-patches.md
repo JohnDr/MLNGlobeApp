@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries thirty-one patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries thirty-three patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -161,6 +161,14 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0031 — terrain globe projection variant
 
 `maplibre-native-0031-terrain-globe-variant.patch` selects the `TerrainShader`'s projection variant from the transform (Globe when `state.isGlobeRendering()`, else Mercator) and rebuilds the terrain drawables when it changes; on the globe it uses `projectionDataForTile`'s globe matrix instead of the Mercator `projMatrix·matrixFor` composition. The terrain now **renders draped on the globe** — but the mesh is still the flat 16×16 tile grid, so tiles show as overlapping petals with gaps. Proper globe terrain needs the curvature / pole-capped tessellation the globe background uses. Applies **after** 0030.
+
+## Patch 0032 — terrain drape fallback tint
+
+`maplibre-native-0032-terrain-drape-fallback-tint.patch` shades the terrain with a hypsometric tint where the drape texture is empty/black (e.g. no layer content), so the relief is always visible. Applies **after** 0031.
+
+## Patch 0033 — terrain drape tile size
+
+`maplibre-native-0033-terrain-drape-tile-size.patch` drops the per-tile drape targets from 512 to **256 px** — the 512px batch (100+ tiles) exhausted GPU memory (`Vulkan texture allocation failed`, from `texture2d.cpp`). Applies **after** 0032.
 
 ## Regenerating a patch
 

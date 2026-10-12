@@ -14,6 +14,7 @@ The pieces the project is built from.
 - [Style-spec properties](./style-spec-properties.md) — the newer style-spec properties Native does not implement.
 - [The QML map item](./qml-map-item.md) — the `MapLibre` item, its gestures and its runtime `setStyle`.
 - [Globe projection](./globe-projection.md) — rendering on a sphere and the phased plan to port it into Native.
+- [3D terrain](./terrain.md) — aerial imagery draped over 3D terrain (per-tile render-to-texture), its patch span and current state.
 
 ## Related
 

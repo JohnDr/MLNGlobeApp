@@ -46,10 +46,28 @@ Aerial imagery draped over terrain (the GL JS render-to-texture approach), built
 - [x] **Phase 3 — terrain tile manager + elevation provider** (patches **0021** `e24d058`, **0022** `bb3b9bc`): `DEMData::getElevation` bilinear sampler, and a **terrain-owned** `TerrainTileManager` (`renderer/terrain_tile_manager`) that fetches/decodes raster-dem tiles via the `FileSource`, caches `DEMData`, and exposes `getElevation(latLng, zoom)`. Unit tests for both. Not yet wired into the map.
 - [x] **Phase 4 — terrain mesh + Vulkan terrain shader** (patches **0023**–**0026**): the terrain now renders as a shaded elevated surface. Fixes that got it visible: colour-write mode (0025), consolidated projection UBO + per-drawable `uboIndex` (0026), and the tile→clip matrix `projMatrix · matrixFor(tile)` (0026). shader, `TerrainPass`, wiring into `UpdateParameters`/`RenderOrchestrator`/`RendererImpl`, and the repaint-on-tile-load fix.
 - [x] **Phase 5 — drape** (patches **0027**–**0028**): the map is draped onto the terrain as **per-tile render targets** (the current GL JS model — each terrain tile renders the draped layers into its own tile-sized texture via a per-tile orthographic projection), sampled at a tile-local UV. Renders seamlessly. Refinements left: cache/fingerprint the per-tile textures and skip non-draped (symbol) layers from the RTT.
-- [ ] Phase 6 — Vulkan depth-attachment offscreen texture + terrain depth pass / occlusion.
-- [ ] Phase 7 — symbol / label elevation.
-- [ ] Phase 8 — globe × terrain, fog/sky.
-- [ ] App: add a terrain preset (Esri World Imagery + AWS terrarium `raster-dem`) to the Maps list.
+- [x] **Phase 6 — occlusion**: folded into Phase 7 — no separate depth texture is needed (the terrain writes depth to the main buffer and symbols draw after it).
+- [x] **Phase 7 — symbol elevation** (patch **0030**): `PaintParameters::terrainElevationFn` → `SymbolDrawableUBO.elevation` → `projectTileWithElevation` (was `0.0`). **Compile-verified only** (the sandbox can't load glyphs).
+- [~] **Phase 8 — globe × terrain** (patch **0031**, `d6f6756`): the terrain renders draped on the globe, but the mesh is still the flat grid, so tiles show as overlapping petals with gaps. Needs the globe curvature / pole-capped tessellation. Fog/sky not started.
+- [x] **App**: a "3D Terrain (satellite draped)" map is in the Maps list (`terrain-style.json` = Esri World Imagery + AWS terrarium `raster-dem` + a `terrain` root property). Selecting it switches to flat projection + tilts (app `58c5faf`); the toggle applies only to that style (`c535d31`); built-in maps are merged into a stored list (`7c2f281`); the entry shows (`733a374`).
+
+### ⚠️ RESUME HERE — raster drape regression (blocking the demo)
+
+**The satellite raster layer is no longer captured into the per-tile drape targets.** The drape comes out black, so the hypsometric fallback tint (patch **0032**) shows instead of imagery. The terrain *relief* renders (visible ridges/valleys) — only the imagery is missing.
+
+**This is a regression.** Satellite imagery **was** draped over the Matterhorn around patch **0029** (`9971e08`; style commit `733a374`). It broke between **0030** (symbol elevation) and **0033**.
+
+Ruled out so far:
+- `"raster"` **is** in the drape set (`drapeLayerIndices`).
+- `RasterLayerTweaker` uses `getProjectionData`, which **does** honour `PaintParameters::projMatrixOverride` — so it should project into the tile-local target.
+- A **background-only** terrain style drapes fine (grey), so the drape pipeline itself works; only the raster content is missing.
+- `Vulkan texture allocation failed` (`texture2d.cpp`) was fixed by 512→256 px targets (patch **0033**), but the raster still doesn't appear.
+
+Next diagnostics (tomorrow):
+1. Instrument `RenderTarget::render` to log the drawables actually drawn per layer group — is the raster layer group present and rendering into the target?
+2. **Git-bisect the regression**: rebuild at patch `0029` vs `0031` and check whether the raster drapes.
+3. Check the raster layer group's index vs `drapeLayerIndices`, and whether its drawables survive the target render (Ubo consolidation / memory).
+- [ ] Fog/sky at the terrain horizon (after the raster is fixed).
 
 ## Related
 

@@ -320,3 +320,32 @@ Append-only. One dated entry per generation or refresh run.
 - **Still open:** the **satellite raster layer is not captured into the per-tile drape targets** — the drape is black, so the new hypsometric fallback (patch 0032) shows the tint instead of imagery. The raster uses `RasterLayerTweaker`'s `getProjectionData` (which honors `projMatrixOverride`) and "raster" is in the drape set, so the cause is elsewhere (likely the raster layer group not rendering in `RenderTarget::render`, or its tiles/textures under memory pressure).
 - **Also seen:** `Invalid geometry in line layer` — a style geometry warning, unrelated to the drape.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12/13 — session handoff: terrain drape, and a raster regression
+
+**Goal:** get aerial imagery visibly draped over the terrain. See [3D terrain](./concepts/terrain.md).
+
+### Where it stands
+- The terrain **renders** as a shaded elevated surface (flat/Mercator): relief is visible on-device.
+- The **satellite raster is not captured into the per-tile drape targets** — this is the blocker. The drape is black, so the fallback tint (patch 0032) shows instead of imagery.
+
+### ⚠️ It is a REGRESSION (agreed)
+Satellite imagery **was draped over the Matterhorn around patch 0029** (`9971e08`, style commit `733a374`). It broke between **0030** (symbol elevation) and **0033**. Bisect range for tomorrow: rebuild at `0029` vs `0031` and check the raster. See the diagnostics list in [Next steps](./next-steps.md).
+
+### Fixed today
+- **`Vulkan texture allocation failed`** (`texture2d.cpp`) — 512px per-tile drape targets (100+) exhausted GPU memory → **256px** (patch **0033**, `945a8cf`). The relief now renders.
+- **`Terrain source 'dem' not found in style`** — the terrain toggle persisted across styles; now it's on only for the draped-terrain style (app `c535d31`).
+- **The raster drew flat / no drape** — the app's empty `terrainSource` (`terrainEnabled` false) called `clearTerrain()`, which **wipes a style's own `terrain`**. Fixed: `onStyleUrlChanged` turns terrain on (+ flat + tilt) for the terrain style (app `58c5faf`). Confirmed via diagnostic (`terrainTileset=1`).
+
+### App
+- "3D Terrain (satellite draped)" is in the Maps list (`terrain-style.json` = Esri World Imagery + AWS terrarium `raster-dem` + `terrain`); selecting it switches to flat + tilts; built-in maps are merged into a stored list (`733a374`, `7c2f281`).
+- The style URL is machine-specific: `window.terrainStyleUrl` in `main.qml` = `file://C:/hda/dev/Projects/MapLibreEarth/terrain-style.json`.
+
+### Commits today
+- fork `main`: `d6f6756` (globe variant), `cad250e` (fallback tint), `945a8cf` (256px targets).
+- app `main`: `733a374`, `7c2f281`, `58c5faf`, `c535d31`.
+- Also seen (unrelated): `Invalid geometry in line layer`.
+
+### Verified pipeline
+A **background-only** terrain style drapes correctly (grey over the relief) — so the drape pipeline works; only the raster content is missing.
+- **References:** [Next steps](./next-steps.md) · [Fork patches](./references/fork-patches.md) · [3D terrain](./concepts/terrain.md).
