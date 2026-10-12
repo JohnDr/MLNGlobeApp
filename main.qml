@@ -28,9 +28,12 @@ Window {
     readonly property var scalePresets: [0.75, 1.0, 1.25, 1.5, 2.0]
     readonly property bool scalePending: Math.abs(selectedScale - appliedScale) > 0.001
 
-    // 2D flat (pitch 0) vs 3D tilted (pitch 60) view.
-    property bool globe3D: false
-    readonly property real tilt3DPitch: 60
+    // 3D = globe projection (sphere when zoomed out); 2D = flat Mercator.
+    property bool globe3D: true
+    // Camera tilt (pitch) and bearing (rotation) in degrees. Tracked here so the
+    // middle-drag tilt gesture and the compass rose have a value to read and modify.
+    property real mapTilt: 0
+    property real mapBearing: 0
 
     // 3D buildings opacity: Liberty's "building-3d" layer is 0.8 by default.
     property bool buildingsOpaque: false
@@ -93,15 +96,34 @@ Window {
         appState.applyAndRestart(selectedScale);
     }
 
-    // ---- 2D / 3D toggle ---------------------------------------------------------
-    function applyTilt(animated) {
-        map.easeTo({ pitch: window.globe3D ? window.tilt3DPitch : 0 },
-                    { duration: animated ? 600 : 0 });
+    // ---- Camera (tilt / bearing) ------------------------------------------------
+    // Apply the tracked tilt + bearing to the map. `animated` eases the change.
+    function applyCamera(animated) {
+        map.easeTo({ pitch: window.mapTilt, bearing: window.mapBearing },
+                    { duration: animated ? 300 : 0 });
     }
 
+    // 2D / 3D projection toggle: 3D = globe (sphere when zoomed out), 2D = flat Mercator.
     function toggle3D() {
         window.globe3D = !window.globe3D;
-        applyTilt(true);
+    }
+
+    // Middle-drag tilt: vertical -> pitch, horizontal -> bearing (rotate).
+    function tiltBy(dx, dy) {
+        window.mapTilt = Math.max(0, Math.min(85, window.mapTilt - dy * 0.4));
+        window.mapBearing = window.mapBearing + dx * 0.4;
+        applyCamera(false);
+    }
+
+    // Compass rose actions.
+    function northUp() {
+        window.mapBearing = 0;
+        applyCamera(true);
+    }
+
+    function tiltZero() {
+        window.mapTilt = 0;
+        applyCamera(true);
     }
 
     // Zoom in/out buttons (anchored at the map centre).
@@ -182,8 +204,9 @@ Window {
         window.presetIndex = i;
         const p = window.presets[i];
         window.globe3D = p.globe3D === true;
-        map.flyTo({ center: p.center, zoom: p.zoom,
-                    pitch: window.globe3D ? window.tilt3DPitch : 0 },
+        window.mapTilt = 0;
+        window.mapBearing = 0;
+        map.flyTo({ center: p.center, zoom: p.zoom, pitch: 0, bearing: 0 },
                   { duration: 1500 });
     }
 
@@ -296,7 +319,6 @@ Window {
 
         if (asBool(appState.value("map/globe3D"))) {
             window.globe3D = true;
-            applyTilt(false);
         }
 
         const storedStyle = appState.value("map/styleUrl");
@@ -352,8 +374,8 @@ Window {
     Connections {
         target: map
         function onStyleLoadedChanged() {
-            if (map.styleLoaded && window.globe3D) {
-                window.applyTilt(false);
+            if (map.styleLoaded) {
+                window.applyCamera(false);
             }
         }
     }
@@ -372,9 +394,8 @@ Window {
         zoomLevel: 4
         coordinate: [59.91, 10.75]
 
-        // Globe projection (WIP fast-path): renders the world on a sphere.
-        // Remove or set to MapLibre.Mercator to go back to the flat map.
-        projectionType: MapLibre.Globe
+        // 2D / 3D projection. 3D = globe (sphere when zoomed out); 2D = flat Mercator.
+        projectionType: window.globe3D ? MapLibre.Globe : MapLibre.Mercator
 
         // The 3D-buildings opacity override is added dynamically in C++/QML via
         // syncBuildingOverride() (see the Component at the top level).
@@ -410,8 +431,9 @@ Window {
             }
         }
 
-        // Mouse / trackpad: right drag zooms smoothly toward the cursor.
-        // Wheel clicks remain the stepped zoom below.
+        // Mouse / trackpad: right drag zooms continuously toward the cursor
+        // (drag down = zoom in, drag up = zoom out). Wheel clicks remain the stepped
+        // zoom below.
         PinchHandler {
             id: zoomDrag
             target: null
@@ -420,7 +442,32 @@ Window {
             maximumPointCount: 1
             enabled: !window.dialogOpen
             onTranslationChanged: (delta) => {
-                map.scale(Math.pow(2.0, -delta.y / 250.0), zoomDrag.centroid.position)
+                map.scale(Math.pow(2.0, delta.y / 250.0), zoomDrag.centroid.position)
+            }
+        }
+
+        // Mouse / trackpad: middle-button drag tilts the map. Vertical drag changes the
+        // pitch (drag up = tilt, drag down = un-tilt); horizontal drag rotates the
+        // bearing.
+        PinchHandler {
+            id: tiltDrag
+            target: null
+            acceptedButtons: Qt.MiddleButton
+            minimumPointCount: 1
+            maximumPointCount: 1
+            enabled: !window.dialogOpen
+            property real startTilt: 0
+            property real startBearing: 0
+            onActiveChanged: {
+                if (active) {
+                    startTilt = window.mapTilt;
+                    startBearing = window.mapBearing;
+                }
+            }
+            onTranslationChanged: (delta) => {
+                window.mapTilt = Math.max(0, Math.min(85, startTilt - delta.y * 0.3));
+                window.mapBearing = startBearing + delta.x * 0.3;
+                window.applyCamera(false);
             }
         }
 
@@ -998,6 +1045,81 @@ Window {
         MouseArea {
             anchors.fill: parent
             onClicked: window.buildingsOpaque = !window.buildingsOpaque
+        }
+    }
+
+    // ---- Compass rose (bottom-right) --------------------------------------------
+    // Rotates with the map bearing so "N" points to geographic north, and squashes
+    // with the tilt. Single click puts north up; double click resets the tilt to zero.
+    Item {
+        id: compass
+        z: 10
+        width: 56
+        height: 56
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 12
+
+        Canvas {
+            id: compassCanvas
+            anchors.fill: parent
+            onPaint: {
+                const ctx = getContext("2d");
+                ctx.reset();
+                const cx = width / 2, cy = height / 2, r = width / 2 - 2;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                ctx.fillStyle = "#cc000000";
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = "white";
+                ctx.stroke();
+
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(-window.mapBearing * Math.PI / 180);
+                ctx.scale(1, Math.max(0.25, Math.cos(window.mapTilt * Math.PI / 180)));
+                const tip = r - 7;
+                ctx.beginPath();
+                ctx.moveTo(0, -tip);
+                ctx.lineTo(-tip * 0.4, 0);
+                ctx.lineTo(tip * 0.4, 0);
+                ctx.closePath();
+                ctx.fillStyle = "#ff5555";
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(-tip * 0.4, 0);
+                ctx.lineTo(tip * 0.4, 0);
+                ctx.lineTo(0, tip);
+                ctx.closePath();
+                ctx.fillStyle = "white";
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Repaint the rose whenever the bearing or tilt changes.
+        Connections {
+            target: window
+            function onMapBearingChanged() { compassCanvas.requestPaint() }
+            function onMapTiltChanged() { compassCanvas.requestPaint() }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: compassSingleClick.restart()
+            onDoubleClicked: {
+                compassSingleClick.stop();
+                window.tiltZero();
+            }
+        }
+
+        // Distinguish a single click from the first half of a double click.
+        Timer {
+            id: compassSingleClick
+            interval: 250
+            onTriggered: window.northUp()
         }
     }
 }
