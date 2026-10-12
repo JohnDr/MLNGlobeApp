@@ -283,12 +283,25 @@ Window {
         }
         if (parsed !== null && parsed.length > 0) {
             // Migrate the old "MapLibre Demo" (demotiles) entry to Open Waters.
-            mapStyles = parsed.map(function(m) {
+            let styles = parsed.map(function(m) {
                 if (m && m.url === "https://demotiles.maplibre.org/style.json") {
                     return { "name": "Open Waters", "url": "https://tiles.openwaters.io/seamap/style.json" };
                 }
                 return m;
             });
+            // Ensure the built-in maps are present (e.g. after adding a new one in a later version).
+            const known = {};
+            styles.forEach(function(m) {
+                if (m && m.url) {
+                    known[m.url] = true;
+                }
+            });
+            defaultMapStyles.forEach(function(d) {
+                if (!known[d.url]) {
+                    styles = styles.concat([d]);
+                }
+            });
+            mapStyles = styles;
             saveMapStyles();
         } else {
             mapStyles = defaultMapStyles.slice();
