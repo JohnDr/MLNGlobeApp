@@ -290,3 +290,10 @@ Append-only. One dated entry per generation or refresh run.
 - **Added a "3D Terrain (satellite draped)" entry to the Maps list** (app commit `733a374`). Its style (`terrain-style.json`) has an **Esri World Imagery** raster source plus an **AWS terrarium** `raster-dem` source and a `terrain` root property, so the satellite imagery is draped over the relief by the fork's per-tile RTT drape. Verified on-device: **satellite imagery over the 3D relief** (Matterhorn, pitched ~67°) and a draped globe.
 - The QML computes the local `file://` style URL from `window.terrainStyleUrl` (maplibre's file source needs `file://` + the drive path, no third slash); adjust the path per machine.
 - **References:** [Next steps](./next-steps.md) · [Fork patches](./references/fork-patches.md).
+
+## 2026-10-12 (terrain) — the draped-terrain map was hidden by the stored list
+
+- **Symptom:** the new "3D Terrain (satellite draped)" entry didn't appear for the user — a stored `maps/list` (QSettings) from an earlier version replaced `defaultMapStyles` wholesale, so newly-added built-in maps never showed.
+- **Fix (app commit `7c2f281`):** `loadMapStyles` now appends any `defaultMapStyles` entry whose URL isn't already in the stored list. Confirmed the stored list now contains the terrain entry.
+- **Confirmed draping works** with that style on-device: satellite imagery conforming to the 3D relief at ~66° pitch. Known artifact: some far/horizon tiles show un-draped (dark) patches.
+- **References:** [Next steps](./next-steps.md).
