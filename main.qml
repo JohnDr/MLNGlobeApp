@@ -437,7 +437,22 @@ Window {
         syncBuildingOverride();
     }
     onClosing: saveState()
-    onStyleUrlChanged: syncBuildingOverride()
+    onStyleUrlChanged: {
+        syncBuildingOverride();
+        // The draped-terrain style needs its "dem" terrain enabled (setting terrainSource="dem" turns terrain on;
+        // an empty terrainSource would clear the style's own terrain) and the flat projection to drape.
+        if (window.styleUrl.indexOf("terrain-style.json") !== -1) {
+            window.globe3D = false;
+            appState.setValue("map/globe3D", false);
+            window.terrainEnabled = true;
+            appState.setValue("map/terrainEnabled", true);
+            if (window.mapTilt < 5) {
+                window.mapTilt = 50;
+                window.mapBearing = 0;
+                applyCamera(true);
+            }
+        }
+    }
 
     // Persist the scale as soon as the user changes it, so it survives an abrupt
     // exit too (the value is applied on the next start). The untouched default
