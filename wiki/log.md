@@ -284,3 +284,9 @@ Append-only. One dated entry per generation or refresh run.
 - **Known roughness:** the mesh is still the flat 16×16 tile grid, so on the sphere tiles appear as overlapping "petals" with gaps — the globe needs the curvature / pole-capped tessellation the globe background layer uses (its own follow-up).
 - **Fog/sky and true pole handling** are not started.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — app: a draped-terrain map in the Maps list
+
+- **Added a "3D Terrain (satellite draped)" entry to the Maps list** (app commit `733a374`). Its style (`terrain-style.json`) has an **Esri World Imagery** raster source plus an **AWS terrarium** `raster-dem` source and a `terrain` root property, so the satellite imagery is draped over the relief by the fork's per-tile RTT drape. Verified on-device: **satellite imagery over the 3D relief** (Matterhorn, pitched ~67°) and a draped globe.
+- The QML computes the local `file://` style URL from `window.terrainStyleUrl` (maplibre's file source needs `file://` + the drive path, no third slash); adjust the path per machine.
+- **References:** [Next steps](./next-steps.md) · [Fork patches](./references/fork-patches.md).
