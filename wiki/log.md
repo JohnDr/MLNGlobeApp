@@ -246,3 +246,11 @@ Append-only. One dated entry per generation or refresh run.
 - **Confirmed on-device:** the grey map background appears draped over the terrain with hillshading.
 - **Known issues (to refine):** it is **screen-space**, so imagery has parallax error under tilt (a per-tile RTT split is the proper GL JS approach); and **uncovered regions of the render target show as blue artifacts** (the RTT's clear/gap handling needs work). The layer groups are also rendered twice (into the RTT and to the screen), which is wasteful.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — phase 5 polish (a): gap artifacts not solved yet
+
+- **Tried the obvious fixes:** (1) skip rendering the layer groups to the screen when the drape is active (no double render) and (2) disable terrain depth. Neither removed the **tile-grid blue gaps** in the drape.
+- **Ruled out:** the gaps are **not** a missing mesh — the terrain builds and draws all `drawables=100` / `cover=100` every frame. Depth on/off makes no difference. A solid-colour terrain fragment still shows the gaps, so they are the pixels *behind* the terrain in a tile-grid pattern (the offscreen RTT's uncovered/untouched regions), not the drape sampling.
+- **Conclusion:** the screen-space drape's offscreen `RenderTarget` render leaves tile-shaped untouched regions (blue). The per-tile approach (**b**) sidesteps this: each terrain tile renders its own layers into a self-contained tile-sized target. Extra changes reverted; the vendored tree matches patch **0027**.
+- **Next:** implement the **per-tile RTT** drape (GL JS-style): terrain tiles render drape-eligible layers into per-tile render targets and the terrain mesh samples its own tile's texture.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
