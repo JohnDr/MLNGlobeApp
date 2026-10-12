@@ -1,13 +1,13 @@
 ---
 type: Reference
 title: Downstream patches
-description: The three fork-only patches applied to the vendored MapLibre Native at configure time.
+description: The fork-only patches applied to the vendored MapLibre Native at configure time.
 tags: [ reference, patches ]
 status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries sixteen patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries nineteen patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -105,6 +105,14 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0017 — globe tile-edge fixes
 
 `maplibre-native-0017-globe-tile-edge-fixes.patch` fixes the globe **blank band at z8-10** and the **wide darker band along globe tile edges**. Three files: `renderer/tile_pyramid.cpp` (size the `bounds` `TileRange` guard over the full source zoom range when the cover is in variable-zoom mode, so the globe cover's finer tiles are not rejected — otherwise the layer gets ~1 tile and the view is blank); `util/subdivision.cpp` (mirror GL JS `removeTrianglesOutsideTileX` / `removeLinesOutsideTileX` — drop a triangle when **any** vertex is outside, not only when all are, which is a port translation bug; z0-only); and `gfx/fill_generator.cpp` (clip fill polygons to `[0, EXTENT]` on both axes before subdivision so the grid cannot place vertices past the tile edge, and skip fill-**outline** segments lying along the tile's vertical boundary — clipping artifacts that both tiles would otherwise stroke into a darker line along every globe tile edge). Applies **after** 0016.
+
+## Patch 0018 — globe backdrop colour
+
+`maplibre-native-0018-globe-background-color.patch` adds `Map::setBackgroundColor(Color)` and threads an optional `backgroundColor` through `UpdateParameters` → `RenderTreeParameters` to the renderer's clear pass, so the space behind the globe is a chosen colour instead of black. The clear is applied **globe-only** (`TransformState::isGlobeRendering()` guards the background block in `render_orchestrator.cpp`), and `renderer_impl.cpp` clears the backdrop even with a shared context when the globe is active and the colour is opaque. The Qt `Map` and the QML `MapLibre` element expose it as `backgroundColor`. Applies **after** 0017.
+
+## Patch 0019 — terrain style property
+
+`maplibre-native-0019-terrain-style-property.patch` adds the style's root `terrain` object — a `raster-dem` source plus an `exaggeration` — modelled on the existing `projection`/`light` root objects (which 0005 introduced). New files: `include/mln/style/terrain.hpp`, `include/mln/style/conversion/terrain.hpp`, `src/mln/style/terrain.cpp`, `terrain_impl.hpp`, `terrain_observer.hpp`, `src/mln/style/conversion/terrain.cpp`. It wires the parser (`terrain` member + `parseTerrain`) and `Style`/`Style::Impl` (`setTerrain`/`getTerrain` + `TerrainObserver`), and adds `Map::setTerrain` / `clearTerrain` / `hasTerrain` / `getTerrainSource` / `getTerrainExaggeration`. Sources are validated as `raster-dem`. The Qt `Map` gains `setTerrain`/`clearTerrain`; the QML `MapLibre` element exposes `terrainSource` + `terrainExaggeration`, re-applied after each style load (like `projectionType`). Rendering is unchanged — the renderer still draws flat; this is the first slice of [3D terrain](../next-steps.md). Applies **after** 0018.
 
 ## Regenerating a patch
 

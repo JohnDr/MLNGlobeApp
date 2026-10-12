@@ -37,6 +37,20 @@ See [Fork patches](./references/fork-patches.md) and the [globe log](./log.md).
 - [ ] Optional: add a Qt Creator **Android** kit / CMake preset with `QMapLibre_DIR` so MapLibreEarth builds for Android from the IDE (currently command-line only — see [Android build](./runbooks/build-android.md)).
 - [ ] Optional: provide a fork branch/tag that produces the exact `QMapLibre` install MapLibreEarth consumes (the fork `personal` branch does this today).
 
+## 3D terrain — in progress (2026-10-12)
+
+Aerial imagery draped over terrain (the GL JS render-to-texture approach), built on the fork's existing per-tile RTT framework (`RenderTarget`/`OffscreenTexture`, already used by hillshade/heatmap on Vulkan) rather than back-porting upstream's experimental `feature/terrain-3d` branch. Flat/Mercator first; full drape as the first milestone. See [Fork patches](./references/fork-patches.md).
+
+- [x] **Phase 1 — style property + API** (patch **0019**, commit `e3e678b`): style-root `terrain {source, exaggeration}`, `Style`/`Map` API, Qt/QML `terrainSource` / `terrainExaggeration`. The renderer still draws flat.
+- [ ] Phase 2 — camera elevation in `Transform`/`TransformState` (+ synchronous centre anchoring in render setup).
+- [ ] Phase 3 — terrain tile manager + DEM elevation provider (reuse `DEMData` / `RasterDEMTile`).
+- [ ] Phase 4 — terrain mesh (pinned to the DEM zoom) + Vulkan terrain shader.
+- [ ] Phase 5 — drape split: render drape-eligible layers into per-tile `RenderTarget`s and sample them in the terrain shader.
+- [ ] Phase 6 — Vulkan depth-attachment offscreen texture + terrain depth pass / occlusion.
+- [ ] Phase 7 — symbol / label elevation.
+- [ ] Phase 8 — globe × terrain, fog/sky.
+- [ ] App: add a terrain preset (Esri World Imagery + AWS terrarium `raster-dem`) to the Maps list.
+
 ## Related
 
 - [History](./history.md) · [Wiki log](./log.md) · [Decisions](./decisions/index.md)

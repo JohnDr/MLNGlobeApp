@@ -154,3 +154,11 @@ Append-only. One dated entry per generation or refresh run.
 - **Committed** `c31de46` on `main` (fork) — a **wrapper** change (not a vendored patch).
 - **Unrelated note:** the `"Invalid geometry in line layer"` warning seen when panning to IOW is a pre-existing style/data mismatch (point features fed to a line layer in the OpenFreeMap liberty style), not the globe work — left as is.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — 3D terrain: phase 1 (style property + API)
+
+- **Started 3D terrain** — aerial imagery draped over terrain, the GL JS **render-to-texture** approach. Chosen approach: build directly on the fork's existing per-tile RTT framework (`RenderTarget`/`OffscreenTexture`, already used by hillshade and heatmap on Vulkan) rather than back-porting upstream's experimental, actively-reverting `feature/terrain-3d` branch. Flat/Mercator first; full drape as the first milestone.
+- **Implemented phase 1** (patch **0019**, commit `e3e678b` on `main`/fork): the style's root `terrain` object (`{source, exaggeration}`) modelled on `projection`/`light` — `Terrain` + `TerrainObserver`, its conversion, parser wiring, and `Style`/`Style::Impl` storage; `Map::setTerrain` / `clearTerrain` / `hasTerrain` / `getTerrainSource` / `getTerrainExaggeration` (source validated as `raster-dem`); Qt `Map::setTerrain`/`clearTerrain`; QML `terrainSource` + `terrainExaggeration`, re-applied after each style load. The renderer is unchanged — it still draws flat.
+- **Verified:** `mbgl-core`, `MLNQtCore`, `MLNQtQuickPrivate` and `declarative_maplibre` all build (Release, MSVC / Vulkan); patch 0019 applies cleanly to a pristine + `0001`–`0018` tree and reproduces the working tree.
+- **Next:** phase 2 — camera elevation in `Transform`/`TransformState` (+ synchronous centre anchoring in render setup). See [Next steps](./next-steps.md) and [Fork patches](./references/fork-patches.md).
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md) · [Project history](./history.md).
