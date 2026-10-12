@@ -68,8 +68,14 @@ Window {
         { "name": "Liberty (OSM)", "url": "https://tiles.openfreemap.org/styles/liberty" },
         { "name": "Bright (OSM)", "url": "https://tiles.openfreemap.org/styles/bright" },
         { "name": "Positron (OSM)", "url": "https://tiles.openfreemap.org/styles/positron" },
-        { "name": "Open Waters", "url": "https://tiles.openwaters.io/seamap/style.json" }
+        { "name": "Open Waters", "url": "https://tiles.openwaters.io/seamap/style.json" },
+        { "name": "3D Terrain (satellite draped)", "url": window.terrainStyleUrl }
     ]
+
+    // Local style with a raster-dem source + `terrain`, so the satellite imagery is draped over the relief.
+    // maplibre's local file source needs "file://" followed directly by the drive path (not a third slash).
+    // Adjust this path to wherever the repo's terrain-style.json lives on your machine.
+    readonly property string terrainStyleUrl: "file://C:/hda/dev/Projects/MapLibreEarth/terrain-style.json"
 
     // QSettings returns stored booleans as strings ("true"/"false").
     function asBool(v) {

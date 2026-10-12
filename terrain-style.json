@@ -1,6 +1,6 @@
 {
   "version": 8,
-  "name": "terrain-test",
+  "name": "terrain-satellite",
   "sources": {
     "dem": {
       "type": "raster-dem",
@@ -10,6 +10,15 @@
       "encoding": "terrarium",
       "tileSize": 256,
       "maxzoom": 15
+    },
+    "satellite": {
+      "type": "raster",
+      "tiles": [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+      ],
+      "tileSize": 256,
+      "maxzoom": 18,
+      "attribution": "Esri, Maxar, Earthstar Geographics"
     }
   },
   "terrain": {
@@ -21,8 +30,13 @@
       "id": "background",
       "type": "background",
       "paint": {
-        "background-color": "#8899aa"
+        "background-color": "#223344"
       }
+    },
+    {
+      "id": "satellite",
+      "type": "raster",
+      "source": "satellite"
     }
   ]
 }
