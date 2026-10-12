@@ -311,3 +311,12 @@ Append-only. One dated entry per generation or refresh run.
 - **Pipeline verified:** a background-only terrain style drapes correctly (grey `#8899aa` over the relief).
 - **Remaining:** the satellite **raster layer isn't being captured into the drape render targets** in the current build (black → the new hypsometric fallback tint, patch `cad250e`), though it draped at patch 0029. Needs investigation. The fallback (`maplibre-native-0032`) now keeps the relief visible regardless.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — raster still not captured into the drape targets
+
+- **Fixed from the logs:**
+  - `Vulkan texture allocation failed` — the 512px per-tile drape targets (100+) exhausted GPU memory; reduced to **256px** (patch **0033**, `945a8cf`). The terrain **relief now renders** (visible ridges/valleys) instead of a black frame.
+  - `Terrain source 'dem' not found in style` — the terrain toggle persisted across styles; now it is only on for the draped-terrain style (app `c535d31`).
+- **Still open:** the **satellite raster layer is not captured into the per-tile drape targets** — the drape is black, so the new hypsometric fallback (patch 0032) shows the tint instead of imagery. The raster uses `RasterLayerTweaker`'s `getProjectionData` (which honors `projMatrixOverride`) and "raster" is in the drape set, so the cause is elsewhere (likely the raster layer group not rendering in `RenderTarget::render`, or its tiles/textures under memory pressure).
+- **Also seen:** `Invalid geometry in line layer` — a style geometry warning, unrelated to the drape.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
