@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries twenty-eight patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries twenty-nine patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -149,6 +149,10 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0028 — terrain per-tile RTT drape
 
 `maplibre-native-0028-terrain-per-tile-rtt-drape.patch` replaces the screen-space drape with **per-tile render targets** (the current GL JS model): each terrain tile gets its own tile-sized `RenderTarget` holding the draped map layers, rendered with a per-tile orthographic projection (`PaintParameters::projMatrixOverride`, used by `projectionDataForTile` and `multiplyWithProjectionMatrix`). The terrain mesh samples its own tile's texture at a tile-local UV — no parallax, no screen-space gap artifacts. Renders seamlessly on-device. Applies **after** 0027.
+
+## Patch 0029 — drape symbols + per-tile cache
+
+`maplibre-native-0029-terrain-drape-symbols-and-cache.patch` (1) restricts the per-tile drape to the **drape-eligible** layers (background/fill/line/raster/hillshade/color-relief — GL JS `LAYERS_TO_TEXTURES`); symbols and other layers draw **live on top of the terrain** (the translucent pass draws the terrain first, then the non-draped layer groups). (2) Adds a **per-tile texture cache**: a tile is re-rendered only when new or when its fingerprint changes (layer/source/image identity, DEM zoom, group/layer counts, and a generation bumped on any source tile change), so idle frames stop re-rendering every tile. Applies **after** 0028.
 
 ## Regenerating a patch
 

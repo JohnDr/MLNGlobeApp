@@ -262,3 +262,10 @@ Append-only. One dated entry per generation or refresh run.
 - Remaining refinements (not blockers): the per-tile targets re-render every frame (GL JS caches with per-tile fingerprints + a per-frame budget), and non-draped symbol layers are currently draped too (GL JS keeps them screen-space).
 - **Next:** phase 6 — Vulkan depth-attachment offscreen texture + terrain depth pass/occlusion; phase 7 symbol elevation; phase 8 globe × terrain.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — phase 5 refinements: screen-space symbols + texture cache
+
+- **Symbols stay screen-space** (confirmed against GL JS `LAYERS_TO_TEXTURES` — only background/fill/line/raster/hillshade/color-relief are draped; symbols are "live"): implemented in patch **0029** by classifying style layers by `getTypeInfo()->type`, restricting the per-tile targets to the drape-eligible layers, and drawing the rest on top (the translucent pass now renders the terrain first, then the non-draped groups).
+- **Per-tile texture cache** (patch **0029**): each drape tile stores a fingerprint (layer/source/image identity, DEM zoom, group/layer counts, plus a `drapeGeneration` bumped in `onTileChanged`); a tile re-renders only when new or when its fingerprint changes. Idle frames no longer re-render every tile. First-cut bug (the first render cached an empty layer set as black) was fixed by folding the group/layer counts into the fingerprint.
+- **Verified on-device** with the background+drape style (steady #8899aa×hillshade). Note: a quick OSM-raster test style showed black at zoom 12 (OSM tiles did not load in the sandbox) — unrelated to the drape code.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
