@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries thirty patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries thirty-one patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -157,6 +157,10 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0030 — terrain symbol elevation
 
 `maplibre-native-0030-terrain-symbol-elevation.patch` lifts symbols onto the terrain surface. `PaintParameters` gains a `terrainElevationFn` sampling the DEM elevation (world pixels) at a tile centre; the symbol layer tweaker feeds it into a new `SymbolDrawableUBO` field (repurposed `pad1`), and the symbol shaders pass `drawable.elevation` into the existing `projectTileWithElevation` (previously `0.0`). Note: `field` symbols (along-line / variable anchors) aren't yet handled. **Compile-verified only** — this sandbox can't load the glyphs needed to render symbol text, so the elevation isn't visually confirmed. Applies **after** 0029.
+
+## Patch 0031 — terrain globe projection variant
+
+`maplibre-native-0031-terrain-globe-variant.patch` selects the `TerrainShader`'s projection variant from the transform (Globe when `state.isGlobeRendering()`, else Mercator) and rebuilds the terrain drawables when it changes; on the globe it uses `projectionDataForTile`'s globe matrix instead of the Mercator `projMatrix·matrixFor` composition. The terrain now **renders draped on the globe** — but the mesh is still the flat 16×16 tile grid, so tiles show as overlapping petals with gaps. Proper globe terrain needs the curvature / pole-capped tessellation the globe background uses. Applies **after** 0030.
 
 ## Regenerating a patch
 

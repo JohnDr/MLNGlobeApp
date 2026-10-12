@@ -277,3 +277,10 @@ Append-only. One dated entry per generation or refresh run.
 - **Verification:** compiles (mbgl-core). **Not visually confirmed** — the sandbox can't load the glyphs (`demotiles.maplibre.org/font`) needed to render symbol text, so no labels appeared even with terrain off. The elevation path only runs when symbol drawables exist.
 - **Next:** phase 8 — globe × terrain, fog/sky (large; no upstream reference for globe terrain).
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — phase 8: globe × terrain (renders, mesh rough)
+
+- **The terrain now renders draped on the globe** (patch **0031**): the `TerrainShader` projection variant is chosen from the transform (`state.isGlobeRendering()` → Globe, else Mercator), drawables rebuild on variant change, and the globe uses `projectionDataForTile`'s globe matrix (not the Mercator `projMatrix·matrixFor` composition). Confirmed on-device — a draped sphere.
+- **Known roughness:** the mesh is still the flat 16×16 tile grid, so on the sphere tiles appear as overlapping "petals" with gaps — the globe needs the curvature / pole-capped tessellation the globe background layer uses (its own follow-up).
+- **Fog/sky and true pole handling** are not started.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
