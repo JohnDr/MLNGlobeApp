@@ -297,3 +297,9 @@ Append-only. One dated entry per generation or refresh run.
 - **Fix (app commit `7c2f281`):** `loadMapStyles` now appends any `defaultMapStyles` entry whose URL isn't already in the stored list. Confirmed the stored list now contains the terrain entry.
 - **Confirmed draping works** with that style on-device: satellite imagery conforming to the 3D relief at ~66° pitch. Known artifact: some far/horizon tiles show un-draped (dark) patches.
 - **References:** [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — "no draping": the map was in globe mode
+
+- **Symptom:** selecting "3D Terrain (satellite draped)" showed satellite imagery but no drape. **Cause:** the app defaults to **globe mode**, and the drape is unreliable there (the globe terrain mesh is still rough); a flat map at pitch 0 also *looks* undraped even though the drape is present.
+- **Fix (app commit `236b0e1`):** `selectMap` switches the terrain style to **flat (Mercator)** and sets a **50° tilt** (applied once the style loads, via the existing style-loaded camera apply), so the drape over the relief is immediately visible. Rebuild the app, select the map, and the relief shows without needing to tilt by hand.
+- **References:** [Next steps](./next-steps.md).
