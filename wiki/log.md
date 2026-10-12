@@ -144,3 +144,13 @@ Append-only. One dated entry per generation or refresh run.
 - **Verified:** seam gone at Calbourne z10/z11, no distortion. Note GL JS does **no** geometry clipping at all (its tiles are `[0, EXTENT]` from the source, and it only warns if they exceed that), so it never creates the artificial edge — this fix makes the Native appearance match.
 - **Ruled out along the way** (with source evidence): subdivision granularity (identical to GL JS), clip-mesh granularity (both quads), buffer size (both 128), MSAA (Native Vulkan uses `e1`), and the per-tile stencil clip (seam persisted with the stencil disabled).
 - **References:** [Globe projection](./concepts/globe-projection.md) · [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (later still) — First-run map did not paint until panned/zoomed
+
+- **Symptom:** on a cold start the map showed only the background (no tiles) until the user panned or zoomed, after which it was fine.
+- **Diagnosis:** captured the app with `PrintWindow` at t=4s with no input — essentially unpainted (1/40548 water samples); after a single zoom kick it was fully painted (22808/40548). So the tiles were loaded but the map was **not repainted** until an input forced it.
+- **Cause:** in the Qt Quick map item (`map_quick_item.cpp`), rendering is driven by Qt scene-graph repaints. It only scheduled a repaint on the scheduler's `needsRendering` signal plus one delayed update on `MapChangeDidFinishLoadingMap` — it did **not** update on `MapChangeDidFinishRenderingFrame`. Tiles arriving after the initial frame were rendered into the target but never shown.
+- **Fix:** handle `MapChangeDidFinishRenderingFrame` by scheduling another `QQuickItem::update()`, so the map keeps repainting until it reports a fully rendered frame. Verified: fully rendered by t=6s with no input, and 0 ms CPU over 5 s idle (no busy loop).
+- **Committed** `c31de46` on `main` (fork) — a **wrapper** change (not a vendored patch).
+- **Unrelated note:** the `"Invalid geometry in line layer"` warning seen when panning to IOW is a pre-existing style/data mismatch (point features fed to a line layer in the OpenFreeMap liberty style), not the globe work — left as is.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
