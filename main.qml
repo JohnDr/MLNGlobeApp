@@ -451,7 +451,7 @@ Window {
         projectionType: window.globe3D ? MapLibre.Globe : MapLibre.Mercator
 
         // Space backdrop shown around the globe.
-        backgroundColor: "#080b14"
+        backgroundColor: "#333366"
 
         // The 3D-buildings opacity override is added dynamically in C++/QML via
         // syncBuildingOverride() (see the Component at the top level).
