@@ -211,3 +211,10 @@ Append-only. One dated entry per generation or refresh run.
 - **Diagnosis status:** with the colour mask fixed, a **direct-NDC** vertex shader renders the terrain (full-screen colour), proving pipeline + attribute + draw all work; but `projectTileFor3D`/`projectTile` places the terrain **off-screen**, so the remaining bug is the **projection matrix used for the terrain tiles** in `TerrainPass::update` (`state.getProjectionData` via `PaintParameters::projectDataForTile`), not the shader/binding/draw path.
 - **Next:** dump and verify the projection UBO matrix for a camera-covering DEM tile (the composed `projMatrix * tileMatrix` should map tile coords `0..EXTENT` to NDC near `[-1,1]`); fix how the per-tile matrix is obtained.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — phase 4 bug chase 3: the projection matrix
+
+- **Confirmed the projection is the last bug.** With the colour-write fix in place, a direct-NDC vertex shader renders the terrain (full-screen), but the real projection places it off-screen.
+- **Matrix dump** for a camera-covering DEM tile (z12, 2160/1444): `m0=355254.7 m5=250329.1 m12=0 m13=0 m15=124043.9` — i.e. scaling tile coords `0..EXTENT` to clip produces values around `10^9` and `w≈-4·10^8`, so every tile lands at NDC ≈ `(-3.4, -2.0)`, off-screen. Both `PaintParameters::projectionDataForTile` and the normal-layer `LayerTweaker::getProjectionData` give the **same** (wrong-looking) matrix, so the terrain uses the same construction as fills — the discrepancy is not the call site. Using UBO index `0` vs `constant.ubo_index` changes nothing.
+- **Next:** determine why this per-tile matrix is ~`10^10` too large for the terrain tiles — check the `ProjectionUBO` C++/GLSL field-layout match, and compare the identical matrix dumped from a *working* fill/background drawable for the same tile. That comparison will show whether the matrix values are actually abnormal or whether the shader reads the UBO with a mismatched layout.
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
