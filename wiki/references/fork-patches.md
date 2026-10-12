@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries twenty-four patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries twenty-six patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -128,11 +128,19 @@ The hand-off was not optional: without it the globe radius grows without bound w
 
 ## Patch 0023 — terrain render pass
 
-`maplibre-native-0023-terrain-render-pass.patch` adds a Vulkan `TerrainShader` (one `float4` vertex attribute: tile xy, world-pixel elevation, hillshade) and a `TerrainPass` that, per DEM tile in the cover, builds a 16×16 grid mesh with CPU-baked elevation + hillshade and draws it with depth, after the flat layers. `UpdateParameters` carries the terrain tileset + exaggeration (resolved from the style's terrain source in `Map::Impl`), and the render orchestrator owns the pass. It **builds and runs** — the style's terrain resolves, the shader is found, DEM tiles fetch/decode, and 100 terrain drawables are built with valid vertices and a valid projection matrix — but the surface **does not appear on screen yet**; the bug is in the raw-vertex attribute binding / terrain shader. See the [log](../log.md). Applies **after** 0022.
+`maplibre-native-0023-terrain-render-pass.patch` adds a Vulkan `TerrainShader` (one `float4` vertex attribute: tile xy, world-pixel elevation, hillshade) and a `TerrainPass` that, per DEM tile in the cover, builds a 16×16 grid mesh with CPU-baked elevation + hillshade and draws it with depth, after the flat layers. `UpdateParameters` carries the terrain tileset + exaggeration (resolved from the style's terrain source in `Map::Impl`), and the render orchestrator owns the pass. It builds and runs; the surface only became visible once 0025 and 0026 fixed the colour-write mask, the projection-UBO consolidation, and the tile matrix. Applies **after** 0022.
 
 ## Patch 0024 — terrain repaint on tile load
 
 `maplibre-native-0024-terrain-repaint-on-tile-load.patch` makes `TerrainTileManager` report DEM tile loads via a callback; the orchestrator turns that into `RendererObserver::onInvalidate` so the map renders again and rebuilds the terrain. Without it (terrain is not a style source) the map stopped after the first few frames and never picked up loaded tiles. Applies **after** 0023.
+
+## Patch 0025 — terrain colour mode and projection UBO timing
+
+`maplibre-native-0025-terrain-colour-and-projection.patch` fixes two things found while debugging the invisible terrain: the terrain drawables used the `DrawableBuilder` default `ColorMode` (`disabled()` = colour write mask all off), so nothing was written — set `unblended()`; and the projection UBO was set in the render pass instead of before the upload pass. Applies **after** 0024.
+
+## Patch 0026 — consolidated projection UBO and tile matrix
+
+`maplibre-native-0026-terrain-consolidated-projection-ubo.patch` makes the terrain **render**: with `MLN_UBO_CONSOLIDATION` (on for Vulkan) the shader reads the **layer group's** shared projection buffer indexed by each drawable's `uboIndex`, which nothing populated — now filled in `TerrainPass::update` (as the layer tweakers' `uploadProjectionUBOs` does), with per-drawable `uboIndex` assigned. It also uses `projMatrix * state.matrixFor(tileID)` (what `LayerTweaker::getProjectionData` composes) as the tile→clip matrix instead of `PaintParameters::projectionDataForTile`. Applies **after** 0025.
 
 ## Regenerating a patch
 

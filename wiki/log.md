@@ -229,3 +229,13 @@ Append-only. One dated entry per generation or refresh run.
 - **C++/GLSL `ProjectionUBO` layouts match** (matrix, fallback_matrix, tile_mercator_coords, clipping_plane, …), so it is not a struct-layout mismatch. The discrepancy is inside the projection-data construction (`TransformState::getProjectionData` → `matrix::multiply(mercatorMatrix, projMatrix, mercatorMatrix)`) — confirm the multiply argument/order convention and which `projMatrix`/`tileMatrix` it actually composes.
 - **Next:** read `matrix::multiply`'s implementation (order of `a`,`b`) and `MercatorProjection::tileMatrix` vs `TransformState::matrixFor`; the terrain's `toProjectionUBO` result should then either match a fill drawable's or reveal the wrong operand.
 - **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
+
+## 2026-10-12 (terrain) — 3D terrain phase 4: it renders
+
+- **The terrain now draws as a shaded elevated surface** (patches **0023**–**0026**; rendered on-device with the Alps/DEM test style). Root cause turned out to be **two** things:
+  1. **UBO consolidation** (`MLN_UBO_CONSOLIDATION` is on for Vulkan): the shader reads the **layer group's** shared projection buffer, indexed by each drawable's `uboIndex`. Terrain never populated it (so the shader read garbage) and every drawable's `uboIndex` stayed 0. Fixed by filling the layer group's projection buffer in `TerrainPass::update` exactly as the layer tweakers' `uploadProjectionUBOs` does, and assigning `drawable.setUBOIndex(i++)`.
+  2. **Wrong tile matrix**: `PaintParameters::projectionDataForTile` returned a matrix that sent tiles off-screen; the correct tile→clip matrix is `projMatrix · state.matrixFor(tileID)` (what `LayerTweaker::getProjectionData` composes for fills, via `multiplyWithProjectionMatrix`).
+- **How it was confirmed:** with the UBO populated, a probe shader output `projection_ubo[...].matrix[0][0]` as colour → `≈357000`, proving the UBO was now read; switching to the `projMatrix · matrixFor(tile)` matrix made the DEM surface appear with hillshading.
+- Earlier fixes along the way: the colour-write mask (`ColorMode::unblended()`, the default `disabled()` writes no colour) and repaint-on-tile-load (patch 0024). Vulkan validation reported no errors throughout — it was never a validation bug.
+- **Next:** phase 5 — drape the map layers (raster/fill/line, then symbols) onto the terrain via per-tile render targets, replacing the current flat-layer-under-terrain look. Then phase 6 (depth pass/occlusion), phase 7 (symbol elevation), phase 8 (globe × terrain).
+- **References:** [Fork patches](./references/fork-patches.md) · [Next steps](./next-steps.md).
