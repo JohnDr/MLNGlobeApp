@@ -349,3 +349,18 @@ Satellite imagery **was draped over the Matterhorn around patch 0029** (`9971e08
 ### Verified pipeline
 A **background-only** terrain style drapes correctly (grey over the relief) — so the drape pipeline works; only the raster content is missing.
 - **References:** [Next steps](./next-steps.md) · [Fork patches](./references/fork-patches.md) · [3D terrain](./concepts/terrain.md).
+
+## 2026-10-13 — raster regression: narrowed (still open)
+
+Instrumented the drape path (temporary `fprintf`s, since removed) and found:
+
+- `TerrainPass::update` runs: `shader=1 demZoom=14 cover=72`.
+- `RenderOrchestrator::renderTerrainDrapeTargets` runs and renders the targets: `toRender=72 targets=72`.
+- The drape target **contains the raster**: `groups=1: 1(d=72)` — the raster layer group is present with 72 drawables.
+- The `drapeLayerIndices` are `{0 1}` (style indices) while `layerGroupsByLayerIndex` is keyed `{1, 2}` — a **key-space mismatch** worth checking, but the raster (group `1`) *is* selected.
+- Yet a **raw drape sample is black** (fragment changed to `texture(drapeSampler, …)` with no shade/tint) — so the raster's drawables produce **no visible content inside the target**, even though the group is present and the target is rendered.
+
+Also fixed: **patch 0034** (`7514f65`) — the per-tile ortho was **y-flipped** (`matrix::ortho` maps its `top` arg to clip +1, but Mercator world-y grows downward); now passes `(ty+s, ty)`. This corrected the drape orientation but did **not** recover the raster.
+
+**Where to look next:** why the raster's drawables draw nothing inside `RenderTarget::render` — the per-tile `projMatrixOverride` reaches `multiplyWithProjectionMatrix`, but the raster's tile drawables may end up off-screen / clipped, or their tile textures aren't ready at target-render time. Bisect `0029` (worked) → `0031`.
+- **References:** [Next steps](./next-steps.md) · [3D terrain](./concepts/terrain.md).

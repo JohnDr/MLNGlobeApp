@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-The fork of MapLibre Native Qt carries thirty-three patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
+The fork of MapLibre Native Qt carries thirty-four patches to the vendored [MapLibre Native](../concepts/maplibre-native.md) core, under `maplibre-native-qt/patches/`. They are applied **idempotently at configure time** by `src/core/CMakeLists.txt` (`git apply --reverse --check` then `git apply`), and `.gitattributes` forces `patches/*.patch` to LF.
 
 ## Patch 0001 — style-spec properties
 
@@ -169,6 +169,10 @@ The hand-off was not optional: without it the globe radius grows without bound w
 ## Patch 0033 — terrain drape tile size
 
 `maplibre-native-0033-terrain-drape-tile-size.patch` drops the per-tile drape targets from 512 to **256 px** — the 512px batch (100+ tiles) exhausted GPU memory (`Vulkan texture allocation failed`, from `texture2d.cpp`). Applies **after** 0032.
+
+## Patch 0034 — terrain drape ortho orientation
+
+`maplibre-native-0034-terrain-drape-ortho-orientation.patch` fixes the per-tile drape ortho: `matrix::ortho` maps its `top` argument to clip `+1`, but Mercator world-y grows downward, so the previous `(ty, ty+s)` order flipped each drape tile vertically — now passes `(ty+s, ty)`. Corrects the drape orientation; does not affect the (still-open) raster capture. Applies **after** 0033.
 
 ## Regenerating a patch
 

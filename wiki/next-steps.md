@@ -63,10 +63,12 @@ Ruled out so far:
 - A **background-only** terrain style drapes fine (grey), so the drape pipeline itself works; only the raster content is missing.
 - `Vulkan texture allocation failed` (`texture2d.cpp`) was fixed by 512→256 px targets (patch **0033**), but the raster still doesn't appear.
 
-Next diagnostics (tomorrow):
-1. Instrument `RenderTarget::render` to log the drawables actually drawn per layer group — is the raster layer group present and rendering into the target?
-2. **Git-bisect the regression**: rebuild at patch `0029` vs `0031` and check whether the raster drapes.
-3. Check the raster layer group's index vs `drapeLayerIndices`, and whether its drawables survive the target render (Ubo consolidation / memory).
+**Session 2026-10-13 results:** instrumented the path — `TerrainPass` runs (`shader=1 demZoom=14 cover=72`); `renderTerrainDrapeTargets` renders (`toRender=72 targets=72`); the drape target **contains the raster** (`groups=1: 1(d=72)`); `drapeLayerIndices={0,1}` vs group keys `{1,2}` (a key-space mismatch). But a **raw drape sample is black** → the raster's drawables produce no visible content in the target. Patch **0034** (`7514f65`) fixed an **ortho y-flip** (`matrix::ortho` maps `top`→+1 but Mercator y grows down) — drape is upright now, but the raster is still missing.
+
+Next diagnostics:
+1. Find why the raster's tile drawables **draw nothing inside `RenderTarget::render`** — off-screen/clipped under the per-tile `projMatrixOverride`, or tile textures not ready at target-render time.
+2. **Git-bisect the regression**: rebuild at patch `0029` (worked) vs `0031`.
+3. Reconcile the `drapeLayerIndices` style indices vs the `layerGroupsByLayerIndex` key space (group `1` = raster?).
 - [ ] Fog/sky at the terrain horizon (after the raster is fixed).
 
 ## Related
