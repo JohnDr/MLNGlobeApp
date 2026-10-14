@@ -531,3 +531,15 @@ At map zoom 14 the drape tiles are `z14`, but the raster drawables are **`z2`** 
 And that coarse tile is **offset**: the drape tile `14/8185/8181` sits at world y `0.499` (inside z2 tile col/row `1/1`), but the rendered raster is `z2` tile `1/2` (its y-range `[0.5,0.75]` doesn’t contain `0.499`) — i.e. one z2 tile (= 4 z14 tiles) south. That is the +4-tile offset, and why the drape is coarse/black.
 
 **So the dominant fault is: the satellite source does not load tiles at the draped detail zoom (stuck at `z0`/`z2`), and the coarse ancestor it does use is offset from the terrain cover.** Next: find why the satellite `z~13/14` tiles aren't requested/loaded in the draped-terrain style (whereas the flat satellite style did render imagery). Diagnostics reverted; both installs rebuilt clean and current.
+
+### Instrumented the raster source (2026-10-14)
+
+Added a probe in `RenderRasterSource::updateInternal` (after `updateTileMasks`) logging the tile pyramid's rendered tiles and `tileset.zoomRange`:
+
+```
+rendered=0 zrange=[0,18]   (every frame, at all zooms)
+```
+
+The zoom range is correct (`[0,18]`), but the source reports **0 rendered tiles** — i.e. no loaded raster tiles — while the raster *layer* earlier reported 79 render tiles. So the satellite source isn't producing loaded tiles in the draped-terrain style. (Caveat: `tilePyramid.getRenderedTiles()` may not be the same set as the layer's `getRenderTiles()`; it read 0 consistently, which is worth re-checking with the exact accessor the layer uses.) Diagnostics reverted; both installs rebuilt clean and current (`LIB_REFRESH_OK`).
+
+**Next:** confirm via the layer's own `getRenderTiles()` whether tiles are present-but-unloaded vs absent, and why the satellite source isn't fetching/keeping detail tiles while draped (tile budget/priority consumed by DEM+terrain, or the source's tiles failing).
