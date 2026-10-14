@@ -606,3 +606,14 @@ With the z-clip fix in place the drape rendered but rotated 180° (labels mirror
 Captured as patch **0037** (`maplibre-native-0037-terrain-drape-uv-orientation.patch`), pushed to fork (`4955ba4`).
 
 **Remaining (smaller, cosmetic):** a visible **tile seam** where adjacent drape tiles meet (one tile's imagery offset from its neighbour) — a per-tile raster/DEM cover alignment issue, separate from orientation.
+
+### Raster/DEM drape cover-alignment investigated (2026-10-14)
+
+The Seam" I chased earlier is **not** a cover bug: with a clean labelled raster (OSM topo) the drape is perfectly aligned at zoom 12 and 14 — roads, rivers and labels run continuous across tile boundaries. The offset "rectangle" seen with **Esri World Imagery** is that imagery's own mosaic/parallax (satellite captures from different angles over mountains), not a code defect.
+
+But the investigation did surface a **real bug**: at **zoom >= 15 the whole drape goes black** (terrain falls back to the hypsometric tint, no imagery). Instrumenting `renderTerrainDrapeTargets` shows:
+
+- zoom 14: `cover=21 targets=21 groups=2 [raster z15=72]` -> correct (raster cover = mapZoom+1, drapes fine).
+- zoom 15: `cover=76 targets=76 groups=2 [raster z2=22]` -> the **raster layer's drawables are stuck at z2** while the DEM cover is z14, so the drape targets render the wrong (empty) content -> black.
+
+So the raster layer's tile cover/drawables are not being rebuilt for zoom 15 (stale z2 from the app's startup zoom). `coveringZoomLevel(15, Raster, 256)` = 16, so the expected zoom is fine — the layer's tiles just aren't updated. This is the "raster/DEM cover misalignment" at high zoom. Next: find why the raster layer's cover doesn't refresh on the final zoom step (the same path works at zoom 14).
