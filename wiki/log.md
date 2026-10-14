@@ -660,3 +660,15 @@ Tried raising the DEM zoom cap (`clamp(floor(zoom)+2, 0, 14)` -> `15`): at zoom 
 - (2) Zoom>=15 drape still empty. Known-good: zoom<=14 (raster cover = DEM cover + 1). Broken: zoom>=15 (raster cover = DEM cover + 2). DEM cap 14 is needed (15 breaks the terrain).
 
 Next hypotheses for (2): the drape target is a fixed **256px** texture per DEM tile, so at zoom 15 a z14 DEM tile is 1024 screen px; the z16 raster cover must be squeezed into that 256px target. Worth checking (a) the raster cover trimming/`buffer_scale` used when drawing into a foreign-zoom target, (b) whether the drape target size should scale with the cover ratio, (c) whether the draped layers should be forced to a cover zoom matching the DEM.
+
+### Zoom>=15 drape — RenderTarget instrumentation (2026-10-14)
+
+Instrumented `RenderTarget::render` (per-target layer groups + drawable counts), plus the drape loop (DEM tiles, raster drawables' tiles, and the two transform states):
+
+- The drape target at zoom 15 is **256x256, 1 layer group (idx=1, raster, n=72)** and renders **fully black** — not even a background group is attached, and the raster group draws nothing.
+- The two transform states **agree** (`parameters.transformParams.state` == `parameters.state`, zoom 15, scale 32768, worldSize 16777216), so the ortho and the tile matrices share a scale.
+- The covers **do overlap**: DEM `14/8544/5827` => z16 x[34176..34179] y[23308..23311], inside the raster cover's z16 range `16/34174..34182 x 23303..23312`.
+
+So the overlapping z16 raster tiles are **present and correctly selected but not drawn** into the z14 target. That localises the fault to the raster drawable's *render inside the drape target* at a 4x cover ratio (2x, at zoom<=14, works) — e.g. its clip position, `origin` translate, or the translucent pass / depth handling in the offscreen target — not to cover selection or the projection composition.
+
+All diagnostics reverted; both installs rebuilt clean.
