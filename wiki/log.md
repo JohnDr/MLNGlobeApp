@@ -617,3 +617,19 @@ But the investigation did surface a **real bug**: at **zoom >= 15 the whole drap
 - zoom 15: `cover=76 targets=76 groups=2 [raster z2=22]` -> the **raster layer's drawables are stuck at z2** while the DEM cover is z14, so the drape targets render the wrong (empty) content -> black.
 
 So the raster layer's tile cover/drawables are not being rebuilt for zoom 15 (stale z2 from the app's startup zoom). `coveringZoomLevel(15, Raster, 256)` = 16, so the expected zoom is fine — the layer's tiles just aren't updated. This is the "raster/DEM cover misalignment" at high zoom. Next: find why the raster layer's cover doesn't refresh on the final zoom step (the same path works at zoom 14).
+
+### Zoom>=15 drape bug — root cause (2026-10-14)
+
+Digging the raster layer's cover path gave the answer. Instrumenting `RenderRasterSource::updateInternal` shows its `parameters.transformState.getZoom()` is **1.323** at map zoom 15 (constant, every frame):
+
+```
+RASTSRC needsRendering=1 zoom=1.323 maxZoom=18
+```
+
+`coveringZoomLevel(1.323, Raster, 256)` = 2, so the raster layer builds only **z2** drawables, while the DEM/terrain cover is z14 -> the drape targets render z2 tiles (unloaded) -> black, and the terrain falls back to the tint.
+
+The stale zoom comes from the **app**: `main.qml`'s `applyCamera()` does `map.easeTo({ pitch: window.mapTilt, bearing: window.mapBearing })` **without a zoom**, and it runs on every style load (the `onStyleLoadedChanged` handler, line ~487). The style load resets the camera, and the re-apply leaves the map's transform at ~1.3 while the QML `map.zoomLevel` still reads 15 — so the QMapLibre/MapLibre transform is at 1.3 for the raster source's cover.
+
+**Fix direction:** make `applyCamera()` (and the terrain-preset camera apply) include the current zoom in `easeTo` — e.g. `map.easeTo({ center: map.coordinate, zoom: map.zoomLevel, pitch, bearing })` — so the camera re-apply keeps the zoom and the raster source's cover matches the DEM cover.
+
+Diagnostics reverted; both installs rebuilt clean.

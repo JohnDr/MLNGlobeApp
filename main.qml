@@ -109,7 +109,7 @@ Window {
     // ---- Camera (tilt / bearing) ------------------------------------------------
     // Apply the tracked tilt + bearing to the map. `animated` eases the change.
     function applyCamera(animated) {
-        map.easeTo({ pitch: window.mapTilt, bearing: window.mapBearing },
+        map.easeTo({ center: map.coordinate, zoom: map.zoomLevel, pitch: window.mapTilt, bearing: window.mapBearing },
                     { duration: animated ? 300 : 0 });
     }
 
