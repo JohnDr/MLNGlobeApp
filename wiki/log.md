@@ -596,3 +596,13 @@ The per-tile drape ortho mapped `z = 0` to the **near plane** (`matrix::ortho(or
 **Residual (separate, smaller):** the draped content is **rotated 180°** (labels read mirrored). Flipping the ortho's x/y did not change it, so the 180° is in the terrain sampling path (`v_uv` / `1 - v_uv.y`), not the ortho. Next: fix the drape orientation.
 
 Both installs rebuilt clean and current. The earlier confusion (cover mismatch, "+4 off-target") was a red herring — covers align at zoom 13; the RenderDoc "off-target" compared vertex positions, not coverage.
+
+### Terrain drape orientation FIXED (2026-10-14)
+
+With the z-clip fix in place the drape rendered but rotated 180° (labels mirrored). Flipping the ortho's x/y did nothing, because the rotation is in the terrain's **texture sampling**, not the projection. The drape render target stores north at `v = 0` (clip `y = +1` → image row 0), exactly what the terrain mesh's `v_uv` already encodes — so the extra `1.0 - v_uv.y` in `terrain.hpp` was a spurious vertical flip that, with the tile image, showed as a 180° rotation.
+
+**Fix:** `texture(drapeSampler, v_uv)` (dropped the `1.0 - v_uv.y`). Verified on-device: the world view is not mirrored, the Alps imagery at zoom 13 is upright, and a tilted CARTO basemap's "API KEY REQUIRED" watermark reads correctly on the draped relief.
+
+Captured as patch **0037** (`maplibre-native-0037-terrain-drape-uv-orientation.patch`), pushed to fork (`4955ba4`).
+
+**Remaining (smaller, cosmetic):** a visible **tile seam** where adjacent drape tiles meet (one tile's imagery offset from its neighbour) — a per-tile raster/DEM cover alignment issue, separate from orientation.
