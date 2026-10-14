@@ -568,3 +568,19 @@ Acted on John's idea to test draping with a **known-good** map:
 So the drape mechanism, the per-tile RTT, the terrain, the projection/ortho, the per-target projection blocks, and the layer-group registration/selection are **all correct**. The **only** component that fails is the **Esri World Imagery raster source**, whose tiles never load in the app (`rendered=0`), so the drape samples an empty/coarse ancestor → black → tint.
 
 **Conclusion:** this is not a terrain-drape bug at all — it is the Esri satellite source failing to load tiles in this environment. Test styles `liberty-terrain.json` and `osm-terrain.json` live in the app repo. Next: why the Esri source's tiles don't load (network/host reachability from the app, user-agent/rate-limit, or response decode), and decide whether to keep Esri or switch the demo's draped-terrain imagery to a working raster.
+
+### Phase 1 result + correction (2026-10-14)
+
+Logged the terrain cover, the raster render-tile cover, and both transform states in one frame at zoom 13:
+
+```
+COVER  z=14 x=[8536..8544] y=[5823..5833] n=79 | uS z=13.000 c=45.97630,7.65860 | rS z=13.000 c=45.97630,7.65860
+RASTER n=79 osZ=14 canonZ=14 x=[8536..8544] y=[5823..5833] stateZoom=13.000
+```
+
+- The **terrain cover and the raster cover are identical** (same zoom, same x/y range), and **both transform states are equal** (same zoom/centre). So there is **no cover mismatch** and no stale-state bug — the earlier hypotheses (H1–H4) are dead.
+- **Correction:** the RenderDoc "all draws off-target" finding was a **misinterpretation** — my script compared *vertex* `gl_Position` to `[-1,1]`, but a coarse/covering tile legitimately has vertices outside that box while its triangle still covers the target. So the `+4` was not proof of a bug; the zoom-22 run (drape z14 vs raster z18) also naturally produces vertices far outside.
+
+Per-draw log for drape target `14/8536/5823` shows the raster group contains **z10 parents** (`533/363 → m12=-17`, which does cover) for the target's un-loaded `z14` tile, plus `z14` tiles at `8539..8541` (`m12=5..9`, offset ~+3 from the target). So the raster's **detail tiles aren't loaded for the target's tile** (a `z10` parent stands in), and the covering parent draw still lands black.
+
+Net: covers align; the raster detail tiles are missing (z10 fallback); and a covering draw still doesn't reach the target. Diagnostics reverted; both installs rebuilt clean and current.
