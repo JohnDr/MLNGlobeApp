@@ -32,6 +32,14 @@ Qt Creator rewrites the `.user` file when the project is saved/closed, so edits 
 
 The app's POST_BUILD step copies the correct QMapLibre runtime next to the executable, so no `PATH` setup is needed. Both **Run** and **Debug** work for both configurations.
 
+## Agent policy
+
+- The **app** is built and run **through Qt Creator** (MCP tools: `switch_build_config` / `build` / `run_project` / `debug`) — never ad-hoc command-line app builds.
+- The **QMapLibre library** (and other dependencies) are built **from the command line** into the canonical trees, not through the MCP.
+- **Handoff guarantee:** before returning, refresh **both** QMapLibre installs when the library changed — `%LOCALAPPDATA%\Temp\opencode\build-libs-both.bat` — then rebuild the app in the config(s) being handed back so the POST_BUILD copy is current. A stale install is why the app aborts with `Cannot assign to non-existent property "terrainExaggeration"`.
+
+This is mirrored in `MapLibreEarth/AGENTS.md` and `maplibre-native-qt/AGENTS.md`, which are loaded every agent session.
+
 ## Related
 
 - [Build (Windows)](./build-windows.md) · [D5](../decisions/d5-debug-release-libraries.md) · [Environment](../architecture/environment.md)

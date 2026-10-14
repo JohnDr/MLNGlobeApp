@@ -364,3 +364,92 @@ Also fixed: **patch 0034** (`7514f65`) — the per-tile ortho was **y-flipped** 
 
 **Where to look next:** why the raster's drawables draw nothing inside `RenderTarget::render` — the per-tile `projMatrixOverride` reaches `multiplyWithProjectionMatrix`, but the raster's tile drawables may end up off-screen / clipped, or their tile textures aren't ready at target-render time. Bisect `0029` (worked) → `0031`.
 - **References:** [Next steps](./next-steps.md) · [3D terrain](./concepts/terrain.md).
+
+## 2026-10-13 — Terrain raster drape: localised (per-target projection UBO not applied)
+
+Continued the raster-drape investigation on-device (Windows/Vulkan, flat/Mercator at the Matterhorn, zoom 13). All instrumentation was reverted; the vendored tree again matches patches 0001–0034 exactly.
+
+**Reproduced:** terrain relief + hypsometric fallback tint (patch **0032**), no satellite imagery.
+
+**Controls run** (each a rebuild + on-device screen capture):
+- A flat (no-terrain) style with the same Esri source renders the Matterhorn perfectly → the raster source/tiles are fine.
+- Drawing the drape targets with the main `projMatrix` in place of the per-tile ortho → imagery appears in every tile.
+- Raster fragment forced to solid magenta → **no** magenta in the drape; setting the offscreen clear colour to red turns the whole drape red. So the terrain samples the target, but the raster writes **nothing**.
+- Magenta + `gl_Position` bypassed (tile coords written straight to clip) → magenta appears. So the raster drawable, the offscreen render pass, and the texture binding all work.
+
+**Conclusion:** the per-tile ortho is numerically correct (a coincident z14 raster tile composes to `clip (-1,1)…(1,-1)`), the raster group is added to each target and `drawables=5 submitted=5` in the translucent pass — but the projection matrix the raster shader reads is **not** the per-target ortho. Leading cause: the consolidated projection SSBO is re-uploaded per tile in the **render phase**, and Vulkan's per-frame buffer windowing (`BufferResource::update`/`updateVulkanBuffer`) drops per-tile updates within one frame; only a frame-stable matrix (the main `projMatrix`) takes effect. This is **not** the assumed 0029→0031 regression: the capture code is byte-identical to patch 0029 apart from the tile size (0033) and the ortho y-flip (0034).
+
+**Next:** confirm with a projection-buffer readback, then fix by giving each drape target its own projection data (per-target UBO/index) or uploading the per-tile matrices in the update phase before the upload pass. See [Next steps](./next-steps.md) and [3D terrain](./concepts/terrain.md).
+
+## 2026-10-13 — Terrain raster drape: readback + per-target projection fix
+
+Follow-up to the localisation above.
+
+**Readback:** dumping the raster layer group's `ProjectionUBO` during the render phase revealed that the group is **transient** in `layerGroupsByLayerIndex` — it is added to each render target in `updateLayers` and then removed from the map by `processChanges`, so at draw time the map looks nearly empty even though the target still holds the group. Code review then confirmed the mechanism: `maxFrames = 1` is forced by the Qt offscreen backend (`vulkan_renderer_backend.cpp`, `initSwapchain()`), so each layer has a single buffer window; `renderTerrainDrapeTargets` re-runs each drape layer's tweaker once per terrain tile within one command buffer, so the per-tile projection uploads collapse to the last write and every target is drawn with the wrong matrix.
+
+**Fix (implemented): per-target projection block.**
+- `PaintParameters::drapeTargetOrdinal` (−1 off-drape); set per tile in `renderTerrainDrapeTargets`.
+- `gfx::UniformBuffer` gains an offset-aware `update(data, size, offset)` (default falls back to a whole-buffer update) plus `contents()`; the Vulkan `UniformBuffer` implements both. `LayerTweaker::uploadProjectionUBOs` takes a `baseElement`.
+- `RasterLayerTweaker` sizes the projection and drawable buffers to `base + drawableCount` and offsets `setUBOIndex`, so each drape target's matrices live in their own block and are selected per draw.
+
+**Verified:** the tweaker path runs on-device (`ordinal=0,1,2…`, `base = ordinal × drawableCount`, distinct per-tile matrices). **Not verified:** the final imagery — in that session the Esri raster tiles (and even a flat raster style) failed to load, so the terrain still showed relief + fallback tint. Re-test with a warm cache.
+
+**Next:** extend the same per-target block layout to the `background`/`fill`/`line`/`color-relief`/`hillshade` tweakers (they share the single-window buffer), then verify the drape end-to-end. See [Next steps](./next-steps.md) and [3D terrain](./concepts/terrain.md).
+
+## 2026-10-13 (later) — Terrain raster drape: shader-side diagnostics
+
+Ran verified shader diagnostics (earlier attempts were invalid — the deployed `QMapLibre.dll` was stale, and a concurrent build left a corrupt `.obj`; both fixed).
+
+**Confirmed:**
+- The raster drawable **does** render into the drape target — bypassing the vertex geometry (`gl_Position = in_position/4096 - 1`) fills the drape with solid magenta. So capture, pipeline, target and bindings are fine.
+- The **per-target projection matrices are delivered** to the shader — colour-coding `projection_ubo[ubo_index].matrix[3].xy` shows a distinct value per tile. The per-target block fix works at the UBO level.
+- With the real matrix the raster is off-target (black); the user observed the imagery **flicker in, then turn green** — i.e. the drape populates then goes empty; the green is the fallback tint (0032) over a black drape, not terrain drawn on top of the map.
+
+**Revised hypothesis:** the drape target is created/rendered (and then **cached black** by the fingerprint) at a moment when the raster layer group is absent from `layerGroupsByLayerIndex` (the transience where `processChanges` removes groups the drape selection depends on). This is a drape-selection/caching bug, probably independent of the projection math.
+
+**State:** both installs rebuilt clean and current (`LIB_REFRESH_OK`); app runtime refreshed; no diagnostics left in the tree.
+
+**Next:** make the drape selection independent of the transient `layerGroupsByLayerIndex` (use the render layers' groups directly), or force a re-render of a drape target when its draped layer groups appear; then re-verify. See [Next steps](./next-steps.md) and [3D terrain](./concepts/terrain.md).
+
+### Corner-placement probe (same day)
+
+Further shader probe: with the raster geometry bypassed (so the drape is visible) the fragment colour encodes `matrix * vec4(8192,8192,0,1)` — the clip-space position of the raster tile's far corner. Result: the drape is mostly **yellow (clip ≈ +1,+1)** with a red strip (clip ≈ +1,−1) at the top. A tile exactly coincident with its drape target should put that corner at **(+1,−1)**. So the per-tile ortho is not placing the raster tile where the target expects — consistent with the real-geometry render landing off-target (black). The normal (non-terrain) raster path is unaffected (user confirmed Esri renders during style switches).
+
+Diagnostics reverted; both installs rebuilt clean and current. Next candidate: re-derive the per-tile ortho against `matrixFor`'s actual y convention (and the raster quad's vertex layout), rather than the current `ortho(tx, tx+s, ty+s, ty)`.
+
+### Shader probes (same day) — what the raster vertex shader sees
+
+With the raster geometry bypassed (so the drape is visible), probing the projection UBO in the vertex shader:
+- `matrix[3].xy` (translation) → a smooth per-tile gradient (per-target blocks are distinct).
+- `matrix[0][0]` (m0, x-scale) → **< 0.1 everywhere** (grey), i.e. a small ortho-like (or zero) value, **not** the camera scale (~1.5).
+- With the **real** `gl_Position` (matrix × pos) the raster is **clipped** (solid-colour fragment shows no drape); with the bypass it fills.
+
+Also confirmed: `mercatorTileMatrix` uses a positive y scale, `matrix::multiply` is column-major `out=a·b`, and `LayerTweaker::multiplyWithProjectionMatrix` **does** honour `projMatrixOverride` — so the derived per-tile ortho is correct on paper, and the tweaker uploads it. Yet the shader's real projection clips the tile.
+
+**Conclusion / next:** the per-target projection block the shader reads is small/ortho-like (possibly empty) yet produces off-range clip coords — needs a GPU capture (RenderDoc; `ENABLE_RENDERDOC_FRAME_CAPTURE` exists) of a drape target pass to see the actual projection buffer contents and the raster draw's push-constant `ubo_index` vs the buffer it indexes. This is beyond what shader-colour probes can resolve.
+
+All diagnostics reverted; both installs rebuilt clean and current; app runtime refreshed.
+
+### Attempted fix + probes (same day) — unresolved
+
+Tried per-target projection blocks: reserve block 0..N−1 for the main pass, and size each layer's projection/drawable buffers **once per frame** to `(drapeTargetCount+1)×drawableCount` (no mid-frame grow). Added `PaintParameters::{drapeTargetOrdinal,drapeTargetCount}`, an offset-aware `gfx::UniformBuffer::update(data,size,offset)` + `contents()`, and `LayerTweaker::uploadProjectionUBOs(baseElement,totalElements)`.
+
+Shader probes (geometry bypassed so the drape is visible):
+- push-constant `ubo_index` is **large** (≥64) → the per-target offset *is* applied to the index.
+- `projection_ubo[ubo_index].matrix[0][0]` (m0) is **< 0.1 everywhere** (grey) — i.e. ~0, not the ~2/s the tweaker computes.
+- the per-vertex clip position from that matrix is **uniformly off-target** (clamped) → with the real `gl_Position` the raster is fully clipped (matches the black drape).
+
+So the tweaker computes a correct ortho, but the block the shader reads comes back ~zero-scale — the disconnect is between the written buffer/block and what the draw actually reads (descriptor range / binding), not the ortho math. A shader-colour probe cannot resolve this; it needs a GPU capture.
+
+**State:** changes left in the tree (sound but insufficient); both installs + app runtime current (`LIB_REFRESH_OK`). Next: RenderDoc **capture of one terrain-drape pass** to inspect the raster draw's projection SSBO contents, descriptors and push constants.
+
+### RenderDoc analysis of a drape frame (2026-10-14)
+
+Captured a full drape frame (`MapLibre.rdc`, 20932 draws, 253 render passes) and analysed it with RenderDoc's embedded Python (`qrenderdoc --python`, reading `GetConstantBlock` / `GetReadWriteResources` / `GetBufferData`).
+
+Findings:
+- **The per-target projection fix works.** Each raster draw's push-constant `ubo_index` = 83, 84, 85, … and the block it indexes holds a valid ortho (`m0=0.000244141`, per-tile `m12/m13`). Blocks 0–8 are zero (reserved for the non-drape pass, not read).
+- **The raster vertex data is correct**: a 4-vertex quad, positions `(0,0)…(8192,8192)`, indices `0,1,2,1,2,3`.
+- **Raster tiles are overzoomed parents.** Logging the drape target key vs the raster drawable's tile: drape tiles are `z14`, raster tiles are `z10` (`drape=14/8536/5823 ← raster=10/533/363`). For the covering tile the composed matrix is **on-target** (`m0=0.00390625`, `m12=-17`, `m13=31` → spans clip x[-17,15], y[-1,31], covering [-1,1]).
+
+So: vertices 0..8192, a covering on-target matrix, and valid blocks — yet the drape target ends up black (terrain paints the fallback tint). The remaining contradiction (quad covers the target but nothing lands in it) could not be resolved from the capture alone; it needs RenderDoc's **Vertex Shader debugger** on a covering draw (e.g. target `14/8536/5823` ← raster `10/533/363`) to read the actual `gl_Position` and whether fragments are generated. Diagnostics reverted; both installs rebuilt clean.

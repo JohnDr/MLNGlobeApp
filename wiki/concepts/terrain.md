@@ -40,7 +40,7 @@ Key code: `src/mln/renderer/terrain_pass.{hpp,cpp}`, `terrain_tile_manager.{hpp,
 - ✅ Terrain renders as a **shaded elevated surface** (flat/Mercator), with a **per-tile RTT drape**.
 - ✅ Symbols stay screen-space; per-tile texture cache in place.
 - ✅ App: a **"3D Terrain (satellite draped)"** map in the Maps list (`terrain-style.json`, Esri World Imagery + AWS terrarium).
-- ⚠️ **OPEN — raster drape regression:** the **satellite raster is not captured into the drape targets** (drape is black; the fallback tint shows). It *was* draped around patch **0029**; broke between **0030–0033**. See [Next steps](../next-steps.md).
+- 🔧 **Raster drape:** the per-tile projection was being written to a single-window per-layer buffer shared by every drape target drawn in one command buffer, so all targets read the last write (→ fallback tint 0032). Fix (2026-10-13, `raster_layer_tweaker`): each target writes its projection into its own buffer block selected per draw via `uboIndex`. **Not yet verified end-to-end** (tile loading was flaky), and the other draped layer tweakers still need the same treatment. See [Next steps](../next-steps.md).
 - 🔶 Globe terrain renders but the mesh needs the globe curvature / pole-capped tessellation. Fog/sky not started.
 
 ## Gotchas learned
@@ -49,3 +49,4 @@ Key code: `src/mln/renderer/terrain_pass.{hpp,cpp}`, `terrain_tile_manager.{hpp,
 - `file://` style URLs need **two** slashes before the Windows drive (`file://C:/...`), not three.
 - The app's empty `terrainSource` (`terrainEnabled` false) calls `clearTerrain()`, which **wipes a style's own `terrain`** — so terrain must be turned on for a terrain style.
 - `mat4` is **double**-backed; cast to `float` for the UBO.
+- **Per-tile drape projection is uploaded in the render phase.** `renderTerrainDrapeTargets` re-runs the layer tweaker once per terrain tile, but on Vulkan the consolidated projection SSBO is windowed/versioned per *frame* (`BufferResource::update`/`updateVulkanBuffer`), so per-tile updates within one frame do not take effect. A frame-stable matrix (the main `projMatrix`) renders; the per-tile ortho does not.

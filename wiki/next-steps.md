@@ -51,26 +51,57 @@ Aerial imagery draped over terrain (the GL JS render-to-texture approach), built
 - [~] **Phase 8 — globe × terrain** (patch **0031**, `d6f6756`): the terrain renders draped on the globe, but the mesh is still the flat grid, so tiles show as overlapping petals with gaps. Needs the globe curvature / pole-capped tessellation. Fog/sky not started.
 - [x] **App**: a "3D Terrain (satellite draped)" map is in the Maps list (`terrain-style.json` = Esri World Imagery + AWS terrarium `raster-dem` + a `terrain` root property). Selecting it switches to flat projection + tilts (app `58c5faf`); the toggle applies only to that style (`c535d31`); built-in maps are merged into a stored list (`7c2f281`); the entry shows (`733a374`).
 
-### ⚠️ RESUME HERE — raster drape regression (blocking the demo)
+### ⚠️ RESUME HERE — raster drape: the per-target projection matrix never reaches the raster draw (2026-10-13)
 
-**The satellite raster layer is no longer captured into the per-tile drape targets.** The drape comes out black, so the hypsometric fallback tint (patch **0032**) shows instead of imagery. The terrain *relief* renders (visible ridges/valleys) — only the imagery is missing.
+**Status:** reproduced and localised. The terrain relief renders; the satellite raster is absent, so the hypsometric fallback tint (patch **0032**) shows instead of imagery. **The drape math and the raster content are not the problem** — the per-target projection matrix never reaches the raster draw.
 
-**This is a regression.** Satellite imagery **was** draped over the Matterhorn around patch **0029** (`9971e08`; style commit `733a374`). It broke between **0030** (symbol elevation) and **0033**.
+Evidence (all on-device, Vulkan, flat/Mercator at the Matterhorn, zoom 13):
+- The raster source and tiles are fine: a flat (no-terrain) style with the same Esri source renders the Matterhorn perfectly.
+- The offscreen path and the raster drawable are fine: forcing the raster fragment to a solid colour and bypassing its projection (writing `gl_Position` directly from tile coords) makes the drape show that colour — so the drawable is submitted, the target is rendered, and `applyDrapeTextures` binds it.
+- The per-tile ortho is numerically **correct**: a z14 raster tile coincident with a z14 drape tile composes to `clip (-1,1)…(1,-1)` (it fills the target).
+- The raster group **is** added to each target and its drawables pass `hasRenderPass(Translucent)` (`drawables=5 submitted=5`).
+- Setting the offscreen clear colour to red turns the whole drape red — the terrain samples the target, but the raster writes **nothing** over it.
+- With `projectTile(…projection UBO…)` → no raster; bypassing the matrix → raster. So **the matrix the shader reads is not the per-target ortho.**
 
-Ruled out so far:
-- `"raster"` **is** in the drape set (`drapeLayerIndices`).
-- `RasterLayerTweaker` uses `getProjectionData`, which **does** honour `PaintParameters::projMatrixOverride` — so it should project into the tile-local target.
-- A **background-only** terrain style drapes fine (grey), so the drape pipeline itself works; only the raster content is missing.
-- `Vulkan texture allocation failed` (`texture2d.cpp`) was fixed by 512→256 px targets (patch **0033**), but the raster still doesn't appear.
+**Leading cause:** the shared raster layer group is rendered once per terrain tile inside `renderTerrainDrapeTargets`, and its consolidated projection UBO is re-uploaded per tile **in the render phase**. On Vulkan the buffer update is windowed/versioned per frame (`BufferResource::update` / `updateVulkanBuffer`), so the per-tile updates do not take effect within one frame — every target is drawn with a stale/first matrix. A frame-stable override (the main `projMatrix`) *does* work, which is why the "main projection" control showed imagery. This also means the earlier "background-only drape works (grey)" may have been the target's clear colour, not a real draw.
 
-**Session 2026-10-13 results:** instrumented the path — `TerrainPass` runs (`shader=1 demZoom=14 cover=72`); `renderTerrainDrapeTargets` renders (`toRender=72 targets=72`); the drape target **contains the raster** (`groups=1: 1(d=72)`); `drapeLayerIndices={0,1}` vs group keys `{1,2}` (a key-space mismatch). But a **raw drape sample is black** → the raster's drawables produce no visible content in the target. Patch **0034** (`7514f65`) fixed an **ortho y-flip** (`matrix::ortho` maps `top`→+1 but Mercator y grows down) — drape is upright now, but the raster is still missing.
+**Not the assumed regression:** the drape capture code is byte-identical between patch **0029** and HEAD except the tile size (0033) and the ortho y-flip (0034), so a 0029→0031 bisect is unlikely to isolate it. Layer selection (`drapeLayerIndices`) also checks out — the raster group is included either way.
 
-Next diagnostics:
-1. Find why the raster's tile drawables **draw nothing inside `RenderTarget::render`** — off-screen/clipped under the per-tile `projMatrixOverride`, or tile textures not ready at target-render time.
-2. **Git-bisect the regression**: rebuild at patch `0029` (worked) vs `0031`.
-3. Reconcile the `drapeLayerIndices` style indices vs the `layerGroupsByLayerIndex` key space (group `1` = raster?).
+**Readback (2026-10-13):** dumping the projection UBO during the render phase showed the layer group is **transient** in `layerGroupsByLayerIndex` (added to each render target in `updateLayers`, then removed from the map by `processChanges`), so a naive map read-back is misleading for the draw phase — but the mechanism is otherwise confirmed: one command buffer + one single-window buffer per layer, with per-tile re-uploads collapsing to the last write.
+
+**Fix (implemented 2026-10-13, `raster_layer_tweaker`):** each drape target now writes its projection (and drawable UBO) into its **own block** of the shared buffer, selected per draw via `uboIndex`.
+- `PaintParameters::drapeTargetOrdinal` (set per tile in `renderTerrainDrapeTargets`, reset to `-1`); tweaker computes `base = ordinal × drawableCount`.
+- New offset-aware `gfx::UniformBuffer::update(data, size, offset)` (+ `contents()`) with a Vulkan implementation; `LayerTweaker::uploadProjectionUBOs` takes a `baseElement`.
+- `RasterLayerTweaker` sizes the projection/drawable buffers to `base + drawableCount` and offsets `setUBOIndex`.
+- The tweaker path was verified on-device (`ordinal=0,1,2…`, `base=ordinal×count`, distinct per-tile matrices).
+
+**Verification inconclusive:** in that session the Esri raster tiles — and even a flat raster style — failed to load, so the terrain still showed relief + fallback tint. Re-test with a warm tile cache / stable network.
+
+**Revision (2026-10-13, later):** verified shader-side, the raster **does** render into the drape target (solid magenta with geometry bypassed) and the **per-target matrices are delivered** (colour-coded matrix differs per tile). With the real matrix the raster is off-target/black, and the user saw imagery **flicker in then turn green** — the drape populates then goes empty (green = fallback tint over a black drape). **Leading hypothesis now:** the drape target is created/rendered (and cached black by the fingerprint) while the raster layer group is absent from the transient `layerGroupsByLayerIndex` — a drape-selection/caching bug, likely independent of the projection math. Next: make the drape selection read the render layers' groups directly, or force a re-render when a draped group appears.
+
+**Also:** apply the per-target block layout to the other draped tweakers (`background`/`fill`/`line`/`color-relief`/`hillshade`) once the selection bug is fixed — only `raster` is converted so far.
 - [ ] Fog/sky at the terrain horizon (after the raster is fixed).
 
 ## Related
 
 - [History](./history.md) · [Wiki log](./log.md) · [Decisions](./decisions/index.md)
+
+## RenderDoc vertex-debugger — exact steps (next session)
+
+Capture to use: `C:\Users\JohnD\OneDrive\Pictures\MapLibre.rdc` (a full drape frame, 20932 draws, 253 passes).
+
+**Where we are:** the per-target projection fix is proven working — each raster draw pushes `ubo_index` 83, 84, … and the block it indexes holds a valid ortho (`m0=0.000244`, per-tile `m12/m13`); the raster quad is a real 4-vertex quad `(0,0)…(8192,8192)`; for the covering tile (drape `14/8536/5823` ← raster parent `10/533/363`) the composed matrix spans clip x[-17,15], y[-1,31] — it contains [-1,1]. Yet the drape target ends black. One GPU step left.
+
+1. Open the capture in qrenderdoc.
+2. **Fastest check** — Texture Viewer on the **first** render pass (a 256×256 drape target): is it **black** or imagery?
+   - black → the raster draw isn't writing → step 3
+   - imagery → the raster wrote; the fault is the terrain sampling the wrong texture → step 5
+3. Select that pass's draw → **Pipeline State**:
+   - **Viewport/Scissors**: viewport must be 256×256 and the **scissor** must cover it (a 0×0 / main-window scissor culls everything).
+   - **Rasterizer**: cull mode (expect *No culling*).
+   - **Depth/Stencil**: enabled? compare op?
+   - **Mesh Output → VS Output**: read the 4 `gl_Position` values (expect ≈ `(-17,31)`, `(15,31)`, `(-17,-1)`, `(15,-1)`, `w=1`).
+4. If `gl_Position` looks right but the target is black: right-click the draw → **Debug → Vertex Shader**, pick vertex 0, step to the end of `main()`, read `gl_Position`.
+5. If step 2 said **imagery**: open the **main pass** (last render pass, to the swapchain), select the **terrain draw** → **Pipeline State → Read-only Resources** → the bound 256×256 `Texture2D` — does it match the drape target from step 2? If it's a different/black texture, `applyDrapeTextures` is binding the wrong tile.
+
+**Report back:** step 2 (black/imagery); and from step 3 the 4 `gl_Position`, the viewport/scissor and the cull mode.
