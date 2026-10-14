@@ -472,3 +472,19 @@ RenderDoc mesh output (confirmed): `gl_Position` = `(7,7)…(9,9)` → the raste
 Paired CPU log (drape target key vs raster drawable `tileID`) at a low-zoom state (drape `z3`, raster `z0`/`z2`): the raster group does contain a covering drawable (`canon=0/0/0 wrap=0 → m0=0.00195 m12=-1 m13=1`, i.e. on-target), plus wrapped copies (`wrap=-1/+1 → m12=-17/+15`) and a `z2` tile. So placement *can* be correct — yet the drape is still the flat tint, and the raster is loaded only at `z0`/`z2` (whole-world/coarse) while the drape is `z3`. So two things stack: (1) an intermittent per-tile offset (the capture's +4), and (2) the raster being barely loaded / its covering texture not contributing.
 
 Diagnostics reverted; both installs rebuilt clean and current (`LIB_REFRESH_OK`).
+
+### PRIMARY BUG FOUND — raster layer registers no group at the draping zoom (2026-10-14)
+
+Drove the app to the failing state (wheel-zoom to zoom 13, flat, Matterhorn) and logged the layer-group inventory during the drape selection:
+
+```
+GROUPS n=1 drapeIdx=0,1, | 2:org.maplibre.annotations.points(d=0)
+```
+
+So during draping at zoom 13, `layerGroupsByLayerIndex` contains **only the annotation group (index 2)**. The **satellite raster group (index 1) is not present at all**, while `drapeLayerIndices = {0, 1}`. (Background index 0 is legitimately absent on flat Mercator — `backgroundLayerAsColor` → clear color.)
+
+Consequence: the drape selection adds no raster group to any target → every drape target is empty/black → the terrain shows the fallback tint. This is why the raster tweaker never ran in the drape (only TARGET lines appeared in the log).
+
+So the dominant fault is **not** the projection/ortho: the raster layer produces **no render layer group** at this zoom (its `RenderRasterLayer::update` creates the group only when `renderTiles` is non-empty — so the source has no render tiles here, or the group isn't registered). Earlier, at zoom 1.3 (globe), the raster *was* present (z0/z2 tiles) — so this is zoom/coverage dependent.
+
+**Next:** find why the satellite source yields no render tiles at the flat detail zoom (source coverage/zoom vs the draped style), and ensure the raster group is registered and thus draped. The intermittent +4-tile projection offset is secondary (it can only matter once the raster is actually draped).
