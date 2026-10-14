@@ -488,3 +488,14 @@ Consequence: the drape selection adds no raster group to any target → every dr
 So the dominant fault is **not** the projection/ortho: the raster layer produces **no render layer group** at this zoom (its `RenderRasterLayer::update` creates the group only when `renderTiles` is non-empty — so the source has no render tiles here, or the group isn't registered). Earlier, at zoom 1.3 (globe), the raster *was* present (z0/z2 tiles) — so this is zoom/coverage dependent.
 
 **Next:** find why the satellite source yields no render tiles at the flat detail zoom (source coverage/zoom vs the draped style), and ensure the raster group is registered and thus draped. The intermittent +4-tile projection offset is secondary (it can only matter once the raster is actually draped).
+
+### Source side is fine — raster is loaded, registered, selected (2026-10-14)
+
+Instrumented `RenderRasterLayer::update` and the drape selection at zoom 13 (flat, Matterhorn):
+- `update id=satellite zoom=13.00 globe=0 renderTiles=79 imageData=0 layerGroup=1` → the satellite source **is loaded** (79 render tiles) and its layer group exists.
+- `GROUPS n=2 drapeIdx=0,1, | 1:satellite(d=79) 2:org.maplibre.annotations.points(d=0)` → the satellite group **is registered** and **is selected** for the drape.
+- Raster drawables at zoom 13 are `z14` (same zoom as the drape `z14`); for the matching tile the composed matrix is on-target (`m12=-1`).
+
+So the earlier "raster group absent" was a **logging-cap artifact** (the log ran before the tiles had loaded). The source, registration, selection and tile alignment are all correct — **yet the drape is still the flat tint.**
+
+That leaves only the raster **draw** itself (the RenderDoc capture caught one frame where `gl_Position` was `(7..9)` off-target — an intermittent projection offset) or the raster texture/binding in the offscreen pass. Diagnostics reverted; both installs rebuilt clean and current (`LIB_REFRESH_OK`).
