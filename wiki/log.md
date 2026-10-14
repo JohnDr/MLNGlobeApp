@@ -557,3 +557,14 @@ Everything is correct — tile size 256, map zoom 13, zoom range `[0,18]` — bu
 Combined with everything else (projection, per-target blocks, group registration, selection all verified correct), the whole bug reduces to: **the satellite raster never loads its tiles while the terrain is draped**, so the drape gets a coarse/empty ancestor → black → tint. The `+4`-tile offset seen earlier is just the coarse `z2` ancestor being misaligned with the terrain cover.
 
 **This is a tile-loading problem, not a rendering-math problem.** Next: find why the satellite source doesn't load tiles while draped — check whether the tile requests are issued and fail (network/HTTP), or are starved/evicted by the DEM+terrain tile budget. Diagnostics reverted; both installs rebuilt clean and current.
+
+### BREAKTHROUGH: the drape works — the fault is the Esri satellite source (2026-10-14)
+
+Acted on John's idea to test draping with a **known-good** map:
+
+1. **Liberty (vector) + DEM + terrain** — built `liberty-terrain.json` (Liberty style + the AWS terrarium `dem` source + `terrain`). Result: **renders perfectly draped** — roads, labels, lakes and shading all conform to the 3D relief at pitch 81°.
+2. **OSM raster + DEM + terrain** — `osm-terrain.json` (terrain-style with the satellite URL swapped to `tile.openstreetmap.org`). Result: **renders perfectly draped** (Matterhorn/glaciers draped over the relief).
+
+So the drape mechanism, the per-tile RTT, the terrain, the projection/ortho, the per-target projection blocks, and the layer-group registration/selection are **all correct**. The **only** component that fails is the **Esri World Imagery raster source**, whose tiles never load in the app (`rendered=0`), so the drape samples an empty/coarse ancestor → black → tint.
+
+**Conclusion:** this is not a terrain-drape bug at all — it is the Esri satellite source failing to load tiles in this environment. Test styles `liberty-terrain.json` and `osm-terrain.json` live in the app repo. Next: why the Esri source's tiles don't load (network/host reachability from the app, user-agent/rate-limit, or response decode), and decide whether to keep Esri or switch the demo's draped-terrain imagery to a working raster.
