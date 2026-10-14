@@ -648,3 +648,15 @@ So the camera fix **works** — the raster source's transform is now the map zoo
 So two fixes are needed: (1) the app camera fix (done, `e367b01`), and (2) the drape must handle a draped-layer cover zoom that is *coarser/finer* than the per-tile DEM cover — the raster tiles at z16 drawn into a z14 DEM drape target need their projection/UV to account for the 4x tile-zoom difference.
 
 Both library diagnostics reverted; both installs rebuilt clean.
+
+### Zoom>=15 drape — cap experiment + status (2026-10-14)
+
+Checked the projection path: `TransformState::getProjectionData(tileID, projMatrix)` = `projMatrix * tileMatrix(tileID, scale)`, i.e. tile-local -> world -> clip, which is correct for any `tileID` zoom, so the raster z16 quads are placed correctly in the z14 drape target. So the empty drape is not a projection composition bug.
+
+Tried raising the DEM zoom cap (`clamp(floor(zoom)+2, 0, 14)` -> `15`): at zoom 15 this made it **worse** — the terrain rendered only a **corner sliver** (the DEM z15 cover is largely empty/off for this source), so the cap is reverted to 14.
+
+**Status:**
+- (1) App camera fix (`applyCamera` keeps center+zoom): **done, verified** (`e367b01`) — raster source zoom is now 15.000, raster cover z16.
+- (2) Zoom>=15 drape still empty. Known-good: zoom<=14 (raster cover = DEM cover + 1). Broken: zoom>=15 (raster cover = DEM cover + 2). DEM cap 14 is needed (15 breaks the terrain).
+
+Next hypotheses for (2): the drape target is a fixed **256px** texture per DEM tile, so at zoom 15 a z14 DEM tile is 1024 screen px; the z16 raster cover must be squeezed into that 256px target. Worth checking (a) the raster cover trimming/`buffer_scale` used when drawing into a foreign-zoom target, (b) whether the drape target size should scale with the cover ratio, (c) whether the draped layers should be forced to a cover zoom matching the DEM.
