@@ -543,3 +543,17 @@ rendered=0 zrange=[0,18]   (every frame, at all zooms)
 The zoom range is correct (`[0,18]`), but the source reports **0 rendered tiles** — i.e. no loaded raster tiles — while the raster *layer* earlier reported 79 render tiles. So the satellite source isn't producing loaded tiles in the draped-terrain style. (Caveat: `tilePyramid.getRenderedTiles()` may not be the same set as the layer's `getRenderTiles()`; it read 0 consistently, which is worth re-checking with the exact accessor the layer uses.) Diagnostics reverted; both installs rebuilt clean and current (`LIB_REFRESH_OK`).
 
 **Next:** confirm via the layer's own `getRenderTiles()` whether tiles are present-but-unloaded vs absent, and why the satellite source isn't fetching/keeping detail tiles while draped (tile budget/priority consumed by DEM+terrain, or the source's tiles failing).
+
+### Raster source: 0 loaded tiles at the correct zoom (2026-10-14)
+
+Logged `RenderRasterSource::updateInternal` at map zoom 13:
+
+```
+tileSize=256 zoom=13.00 zoomRange=[0,18] rendered=0
+```
+
+Everything is correct — tile size 256, map zoom 13, zoom range `[0,18]` — but the source has **zero rendered/loaded tiles**. So the satellite tiles are *requested* (the raster layer previously reported 79 render tiles) but **not loading** in the draped-terrain style.
+
+Combined with everything else (projection, per-target blocks, group registration, selection all verified correct), the whole bug reduces to: **the satellite raster never loads its tiles while the terrain is draped**, so the drape gets a coarse/empty ancestor → black → tint. The `+4`-tile offset seen earlier is just the coarse `z2` ancestor being misaligned with the terrain cover.
+
+**This is a tile-loading problem, not a rendering-math problem.** Next: find why the satellite source doesn't load tiles while draped — check whether the tile requests are issued and fail (network/HTTP), or are starved/evicted by the DEM+terrain tile budget. Diagnostics reverted; both installs rebuilt clean and current.
