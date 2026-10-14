@@ -499,3 +499,19 @@ Instrumented `RenderRasterLayer::update` and the drape selection at zoom 13 (fla
 So the earlier "raster group absent" was a **logging-cap artifact** (the log ran before the tiles had loaded). The source, registration, selection and tile alignment are all correct — **yet the drape is still the flat tint.**
 
 That leaves only the raster **draw** itself (the RenderDoc capture caught one frame where `gl_Position` was `(7..9)` off-target — an intermittent projection offset) or the raster texture/binding in the offscreen pass. Diagnostics reverted; both installs rebuilt clean and current (`LIB_REFRESH_OK`).
+
+### RenderDoc Python works — all drape draws are off-target by +4 tiles (2026-10-14)
+
+Confirmed the RenderDoc Python route: RenderDoc 1.46 embeds Python 3.8 (`python38.dll`) and my scripts run via `qrenderdoc --python <script> <capture>` (no external Python / `renderdoc.pyd` needed). Read the **post-vertex-shader `gl_Position`** for the first 200 drape draws in `MapLibre.rdc` (`GetPostVSData(0,0,VSOut)` → mesh format → `GetBufferData`):
+
+```
+draw 681 gl_Pos=(7.000, 7.000, -0.001, 1.000)  off
+draw 690 gl_Pos=(7.000, 9.000, ...)              off
+draw 699 gl_Pos=(7.000, 11.000, ...)             off
+...
+SUMMARY on-target=0 off-target=200
+```
+
+**Every drape raster draw is off-target** (none within `[-1,1]`); the tiles project to a grid starting at `(7,7)` stepping by 2. So the whole raster cover is shifted **+8 clip = +4 tiles** in x *and* y relative to the terrain cover — no raster tile covers any drape target, so every target is clipped black and the terrain paints the fallback tint.
+
+Combined with the earlier verifications (source loaded, group registered/selected, per-target projection blocks correct), the single remaining fault is this **systematic +4-tile offset between the raster cover and the terrain cover** (both `z14` at zoom 13). Next: log the terrain-cover tile (`terrainPass.getCover()`, what the ortho is built from) side-by-side with the raster drawable's `tileID` for the same drape target and find the origin of the +4.
