@@ -584,3 +584,15 @@ RASTER n=79 osZ=14 canonZ=14 x=[8536..8544] y=[5823..5833] stateZoom=13.000
 Per-draw log for drape target `14/8536/5823` shows the raster group contains **z10 parents** (`533/363 → m12=-17`, which does cover) for the target's un-loaded `z14` tile, plus `z14` tiles at `8539..8541` (`m12=5..9`, offset ~+3 from the target). So the raster's **detail tiles aren't loaded for the target's tile** (a `z10` parent stands in), and the covering parent draw still lands black.
 
 Net: covers align; the raster detail tiles are missing (z10 fallback); and a covering draw still doesn't reach the target. Diagnostics reverted; both installs rebuilt clean and current.
+
+### ROOT CAUSE FOUND + FIXED — the drape works (2026-10-14)
+
+The per-tile drape ortho mapped `z = 0` to the **near plane** (`matrix::ortho(ortho, tx, tx+s, ty+s, ty, -1.0, 1.0)` → `z_clip = 0`). Every raster/fill/line drawable has `enableDepth = true` (default), so `LayerTweaker::multiplyWithProjectionMatrix` applies a per-drawable depth offset: `projMatrix[14] -= K`. That pushes `z_clip = -K < 0` — and **Vulkan clips `z < 0`**, so *every* drape draw was discarded (leaving the clear colour → the patch-0032 fallback tint). This is exactly why the controls behaved as they did: bypassing `gl_Position` (writing `z = 0` directly) drew, and the main (perspective) projection — whose z is not at the near plane — worked.
+
+**Fix:** map the tile's `z = 0` into the middle of the clip range so the depth offset keeps `z ∈ [0,1]`: `matrix::ortho(ortho, tx, tx + s, ty + s, ty, -1.5, 0.5)` (→ `z_clip = 0.5`).
+
+**Result:** the terrain now renders with the draped layers — verified on-device at zoom 13 with `osm-terrain-style.json` (roads, lakes, labels, shading all conform to the relief) and at low zoom (world draped).
+
+**Residual (separate, smaller):** the draped content is **rotated 180°** (labels read mirrored). Flipping the ortho's x/y did not change it, so the 180° is in the terrain sampling path (`v_uv` / `1 - v_uv.y`), not the ortho. Next: fix the drape orientation.
+
+Both installs rebuilt clean and current. The earlier confusion (cover mismatch, "+4 off-target") was a red herring — covers align at zoom 13; the RenderDoc "off-target" compared vertex positions, not coverage.
