@@ -453,3 +453,22 @@ Findings:
 - **Raster tiles are overzoomed parents.** Logging the drape target key vs the raster drawable's tile: drape tiles are `z14`, raster tiles are `z10` (`drape=14/8536/5823 ← raster=10/533/363`). For the covering tile the composed matrix is **on-target** (`m0=0.00390625`, `m12=-17`, `m13=31` → spans clip x[-17,15], y[-1,31], covering [-1,1]).
 
 So: vertices 0..8192, a covering on-target matrix, and valid blocks — yet the drape target ends up black (terrain paints the fallback tint). The remaining contradiction (quad covers the target but nothing lands in it) could not be resolved from the capture alone; it needs RenderDoc's **Vertex Shader debugger** on a covering draw (e.g. target `14/8536/5823` ← raster `10/533/363`) to read the actual `gl_Position` and whether fragments are generated. Diagnostics reverted; both installs rebuilt clean.
+
+### RenderDoc vertex output — root cause found (2026-10-14)
+
+Inspected `Colour Pass #1` (the first drape target, a 256×256 offscreen colour attachment) in `MapLibre.rdc`:
+- The target is **black**.
+- Viewport = `(0,0,256,256)`, scissor = `(0,0,256,256)` — correct.
+- The raster draw's mesh output: VS input `in_position` = `(0,0)…(8192,8192)`; VS output **`gl_Position` = `(7,7)…(9,9)`** (w=1).
+
+So the raster quad is projected to clip `(7..9, 7..9)` — **entirely off-target** (needs `[-1,1]`) → clipped → black. The offset is exactly **+8 clip = +4 tiles** in both x and y at the same zoom. That is why every drape target is black and the terrain shows the fallback tint.
+
+**Root cause:** the per-tile ortho (built from the drape target's tile) and the raster drawable's `matrixFor(tileID)` disagree by ~4 tiles — they don't share the same tile reference. Next: log the drape target key alongside the raster drawable's `tileID` canonical for the same pass to see the exact offset, then reconcile (cover tile coords / wrap / overscale).
+
+### Paired tile log + text (follow-up)
+
+RenderDoc mesh output (confirmed): `gl_Position` = `(7,7)…(9,9)` → the raster quad is +4 tiles off its drape target in that frame → clipped → target black. Push constant `length=4`, viewport/scissor `256×256` (correct).
+
+Paired CPU log (drape target key vs raster drawable `tileID`) at a low-zoom state (drape `z3`, raster `z0`/`z2`): the raster group does contain a covering drawable (`canon=0/0/0 wrap=0 → m0=0.00195 m12=-1 m13=1`, i.e. on-target), plus wrapped copies (`wrap=-1/+1 → m12=-17/+15`) and a `z2` tile. So placement *can* be correct — yet the drape is still the flat tint, and the raster is loaded only at `z0`/`z2` (whole-world/coarse) while the drape is `z3`. So two things stack: (1) an intermittent per-tile offset (the capture's +4), and (2) the raster being barely loaded / its covering texture not contributing.
+
+Diagnostics reverted; both installs rebuilt clean and current (`LIB_REFRESH_OK`).
