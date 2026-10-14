@@ -633,3 +633,18 @@ The stale zoom comes from the **app**: `main.qml`'s `applyCamera()` does `map.ea
 **Fix direction:** make `applyCamera()` (and the terrain-preset camera apply) include the current zoom in `easeTo` — e.g. `map.easeTo({ center: map.coordinate, zoom: map.zoomLevel, pitch, bearing })` — so the camera re-apply keeps the zoom and the raster source's cover matches the DEM cover.
 
 Diagnostics reverted; both installs rebuilt clean.
+
+### Zoom>=15 drape — part 2: the source-zoom fix is necessary but not sufficient (2026-10-14)
+
+Applied the `applyCamera` fix (center+zoom in `easeTo`), rebuilt the **app** via Qt Creator (the QML is compiled in via `qt_add_qml_module`, so an app rebuild is required), and re-instrumented:
+
+```
+RASTSRC zoom=15.000     (was 1.323)
+DRAPE cover=11 targets=11 [raster z16=72]   (was z2)
+```
+
+So the camera fix **works** — the raster source's transform is now the map zoom, and the raster layer builds **z16** drawables (correct for zoom 15). **But the drape is still empty** at zoom 15, so there is a *second* issue: the raster cover (z16) exceeds the DEM cover (DEM zoom is hard-capped at `clamp(floor(zoom)+2, 0, 14)` = 14). At zoom 14 the raster cover was z15 vs DEM z14 (2x) and draped fine; at zoom 15 it's z16 vs z14 (4x) and the drape renders empty.
+
+So two fixes are needed: (1) the app camera fix (done, `e367b01`), and (2) the drape must handle a draped-layer cover zoom that is *coarser/finer* than the per-tile DEM cover — the raster tiles at z16 drawn into a z14 DEM drape target need their projection/UV to account for the 4x tile-zoom difference.
+
+Both library diagnostics reverted; both installs rebuilt clean.
