@@ -515,3 +515,19 @@ SUMMARY on-target=0 off-target=200
 **Every drape raster draw is off-target** (none within `[-1,1]`); the tiles project to a grid starting at `(7,7)` stepping by 2. So the whole raster cover is shifted **+8 clip = +4 tiles** in x *and* y relative to the terrain cover — no raster tile covers any drape target, so every target is clipped black and the terrain paints the fallback tint.
 
 Combined with the earlier verifications (source loaded, group registered/selected, per-target projection blocks correct), the single remaining fault is this **systematic +4-tile offset between the raster cover and the terrain cover** (both `z14` at zoom 13). Next: log the terrain-cover tile (`terrainPass.getCover()`, what the ortho is built from) side-by-side with the raster drawable's `tileID` for the same drape target and find the origin of the +4.
+
+### Root cause: satellite raster is stuck at z2 (detail tiles not loading) (2026-10-14)
+
+Logged the terrain-cover tile vs the raster drawable's `tileID` for the first four drape targets across zoom levels (drove the app's zoom button to get to detail zoom):
+
+```
+zoom 12  drape=12/2041/2037…  raster=2/1/2 osZ=2  m0=0.25  m12=-2035
+zoom 13  drape=13/4089/4085…  raster=2/1/2 osZ=2  m0=0.5   m12=-4083
+zoom 14  drape=14/8185/8181…  raster=2/1/2 osZ=2  m0=1     m12=-8179
+```
+
+At map zoom 14 the drape tiles are `z14`, but the raster drawables are **`z2`** (world-size) — the satellite source is falling back to a very coarse ancestor, **not loading detail tiles**. `m0=1` confirms the 12-zoom gap.
+
+And that coarse tile is **offset**: the drape tile `14/8185/8181` sits at world y `0.499` (inside z2 tile col/row `1/1`), but the rendered raster is `z2` tile `1/2` (its y-range `[0.5,0.75]` doesn’t contain `0.499`) — i.e. one z2 tile (= 4 z14 tiles) south. That is the +4-tile offset, and why the drape is coarse/black.
+
+**So the dominant fault is: the satellite source does not load tiles at the draped detail zoom (stuck at `z0`/`z2`), and the coarse ancestor it does use is offset from the terrain cover.** Next: find why the satellite `z~13/14` tiles aren't requested/loaded in the draped-terrain style (whereas the flat satellite style did render imagery). Diagnostics reverted; both installs rebuilt clean and current.
