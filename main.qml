@@ -109,6 +109,8 @@ Window {
     // ---- Camera (tilt / bearing) ------------------------------------------------
     // Apply the tracked tilt + bearing to the map. `animated` eases the change.
     function applyCamera(animated) {
+        // Keep center + zoom: a style load resets the camera, and an easeTo without zoom leaves the map's
+        // transform at a stale, low zoom (the draped raster source then builds its tile cover at z2).
         map.easeTo({ center: map.coordinate, zoom: map.zoomLevel, pitch: window.mapTilt, bearing: window.mapBearing },
                     { duration: animated ? 300 : 0 });
     }
