@@ -82,6 +82,38 @@ Evidence (all on-device, Vulkan, flat/Mercator at the Matterhorn, zoom 13):
 **Also:** apply the per-target block layout to the other draped tweakers (`background`/`fill`/`line`/`color-relief`/`hillshade`) once the selection bug is fixed — only `raster` is converted so far.
 - [ ] Fog/sky at the terrain horizon (after the raster is fixed).
 
+## RESUME HERE — 3D terrain drape (2026-10-14)
+
+The section above (2026-10-13 "per-target projection matrix never reaches the raster draw") is **superseded** — that was a red herring (the raster does render into the target). Current state follows.
+
+### Done and verified this session
+
+1. **The original "no imagery" root cause (fixed, patch 0036 / fork `6037bd2`).** The per-tile drape ortho mapped the tile's `z = 0` to the **near plane**; `LayerTweaker::multiplyWithProjectionMatrix` then applies a per-drawable depth offset (`projMatrix[14] -= K`), pushing `z_clip < 0`, and **Vulkan clips `z < 0`** — so *every* drape draw was discarded (leaving the patch-0032 fallback tint). Fix: `matrix::ortho(ortho, tx, tx+s, ty+s, ty, -1.5, 0.5)` (tile `z` → `0.5`). Imagery now drapes over the relief — verified zoom 12/14.
+2. **Orientation (fixed, patch 0037 / fork `4955ba4`).** The drape target stores north at `v = 0`, exactly what the terrain mesh's `v_uv` encodes, so the extra `1.0 - v_uv.y` in `terrain.hpp` was a spurious flip (rendered as a 180° rotation). Fix: `texture(drapeSampler, v_uv)`. Verified (world not mirrored, Alps upright, tilted CARTO watermark text reads correctly).
+3. **App camera reset (fixed, MapLibreEarth `e367b01`).** `main.qml`'s `applyCamera()` ran `map.easeTo({pitch, bearing})` **without a zoom** on every style load; a style load resets the camera, so the map's transform was left at ~1.323 while the QML `map.zoomLevel` read 15 — and the raster source's tile cover collapsed to **z2**. Fix: include `center` + `zoom` in the `easeTo`. Verified: raster source zoom now `15.000`, raster cover **z16**. **The app QML is compiled in (`qt_add_qml_module`), so an app rebuild via Qt Creator is required for QML changes to take effect.**
+
+### Open — drape empty at zoom >= 15
+
+- Works at zoom <= 14; **empty (fallback tint) at zoom >= 15**.
+- Raster cover is `DEM zoom + 2` at zoom 15 (raster z16 vs DEM z14); DEM zoom is hard-capped at `clamp(floor(zoom)+2, 0, 14)` (raising the cap to 15 made terrain *worse* — a corner sliver — so the cap stays 14).
+- Instrumentation (`RenderTarget::render`, drape loop): each drape target is **256x256, 1 layer group (idx=1, raster, n=72), renders fully black**; the two transform states **agree** (zoom 15, scale 32768); the **covers overlap correctly** (DEM `14/8544/5827` => z16 x[34176..34179] y[23308..23311], inside the raster cover range 34174..34182 x 23303..23312).
+- **Conclusion:** the overlapping z16 raster tiles are present and correctly selected but **not drawn** into the z14 target — the fault is in the raster drawable's *render inside the offscreen drape target at a 4x cover ratio* (2x works), not cover selection or projection composition.
+
+### Next step (tomorrow)
+
+Instrument the raster drawable's render inside one drape target at zoom 15:
+1. Log the raster drawable's computed projection matrix / clip range for one target (is the quad off-clip?). Suspect: the `origin` translate in `LayerTweaker::getTileMatrix`, or `translateVtxMatrix` world-wrap handling when the raster tile z differs from the DEM tile z.
+2. Or read back a target's pixels (e.g. via a debug blit) to confirm black vs imagery.
+3. Check the **translucent pass + depth** handling in the offscreen target (raster is `DepthMaskType::ReadOnly`; the target may have no depth buffer) — compare with the working zoom<=14 path.
+4. Check the attached layer-group set (only idx 1 was attached — no background group; is that expected?).
+
+### Environment reminders
+
+- Library builds: `%LOCALAPPDATA%\Temp\opencode\build-libs-both.bat` (prints `LIB_REFRESH_OK`); Release install `C:\hda\dev\tmp\install\maplibre-native-qt`, Debug `…\install-maplibre-native-qt-debug`. App build/run via the **Qt Creator MCP** (project must be open).
+- App registry (camera/style): `HKCU:\Software\MapLibre\MapLibreEarth\map` (`styleUrl`, `coordinate` multi-sz, `zoomLevel`, `terrainEnabled`, `globe3D`). A style enables terrain only if `styleUrl` contains `terrain-style.json`.
+- Test styles in the repo root: `terrain-style.json` (Esri), `osm-terrain-style.json` (OSM raster — **reliable, labelful**), `liberty-terrain.json`.
+- Diagnostics must be written to a file (e.g. `C:\hda\dev\tmp\*.log`) — MapLibre's `Log::` sink is not connected in this app, so `Log::Warning`/`Error` output is dropped.
+
 ## Related
 
 - [History](./history.md) · [Wiki log](./log.md) · [Decisions](./decisions/index.md)

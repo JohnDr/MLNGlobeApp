@@ -672,3 +672,16 @@ Instrumented `RenderTarget::render` (per-target layer groups + drawable counts),
 So the overlapping z16 raster tiles are **present and correctly selected but not drawn** into the z14 target. That localises the fault to the raster drawable's *render inside the drape target* at a 4x cover ratio (2x, at zoom<=14, works) — e.g. its clip position, `origin` translate, or the translucent pass / depth handling in the offscreen target — not to cover selection or the projection composition.
 
 All diagnostics reverted; both installs rebuilt clean.
+
+### Session summary — 3D terrain drape (2026-10-14)
+
+Fixed three real bugs, then localised a fourth. **Resume point is the "RESUME HERE" section of [Next steps](../next-steps.md).**
+
+**Fixed + verified:**
+1. Drape drew nothing (per-tile ortho `z` at the near plane → Vulkan clipped every draw) — patch **0036**.
+2. Drape rotated 180° (spurious `1.0 - v_uv.y` in the terrain sampler) — patch **0037**.
+3. App camera reset on style load (`applyCamera` eased pitch/bearing without zoom → map transform stuck at ~1.3 → raster cover collapsed to z2) — app `e367b01`.
+
+**Open:** drape empty at zoom >= 15. The z16 raster cover overlaps the z14 DEM targets (verified), the transform states agree, but the offscreen target renders black — the overlapping tiles are present but not drawn. Next: log the raster drawable's clip range inside one target, or read back the target pixels. See [Next steps](../next-steps.md).
+
+All library diagnostics reverted; both installs rebuilt clean. Fork patches pushed: `maplibre-native-0036-terrain-drape-ortho-z.patch`, `maplibre-native-0037-terrain-drape-uv-orientation.patch`.
