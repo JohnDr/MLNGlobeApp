@@ -710,3 +710,33 @@ Goal was to find why the draping works at zoom <= 14 but the map is empty (backg
 **Cleanup done:** library worktree `reset --hard` + `clean -fd` + re-applied patches 0001..0037 (diagnostics removed); app `main.qml` reverted (repaint Timer removed; `applyCamera` fix kept); both installs + the app rebuilt clean. The `terrainDrapeZoom` one-liner was lost in the revert (re-add next time).
 
 **Next step:** on CPU, log per terrain-cover tile the composed NDC of its **centre** and whether it passes `[-w,w]x[0,w]`, side-by-side z14 vs z15 — prove which tiles *should* rasterise — before any more GPU work.
+
+### GL JS reference model (P0) + P1 drape RTT size — 2026-10-15
+
+Adopting MapLibre GL JS as the reference (as John directed). Reference facts, from source:
+
+- **Terrain tile set** (`src/tile/terrain_tile_manager.ts`): `deltaZoom = 1`; terrain `tileSize = source.tileSize * 2**deltaZoom`; terrain tiles come from `coveringTiles(transform, {tileSize: terrainTileSize, maxzoom: 22, reparseOverscaled: false})`; the DEM source zoom is `min(terrainTileZoom - 1, source.maxzoom)` with **fallback to loaded parents** (`getSourceTile` while-loop). No hard cap.
+- **RTT size** (`src/webgl/render_to_texture.ts`): `rttSize = terrain.tileManager.tileSize * terrain.qualityFactor` (`qualityFactor = 2`) — e.g. 1024 for a 512 source; `setFrameUniformWorldSize(frameUniformBuffer, rttSize, rttSize)` for the pass.
+- **Drape matrix is pure tile space** (`terrain_tile_manager.ts`): the RTT tile's own matrix is `mat4.ortho(terrainRttPosMatrix32f, 0, EXTENT, EXTENT, 0, 0, 1)`; a source tile is placed into it by `dz/dx/dy` deltas in EXTENT units (child: `ortho(0,size,size,0,0,1)` + translate; parent: `ortho(0,EXTENT,EXTENT,0,0,1)` + translate + scale `1/2**dz`). No `worldSize`/camera scale.
+- **Terrain mesh** (`src/render/terrain.ts`): `meshSize = 128`; one regular grid over `[0,EXTENT]x[0,EXTENT]`, z=0, **reused for every tile**; elevation is fetched in-shader from the DEM (`u_terrain_matrix`, `u_terrain_dim`, `u_terrain_unpack`) and multiplied by `u_terrain_exaggeration` (metres x exaggeration). `_getDEMTileMatrix` derives the tile->DEM mapping from the DEM tile **actually used** (its own zoom `dz`), not the source's declared maxzoom.
+- **Invalidation**: per (source, rtt-tile-key) `RTTFingerprint {sourceTileIds, sourceRevision, zoom, visibleLayerIds}`; textures kept while moving and re-rendered one-per-frame after; `needsFollowUpFrame` for the rest.
+- **The drape groups are the terrain tiles**: a layer's tiles are grouped under terrain tiles via `getTerrainCoords` (same/parent/child).
+
+**P1 result — equivalence check.** Our per-tile ortho `matrix::ortho(ortho, tx, tx+s, ty+s, ty, -1.5, 0.5)` **already equals** GL JS's `ortho(0,EXTENT,EXTENT,0,0,1)` expressed in world coords (the tile-local->world mapping is `matrixFor(tileID)`); the only deliberate difference is the z mapping (`0,1` -> Vulkan `-1.5,0.5`) so the per-drawable depth offset in `multiplyWithProjectionMatrix` does not clip on Vulkan. So the drape **xy/placement is not the z15 divergence**.
+
+**P1 change made:** the drape render-target size is now `source.tileSize x 2` (GL JS's `qualityFactor = 2`), i.e. **512** for our 256-px raster sources — was a hardcoded 256. Verified z15 after: **still empty** (so the size was not the cause either).
+
+The remaining divergences are therefore **P2 (terrain/DEM tile-zoom rules: `floor(zoom)+2` cap 14 vs `coveringTiles` + `min(terrainZoom-1, source.maxzoom)` + parent fallback)** and **P3 (the mesh/elevation model)** — that is where the zoom-dependence lives.
+
+### P2 result + P3 pre-check — none of the planned divergences is the cause (2026-10-15)
+
+Following P1 (drape RTT size 512, GL JS-aligned; the ortho was shown algebraically equal to GL JS's tile-space matrix — z15 still empty, z14 fine), I tested the remaining reference divergences directly:
+
+- **P2 (terrain tile zoom):** set the terrain/DEM tiles to the camera's tile zoom (`newDemZoom = clamp(floor(zoom), 0, 15)` in `terrain_pass.cpp`, which leaves z14 unchanged). **z15 still empty.** Reverted.
+- **P3 pre-check (elevation):** set the style's `terrain.exaggeration` to **0.0** (a flat mesh). **z15 still empty** — so the elevation term is not the cause. Reverted.
+
+So a **flat terrain mesh at the camera's own tile zoom is still invisible at z15**, ruling out: the drape matrix/size (P1), the terrain/DEM tile zoom (P2), and the elevation (P3). The fault is therefore in the **composed terrain matrix `projMatrix * matrixFor(tileID)` at camera zoom 15** (the transform / tile-matrix path in `TransformState`), or in the **camera state the app leaves at z15** — note the earlier anomaly that the render transform reports **pitch 0.9** while the app UI shows `p50`.
+
+**Tree state:** P1 kept (`drapeTileSize = 512`, documented as GL JS's `terrainTileSize x qualityFactor`); the P2 test reverted to `clamp(floor(zoom)+2, 0, 14)`; the style's exaggeration restored to 1.5; both installs + the app rebuilt clean.
+
+**Next:** instrument `TransformState::matrixFor(tileID)` / the composed matrix in `TerrainPass::update` for **the camera's own tile**, at camera z14 vs z15 (same camera centre), and log the camera the app applies (pitch/elevation/zoom) — to find why the camera's own tile lands off-screen at z15.
