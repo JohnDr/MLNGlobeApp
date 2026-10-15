@@ -147,3 +147,28 @@ Capture to use: `C:\Users\JohnD\OneDrive\Pictures\MapLibre.rdc` (a full drape fr
 5. If step 2 said **imagery**: open the **main pass** (last render pass, to the swapchain), select the **terrain draw** → **Pipeline State → Read-only Resources** → the bound 256×256 `Texture2D` — does it match the drape target from step 2? If it's a different/black texture, `applyDrapeTextures` is binding the wrong tile.
 
 **Report back:** step 2 (black/imagery); and from step 3 the 4 `gl_Position`, the viewport/scissor and the cull mode.
+
+## RESUME HERE — 3D terrain drape (2026-10-15 checkpoint)
+
+**Goal:** the terrain drape must work at every zoom. It works at zoom <= 14; at zoom >= 15 the map is empty (background only).
+
+**Fixed and verified earlier:** patch **0036** (per-tile ortho `z` at the near plane -> Vulkan clip), **0037** (drape UV orientation), app camera reset (`e367b01`), and (this session) patch **0038** (drape RTT size = GL JS's `terrainTileSize x qualityFactor` family; ours 512, documented).
+
+**RULED OUT (each with direct evidence):**
+- **Drape matrix** — our per-tile ortho is algebraically identical to GL JS's tile-space `ortho(0,EXTENT,EXTENT,0,0,1)` expressed in world coords (P1); only z differs, deliberately, for Vulkan.
+- **Drape RTT size** — 256 -> 512, no change (P1).
+- **Terrain/DEM tile zoom** — `clamp(floor(zoom)+2,0,14)` vs GL JS `floor(zoom)`; tested `floor(zoom)`, no change (P2).
+- **Elevation** — flat terrain (`exaggeration 0`) is still invisible at z15 (P3 pre-check).
+- **Cover / placement** — a per-frame cover diagnostic at z15 shows the cover is **correct**: 6 tiles, all with DEM data and a terrain drawable (n=1), tile centres **on-screen** (one dead-centre NDC (-0.28,-0.08)). So the planned `coveringTiles` port is unnecessary for this bug.
+
+**DECISIVE FINDING:** at z15 the cover, tile placement, and meshes are all correct — the fault is entirely in the **terrain DRAW**: valid, on-screen geometry with drawables renders **no pixels**, and it does so even when flat. The shader is therefore **not reading the matrix the CPU composes** (RenderDoc mesh output showed the shader's `gl_Position` off-screen while the same CPU-composed matrix is on-screen).
+
+**NEXT STEP:** instrument the **terrain projection UBO**. In `TerrainPass::update`'s UBO loop log the `pd.mainMatrix` actually pushed **and** the drawable's `uboIndex` (and its depth mode), for a terrain drawable at z14 vs z15, and diff against the CPU-composed `projMatrix * matrixFor(tileID)`. If the pushed/read matrix differs (or the UBO array / `uboIndex` is stale or not consolidated), that is the bug — the projection-UBO consolidation path (patch 0026 territory).
+
+**GL JS reference (checked this session, per John's directive):** the reference model and the full algorithm/maths audit are in [the log](./log.md) under "GL JS reference model (P0)" and "Algorithm/maths audit vs MapLibre GL JS". Verified-equivalent: drape matrix, per-tile projection (`projMatrix ∘ matrixFor` ~ GL JS `mainMatrix`), raster tile zoom, drape UV. Still divergent but *not* the z15 cause: terrain tile zoom, elevation scale, mesh structure (17^2 baked vs 128^2 `[0,EXTENT]` z=0), drape RTT size, hillshade.
+
+**Tooling:** RenderDoc capture needs the app launched under RenderDoc (`renderdoccmd capture`) **and** the in-app API (`-DENABLE_RENDERDOC_FRAME_CAPTURE` + a trigger); the app renders on demand, so a forced-repaint (a temporary QML Timer nudging `map.pan`) is needed for a settled frame. `qrenderdoc --python` runs the script before the capture loads and `pyrenderdoc.LoadCapture(...)` blocks — analyse in the GUI. Diagnostics must go to files (MapLibre's `Log::` sink is dropped). Kept captures: `C:\hda\dev\tmp\z14_settled.rdc`, `z15_settled.rdc`.
+
+**Environment:** library builds via `%LOCALAPPDATA%\Temp\opencode\build-libs-both.bat` (prints `LIB_REFRESH_OK`); Release install `C:\hda\dev\tmp\install\maplibre-native-qt`, Debug `...\install-maplibre-native-qt-debug`; app build/run via the **Qt Creator MCP** (project must be open; `qt-creator_debug` launches non-blocking, `qt-creator_stop_debug` stops). Registry `HKCU:\Software\MapLibre\MapLibreEarth\map`. Test styles: `osm-terrain-style.json` (OSM, labelful — the reliable one), `terrain-style.json` (Esri).
+
+**Tree state:** library worktree = patches 0001..0038 (all diagnostics removed); app `main.qml` at the committed state (no Timer); both installs + the app rebuilt clean.
