@@ -740,3 +740,25 @@ So a **flat terrain mesh at the camera's own tile zoom is still invisible at z15
 **Tree state:** P1 kept (`drapeTileSize = 512`, documented as GL JS's `terrainTileSize x qualityFactor`); the P2 test reverted to `clamp(floor(zoom)+2, 0, 14)`; the style's exaggeration restored to 1.5; both installs + the app rebuilt clean.
 
 **Next:** instrument `TransformState::matrixFor(tileID)` / the composed matrix in `TerrainPass::update` for **the camera's own tile**, at camera z14 vs z15 (same camera centre), and log the camera the app applies (pitch/elevation/zoom) — to find why the camera's own tile lands off-screen at z15.
+
+### Algorithm/maths audit vs MapLibre GL JS (2026-10-15)
+
+Per John's directive — every algorithm/maths we implement must be checked against the working reference. Reference files read: `render/terrain.ts`, `tile/terrain_tile_manager.ts`, `render/render_to_texture.ts`, `render/frame_render_context.ts`, `render/painter.ts`, `geo/projection/covering_tiles.ts`, `geo/projection/projection_data.ts`, `geo/projection/mercator_projection.ts`, `geo/transform_helper.ts`, `shaders/glsl/_prelude.vertex.glsl`, `webgl/render_to_texture.ts`.
+
+| Our algorithm | GL JS reference | Status |
+|---|---|---|
+| Terrain tile zoom `clamp(floor(zoom)+2, 0, 14)` | `coveringZoomLevel(transform, {tileSize: source.tileSize*2})` = `floor(zoom + scaleZoom(512/(2*srcTileSize)))` = **floor(zoom)** | **DIVERGENT** (+2 and a cap of 14). Tested `floor(zoom)` — z15 still empty |
+| Raster source tile zoom (native `coveringZoomLevel`) | `floor(zoom + scaleZoom(512/256))` = floor(zoom)+1 | equivalent |
+| **Terrain cover** `util::tileCover(state, zoom, Range(zoom,zoom))` | `coveringTiles(transform, {tileSize, minzoom:0, maxzoom:22, reparseOverscaled:false, terrain})` — **camera-frustum DFS** with per-tile bounding volumes, **terrain elevation culling**, horizon-plane tests and variable zoom (`createCalculateTileZoomFunction`) | **DIVERGENT (major, un-checked until now)** |
+| Drape matrix | tile-space `ortho(0,EXTENT,EXTENT,0,0,1)` + `dz/dx/dy` | equivalent (proved P1) |
+| Drape RTT size | `terrainTileSize * qualityFactor` = 1024 (256 src) | ours 512 (memory-bounded) |
+| DEM source zoom + fallback | `min(terrainZoom-1, source.maxzoom)` + fallback to loaded parents | **DIVERGENT** (ours is `demZoom` itself; no −1, no fallback) |
+| Elevation scale | metres x exaggeration, applied via `_getDEMTileMatrix` in-shader; `_pixelPerMeter = worldZFromAltitude(1,center)*worldSize` | **DIVERGENT** (ours bakes `e*exag*pixelsPerMeter(cameraZoom)` into the mesh) — flat test says not the z15 cause |
+| Terrain mesh | one 128x128 grid over `[0,EXTENT]^2`, z=0, reused; DEM sampled in-shader | **DIVERGENT** (ours 17x17 per tile, elevation baked) |
+| Per-tile projection | `mainMatrix` (tile-local->clip; normalised mercator coords `getMercatorTileCoordinates`) | equivalent (projMatrix ∘ matrixFor, world px) |
+| Hillshade / light | GL JS hillshade | **DIVERGENT** (ours light `LightX/Y/Z`) — cosmetic |
+| Drape texture UV | (their RTT sampling) | checked (patch 0037) |
+
+**Conclusion:** most maths are equivalent; the two genuinely un-verified **algorithms** are (1) the **terrain cover** (`coveringTiles` frustum DFS vs our `tileCover`) and (2) the **DEM tile zoom + parent fallback** (`min(terrainZoom−1, source.maxzoom)`). The cover is the strongest remaining candidate because the z15 mesh is invisible even flat at the camera's own tile zoom, which a wrong cover would explain (no mesh where the camera looks).
+
+**Plan:** port `coveringTiles` (or at least its terrain call: `tileSize = source.tileSize*2`, `maxzoom 22`, `reparseOverscaled:false`, terrain-elevation culling) and the DEM `min(terrainZoom−1, source.maxzoom)` + parent-fallback rule into `terrain_pass.cpp`/`terrain_tile_manager`, then re-test z15.
