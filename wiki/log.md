@@ -762,3 +762,24 @@ Per John's directive — every algorithm/maths we implement must be checked agai
 **Conclusion:** most maths are equivalent; the two genuinely un-verified **algorithms** are (1) the **terrain cover** (`coveringTiles` frustum DFS vs our `tileCover`) and (2) the **DEM tile zoom + parent fallback** (`min(terrainZoom−1, source.maxzoom)`). The cover is the strongest remaining candidate because the z15 mesh is invisible even flat at the camera's own tile zoom, which a wrong cover would explain (no mesh where the camera looks).
 
 **Plan:** port `coveringTiles` (or at least its terrain call: `tileSize = source.tileSize*2`, `maxzoom 22`, `reparseOverscaled:false`, terrain-elevation culling) and the DEM `min(terrainZoom−1, source.maxzoom)` + parent-fallback rule into `terrain_pass.cpp`/`terrain_tile_manager`, then re-test z15.
+
+### DECISIVE: the z15 cover/mesh are correct — it is the terrain DRAW (2026-10-15)
+
+Added a per-frame cover diagnostic in `terrain_pass.cpp` (every cover tile's centre NDC, DEM-loaded state, and drawable count). z15 (OSM terrain, Zermatt, pitch 0.87, elev 0):
+
+```
+COVER zoom=15 demZoom=14 n=6 lat=46.0207 pitch=0.87 elev=0.0 |
+  14/8544/5827[data=1 n=1 ndc=-0.28,-0.08]  14/8545/5827[data=1 n=1 ndc=1.35,-0.08]
+  14/8544/5826[data=1 n=1 ndc=-0.18,0.84]   14/8543/5827[data=1 n=1 ndc=-1.90,-0.08]
+  14/8545/5826[data=1 n=1 ndc=0.87,0.84]    14/8543/5826[data=1 n=1 ndc=-1.23,0.84]
+```
+
+So at z15 the terrain **cover is correct** (tiles' centres on-screen — one dead-centre), every cover tile has **DEM data and a terrain drawable (n=1)**, and it builds meshes. Therefore:
+
+- **The cover is NOT the fault** — the planned `coveringTiles` port is unnecessary for z15.
+- **The tile placement / matrix is NOT the fault** — centres project on-screen.
+- The fault is **the terrain DRAW**: valid, on-screen geometry with drawables produces **no pixels** — and it does so even when the terrain is **flat** (exaggeration 0), so it is not the elevation.
+
+Next: instrument the terrain **projection UBO** — log the `pd.mainMatrix` actually written for a terrain drawable (and the drawable's `uboIndex` / depth) and compare with the CPU-composed matrix, to see whether the shader reads a different/wrong matrix at z15 (the projection-UBO consolidation path). The earlier RenderDoc mesh output showed the shader's `gl_Position` off-screen with elevation; the flat case removes elevation, so the UBO content is the remaining candidate.
+
+**Tree:** the cover diagnostic is in `terrain_pass.cpp` (temporary); P1 (`drapeTileSize` 512) kept; both installs + the app built.
