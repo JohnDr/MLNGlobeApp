@@ -9,6 +9,19 @@
 - **Dependencies (QMapLibre and others) are built from the command line**, not
   through the Qt Creator MCP — see `../maplibre-native-qt/AGENTS.md`.
 
+## If you cannot follow an instruction — ask John
+
+If for any reason you cannot follow an instruction in this file (or in the
+QMapLibre `AGENTS.md`), **stop and come back to John for a decision**. Do not
+silently deviate, and do not substitute a workaround on your own initiative. State
+plainly what you could not do and why, and wait.
+
+This applies in particular to the build & run policy above — e.g. a Qt Creator MCP
+tool that blocks or fails (such as `qt-creator_run_project` never returning for a
+long-running GUI app), a build-tree / install-prefix mismatch, or any urge to
+build or run the app outside Qt Creator (ad-hoc command-line app builds, launching
+the exe directly, hand-copying runtime DLLs). In all such cases: ask first.
+
 ## Handoff guarantee (what John relies on)
 
 John may **Run** this app in Debug **or** Release and expects to be on the latest

@@ -99,7 +99,17 @@ The section above (2026-10-13 "per-target projection matrix never reaches the ra
 - Instrumentation (`RenderTarget::render`, drape loop): each drape target is **256x256, 1 layer group (idx=1, raster, n=72), renders fully black**; the two transform states **agree** (zoom 15, scale 32768); the **covers overlap correctly** (DEM `14/8544/5827` => z16 x[34176..34179] y[23308..23311], inside the raster cover range 34174..34182 x 23303..23312).
 - **Conclusion:** the overlapping z16 raster tiles are present and correctly selected but **not drawn** into the z14 target — the fault is in the raster drawable's *render inside the offscreen drape target at a 4x cover ratio* (2x works), not cover selection or projection composition.
 
-### Next step (tomorrow)
+### Next step (2026-10-15) - supersedes the block below
+
+See the log entry "Session checkpoint - z15 drape/terrain still empty (2026-10-15)" for the full state. Ruled out this session: cover ratio (z14 with the draped cover forced to DEM+2 drapes fine), staleness (drape targets re-render with n=60 and stay empty), and any terrain-projection anomaly (the projMatrix is identical at z14/z15; the composed terrain matrix scales uniformly 2x).
+
+Open contradiction: at z15 the CPU cover log shows terrain tiles that project on-screen, the pipeline culls nothing (cull None, depth Disabled, depth-clip on, render area full), yet the app shows only the background - and the main colour attachment has an undefined (checkerboard) region.
+
+Next step (CPU first): in TerrainPass::update, log per terrain-cover tile the composed NDC of its centre and whether it passes the clip volume (-w <= x,y <= w, 0 <= z <= w), side-by-side z14 vs z15, to prove which tiles should rasterise before any further GPU work. Settled RenderDoc captures: C:/hda/dev/tmp/z14_settled.rdc and z15_settled.rdc.
+
+Also: re-add the terrainDrapeZoom one-liner (lost in this session's revert).
+
+### Next step (tomorrow) [superseded - kept for history]
 
 Instrument the raster drawable's render inside one drape target at zoom 15:
 1. Log the raster drawable's computed projection matrix / clip range for one target (is the quad off-clip?). Suspect: the `origin` translate in `LayerTweaker::getTileMatrix`, or `translateVtxMatrix` world-wrap handling when the raster tile z differs from the DEM tile z.

@@ -685,3 +685,28 @@ Fixed three real bugs, then localised a fourth. **Resume point is the "RESUME HE
 **Open:** drape empty at zoom >= 15. The z16 raster cover overlaps the z14 DEM targets (verified), the transform states agree, but the offscreen target renders black — the overlapping tiles are present but not drawn. Next: log the raster drawable's clip range inside one target, or read back the target pixels. See [Next steps](../next-steps.md).
 
 All library diagnostics reverted; both installs rebuilt clean. Fork patches pushed: `maplibre-native-0036-terrain-drape-ortho-z.patch`, `maplibre-native-0037-terrain-drape-uv-orientation.patch`.
+
+### Session checkpoint — z15 drape/terrain still empty (2026-10-15)
+
+Goal was to find why the draping works at zoom <= 14 but the map is empty (background only) at zoom >= 15. Earlier this session: fixed patch **0036** (per-tile ortho `z` at the near plane -> Vulkan clip) and **0037** (drape UV orientation), plus the app camera reset (`e367b01`). This session could not close z15.
+
+**Ruled out (each with evidence):**
+- **Cover ratio** — at z14, forcing the draped cover to `DEM+2` (the same ratio as z15) via a temporary `MLN_DRAPE_LOD_SHIFT` knob drapes **perfectly**. So the ratio is not the cause.
+- **Staleness / cached-black** — instrumented: the raster layer loads its tiles and the drape targets **re-render with the full group** (`DRTARGET ... n=60`) and still come out empty. The target is not merely stale.
+- **Transform states** agree; **covers overlap**; **projection composition** (`ortho * matrixFor(tileID)`) is correct for any tile zoom.
+- **Terrain projection is NOT anomalous** — the `projMatrix` is byte-identical at z14/z15 (`m0=2.266718, m5=-1.928363`) and the composed terrain matrix scales uniformly 2x (`m0` 0.1417->0.2833, `m5` -0.1205->-0.2410). An earlier claim in this session that `m5` scaled 2.62x was a **measurement error** (derived from a RenderDoc `VTX0->VTX1` delta that is not `m5*512`) and is retracted.
+
+**RenderDoc captures (kept):**
+- `C:\hda\dev\tmp\z14_settled.rdc` (frame 78) — drape fills; complete map.
+- `C:\hda\dev\tmp\z15_settled.rdc` (frame 353) — settled for the raster (app kept repainting via a temporary QML Timer).
+- **Both captures have the same draw histogram** except the terrain count (22 vs 6) — so the raster draws are issued at z15 too.
+
+**z15 findings:** terrain draw (EID 19) `gl_Position = (-3877.75, -6132.93, 1689.42, 1690.05)` -> NDC `(-2.295, -3.629)` (off-screen); pipeline = **cull None, depth Disabled, depth-clip on, render area `(0,0,1951,1474)`**; the main colour attachment shows an **undefined (checkerboard) region** below a background band.
+
+**Unresolved contradiction:** the CPU cover log shows z15 cover tiles that *do* project on-screen (e.g. one spanning NDC x[-0.85,0.74] y[-1.06,0.48]), and nothing in the pipeline culls/rejects (depth disabled, no culling) — yet the app shows only the background. The pieces do not reconcile yet.
+
+**Capture tooling (for next time):** capture needs the app launched under RenderDoc (`renderdoccmd capture`) **and** the in-app API (`-DENABLE_RENDERDOC_FRAME_CAPTURE` + a trigger); the app renders on demand so a **forced-repaint** (QML Timer nudging `map.pan`) is needed to reach a settled frame. `qrenderdoc --python` runs the script before the capture loads and `pyrenderdoc.LoadCapture(...)` blocks — analyse in the GUI instead. Diagnostics must go to files (MapLibre's `Log::` sink is dropped).
+
+**Cleanup done:** library worktree `reset --hard` + `clean -fd` + re-applied patches 0001..0037 (diagnostics removed); app `main.qml` reverted (repaint Timer removed; `applyCamera` fix kept); both installs + the app rebuilt clean. The `terrainDrapeZoom` one-liner was lost in the revert (re-add next time).
+
+**Next step:** on CPU, log per terrain-cover tile the composed NDC of its **centre** and whether it passes `[-w,w]x[0,w]`, side-by-side z14 vs z15 — prove which tiles *should* rasterise — before any more GPU work.
