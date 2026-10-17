@@ -32,6 +32,8 @@ Window {
     property bool globe3D: true
     // 3D terrain: drape the DEM source "dem" over the map (requires a style with a raster-dem source named "dem").
     property bool terrainEnabled: false
+    // Sky: the horizon gradient (and the globe's atmosphere); the style's own `sky` is kept when it has one.
+    property bool skyEnabled: true
     // Camera tilt (pitch) and bearing (rotation) in degrees. Tracked here so the
     // middle-drag tilt gesture and the compass rose have a value to read and modify.
     property real mapTilt: 0
@@ -414,6 +416,9 @@ Window {
             window.globe3D = true;
         }
 
+        if (appState.value("map/skyEnabled") !== undefined) {
+            window.skyEnabled = asBool(appState.value("map/skyEnabled"));
+        }
         if (asBool(appState.value("map/terrainEnabled"))) {
             window.terrainEnabled = true;
         }
@@ -542,6 +547,9 @@ Window {
 
         // 3D terrain: the DEM source ("dem") is draped as an elevated surface.
         terrainSource: window.terrainEnabled ? "dem" : ""
+
+        // Sky (GL JS `map.setSky`): default sky unless the style defines its own.
+        skyEnabled: window.skyEnabled
         terrainExaggeration: 1.0
 
         // The 3D-buildings opacity override is added dynamically in C++/QML via
@@ -775,6 +783,28 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     checked: window.darkMode
                     onToggled: window.darkMode = checked
+                }
+            }
+
+            // Sky switch
+            Row {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Sky"
+                    color: "white"
+                    font.pixelSize: 14
+                }
+
+                Switch {
+                    anchors.verticalCenter: parent.verticalCenter
+                    checked: window.skyEnabled
+                    onToggled: {
+                        window.skyEnabled = checked;
+                        appState.setValue("map/skyEnabled", checked);
+                    }
                 }
             }
         }

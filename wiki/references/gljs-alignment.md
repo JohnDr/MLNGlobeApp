@@ -24,6 +24,9 @@ Audit date: 2026-10-17. Nothing below is marked *agreed* yet — John has not re
 | Pan / unprojection | elevation-aware at the centre | unprojects onto the plane at the centre altitude (metres) |
 | Terrain LOD centre | `centerCoord = worldFromLngLat(center, elevation)` | `TileCoordinate::fromLatLng` of the map centre (fixed 2026-10-17; was the sea-level screen-centre ray hit) |
 | Sky | `sky.ts`, `sky.fragment.glsl`, `draw_sky.ts` (drawn first; horizon line in screen space) | `style::Sky`, `SkyPass`, `SkyShader` (Mercator branch of the same gradient, same `getMercatorHorizon`) |
+| Sky properties | all 7 properties: zoom expressions + `-transition` (`sky.ts`, `sky_properties.g.ts`) | `style::Sky` on the `Properties`/`Transitionable` machinery (as `Light`); `RenderSky` evaluates per frame; tests `StyleConversion.Sky*` |
+| Globe sky + atmosphere | `sky.fragment.glsl` globe branch, `atmosphere.fragment.glsl`, `getGlobeCenterInViewSpace`, `getAtmosphereAltitudeBlend`, `getSunPos` (light) | same shaders and maths: `SkyShader` (limb blend), `AtmosphereShader`, `SkyPass` computes the globe's view-space centre from the globe view-projection |
+| Sky API | `map.setSky(sky?)` / `getSky` | `QMapLibre::Map::setSky(QVariantMap)` / `clearSky`; QML `MapLibre { skyEnabled; sky }` |
 | Terrain fog | `terrain.fragment.glsl`: `v_fog_depth` from the fog matrix (near = camera-to-sea-level), `calculateFogBlendOpacity(pitch)` | same maths: depth from the projection's `w` (`f(d-n)/((f-n)d)`), same blend/opacity, gamma 2.2 mix |
 
 ## Departs from GL JS
@@ -43,7 +46,7 @@ Audit date: 2026-10-17. Nothing below is marked *agreed* yet — John has not re
 | 11 | Missing DEM tiles | **unverified** (believed: treated as flat) | flat sea-level mesh | unverified |
 | 12 | Camera collision | `_raiseCameraByPitchAndZoom` family | `Transform::raiseCameraAboveTerrain` (modelled on it, not diffed) | unverified |
 | 13 | Globe terrain | terrain on globe is supported | mesh/drape in globe incomplete; holes seen at ~z11 | departs – proposed |
-| 14 | Sky / fog | zoom-interpolated expressions + transitions on all 7 sky properties; globe atmosphere (`atmosphere.fragment.glsl`) | constants only, no transitions; no globe sky/atmosphere (sky not drawn on the globe); fog only on the terrain surface, as in GL JS; far plane from the native `getProjMatrix` (GL JS uses its own `_calculateNearFarZ`) | departs – needs a decision (target: expression/transition support, atmosphere) |
+| 14 | Sky / fog | far plane from `_calculateNearFarZ` | far plane from the native `getProjMatrix` (`getFogDepthRange`) | departs – small; needs a decision |
 
 ## How to use this page
 
