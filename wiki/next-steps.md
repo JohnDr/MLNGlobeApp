@@ -16,6 +16,7 @@ Ordered to-do list. Update it at the end of each session and record results in [
 **First thing after a reboot:** open Qt Creator (`~/Qt/Tools/QtCreator/bin/qtcreator -client ~/dev/projects/maplibreearth/CMakeLists.txt`), reconnect the MCP, start `~/dev/projects/maplibreearth/tools/memguard.sh` in a terminal before any stress test, check `git status` in the three repos (`maplibreearth`, `maplibre-native-qt`, `maplibre-native`).
 
 **Open / next, in priority order**
+0. **Globe terrain:** low-zoom globe (~z11, pitch 55) showed purple holes with skirt curtains although all covered tiles had meshes (log 2026-10-17 evening); investigate, then re-run the flat/globe edge sweeps. Drape lag after big zoom jumps (navy/beige tiles for >15 s) — keep the old texture until the new one is ready.
 1. **Compare far terrain with GL JS side by side** (user: far terrain flattened earlier than GL JS). Mesh is now 129x129 per tile (was 17x17); if still flatter, check vertical exaggeration, DEM zoom per LOD level (`demZoom = clamp(floor(zoom)+2, 0, 14)` vs GL JS `source zoom = terrain zoom - deltaZoom` with loaded-parent fallback) and hillshade.
 2. **Drape quality:** RTT is 512 px per tile (GL JS 1024 for 256-px sources) -> near imagery soft at zoom 16–18; add an RTT pool/LRU before raising it. Beige tint for a few seconds after big zoom jumps = drape/raster loading (consider keeping the old texture until the new one is ready).
 3. **LOD seams:** GL JS has no cracks between LOD levels; ours has no skirts — inspect tile boundaries at steep pitch.

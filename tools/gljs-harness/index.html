@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GL JS 3D Terrain harness</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
+<style>
+  body { margin: 0; padding: 0; }
+  html, body, #map { height: 100%; }
+  #hud { position: absolute; left: 8px; bottom: 8px; z-index: 5; background: rgba(30,30,30,.85); color: #fff;
+         font: 12px/1.4 monospace; padding: 6px 8px; border-radius: 4px; white-space: pre; user-select: text; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="hud">loading…</div>
+<script type="module">
+  // Reference renderer for alignment checks against MapLibreEarth. Same style as
+  // https://maplibre.org/maplibre-gl-js/docs/examples/3d-terrain/ (maplibre-gl 6.14.0).
+  // Camera comes from the query string (defaults: Glencoe, matches the MapLibreEarth Glencoe checks):
+  //   ?lat=56.645543&lon=-5.014887&zoom=13.3176&pitch=81.12&bearing=189.375&exag=1&hillshade=1&osm=1
+  import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs';
+  const q = new URLSearchParams(location.search);
+  const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
+  const lat = num('lat', 56.645543), lon = num('lon', -5.014887);
+  const exag = num('exag', 1);
+  // Optional fixed render size / pixel ratio (to match the app's window), and ?save=NAME to POST a PNG when idle.
+  const W = num('w', 0), Hh = num('h', 0), DPR = num('dpr', 0);
+  if (W && Hh) { const m = document.getElementById('map'); m.style.cssText = 'position:fixed;left:0;top:0;width:' + W + 'px;height:' + Hh + 'px'; }
+  const layers = [];
+  if (num('osm', 1)) layers.push({ id: 'osm', type: 'raster', source: 'osm' });
+  if (num('hillshade', 1)) layers.push({ id: 'hills', type: 'hillshade', source: 'hillshadeSource',
+    layout: { visibility: 'visible' }, paint: { 'hillshade-shadow-color': '#473B24' } });
+  const map = new maplibregl.Map({
+    container: 'map',
+    zoom: num('zoom', 13.3176), center: [lon, lat], pitch: num('pitch', 81.12), bearing: num('bearing', 189.375),
+    maxZoom: 22, ...(DPR ? { pixelRatio: DPR } : {}), maxPitch: 85, canvasContextAttributes: { preserveDrawingBuffer: true },
+    style: {
+      version: 8,
+      sources: {
+        osm: { type: 'raster', tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256,
+               attribution: '© OpenStreetMap Contributors', maxzoom: 19 },
+        terrainSource: { type: 'raster-dem', url: 'https://tiles.mapterhorn.com/tilejson.json' },
+        hillshadeSource: { type: 'raster-dem', url: 'https://tiles.mapterhorn.com/tilejson.json' }
+      },
+      layers,
+      terrain: { source: 'terrainSource', exaggeration: exag },
+      sky: {}
+    }
+  });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true, showZoom: true, showCompass: true }));
+  const hud = document.getElementById('hud');
+  function update() {
+    const c = map.getCenter();
+    hud.textContent = 'GL JS ' + maplibregl.getVersion() + '\n' +
+      'Lat ' + c.lat.toFixed(6) + '  Lon ' + c.lng.toFixed(6) + '\n' +
+      'Zoom ' + map.getZoom().toFixed(4) + '  Pitch ' + map.getPitch().toFixed(2) + '  Heading ' + map.getBearing().toFixed(2) + '\n' +
+      'Exaggeration ' + exag + '  Ground ' + (map.queryTerrainElevation(c) ?? NaN).toFixed(1) + ' m (unexaggerated)\n' +
+      'Window ' + innerWidth + 'x' + innerHeight + '  DPR ' + devicePixelRatio;
+  }
+  map.on('move', update);
+  map.on('idle', () => {
+    update(); window.__ready = true;
+    if (q.has('save') && !window.__saved) {
+      window.__saved = true;
+      setTimeout(() => map.getCanvas().toBlob(b =>
+        fetch('/save?name=' + encodeURIComponent(q.get('save')), { method: 'POST', body: b }).then(() => { window.__savedOk = true; })), 3000);
+    }
+  });
+  map.on('movestart', () => { window.__ready = false; });
+  window.map = map;
+</script>
+</body>
+</html>

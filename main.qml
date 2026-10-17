@@ -69,7 +69,8 @@ Window {
         { "name": "Bright (OSM)", "url": "https://tiles.openfreemap.org/styles/bright" },
         { "name": "Positron (OSM)", "url": "https://tiles.openfreemap.org/styles/positron" },
         { "name": "Open Waters", "url": "https://tiles.openwaters.io/seamap/style.json" },
-        { "name": "3D Terrain (satellite draped)", "url": window.terrainStyleUrl }
+        { "name": "3D Terrain (satellite draped)", "url": window.terrainStyleUrl },
+        { "name": "3D Terrain (GL JS example)", "url": window.gljsTerrainStyleUrl }
     ]
 
     // Local style with a raster-dem source + `terrain`, so the satellite imagery is draped over the relief.
@@ -78,6 +79,11 @@ Window {
     readonly property string terrainStyleUrl: Qt.platform.os === "windows"
         ? "file://C:/hda/dev/Projects/MapLibreEarth/terrain-style.json"
         : "file:///home/takserver1/dev/projects/maplibreearth/terrain-style.json"
+
+    // The MapLibre GL JS "3D Terrain" example style (Mapterhorn DEM + OSM raster + hillshade) for comparison.
+    readonly property string gljsTerrainStyleUrl: Qt.platform.os === "windows"
+        ? "file://C:/hda/dev/Projects/MapLibreEarth/gljs-terrain-style.json"
+        : "file:///home/takserver1/dev/projects/maplibreearth/gljs-terrain-style.json"
 
     // QSettings returns stored booleans as strings ("true"/"false").
     function asBool(v) {
@@ -536,7 +542,7 @@ Window {
 
         // 3D terrain: the DEM source ("dem") is draped as an elevated surface.
         terrainSource: window.terrainEnabled ? "dem" : ""
-        terrainExaggeration: 1.5
+        terrainExaggeration: 1.0
 
         // The 3D-buildings opacity override is added dynamically in C++/QML via
         // syncBuildingOverride() (see the Component at the top level).
@@ -1121,11 +1127,11 @@ Window {
         z: 10
         anchors.left: parent.left
         anchors.bottom: parent.bottom
-        anchors.margins: 12
+        anchors.margins: 8
         width: cameraReadoutText.implicitWidth + 16
-        height: cameraReadoutText.implicitHeight + 10
-        radius: 6
-        color: "#cc000000"
+        height: cameraReadoutText.implicitHeight + 12
+        radius: 4
+        color: "#d91e1e1e"
 
         readonly property real lat: map.coordinate[0]
         readonly property real lon: map.coordinate[1]
@@ -1139,6 +1145,12 @@ Window {
         readonly property real groundMeters: tick >= 0 && terrainStyle ? map.terrainElevation(lat, lon) : NaN
         readonly property real surfaceMeters: groundMeters * map.terrainExaggeration
 
+        // GL JS reports the bearing in (-180, 180].
+        function signedHeading(b) {
+            const r = ((b % 360) + 360) % 360;
+            return r > 180 ? r - 360 : r;
+        }
+
         function formatHeight(m) {
             return Math.abs(m) >= 10000 ? (m / 1000).toFixed(1) + " km" : Math.round(m) + " m";
         }
@@ -1150,27 +1162,84 @@ Window {
             onTriggered: cameraReadout.tick++
         }
 
-        Text {
+        // Selectable (drag to select, Ctrl+C copies the selection as shown).
+        TextEdit {
             id: cameraReadoutText
-            anchors.centerIn: parent
+            x: 8
+            anchors.verticalCenter: parent.verticalCenter
+            readOnly: true
+            selectByMouse: true
+            persistentSelection: true
+            textFormat: TextEdit.PlainText
             color: "white"
+            selectionColor: "#2d7ef7"
+            selectedTextColor: "white"
             font.pixelSize: 12
-            font.bold: true
-            text: "Lat " + cameraReadout.lat.toFixed(4) + "  Lon " + cameraReadout.lon.toFixed(4)
-                  + "\nCamera " + cameraReadout.formatHeight(cameraReadout.cameraMeters)
-                  + (cameraReadout.terrainStyle
-                     ? (isNaN(cameraReadout.groundMeters)
-                        ? "  Ground ..."
-                        : "  Ground " + cameraReadout.formatHeight(cameraReadout.groundMeters)
-                          + " (x" + map.terrainExaggeration.toFixed(1) + " = "
-                          + cameraReadout.formatHeight(cameraReadout.surfaceMeters) + ")"
-                          + "  Clearance "
-                          + cameraReadout.formatHeight(cameraReadout.cameraMeters - cameraReadout.surfaceMeters))
-                     : "")
-                  + "\nHeading " + window.mapBearing.toFixed(0) + "°"
-                  + "  Pitch " + window.mapTilt.toFixed(0) + "°"
-                  + "  Zoom " + map.zoomLevel.toFixed(1)
+            font.family: "monospace"
+            // Same lines and format as the MapLibre GL JS reference harness (tools/gljs-harness/index.html).
+            text: "MapLibre Native Qt"
+                  + "\nLat " + cameraReadout.lat.toFixed(6) + "  Lon " + cameraReadout.lon.toFixed(6)
+                  + "\nZoom " + map.zoomLevel.toFixed(4) + "  Pitch " + window.mapTilt.toFixed(2)
+                  + "  Heading " + cameraReadout.signedHeading(window.mapBearing).toFixed(2)
+                  + "\nExaggeration " + map.terrainExaggeration + "  Ground "
+                  + (isNaN(cameraReadout.groundMeters) ? "NaN" : cameraReadout.groundMeters.toFixed(1))
+                  + " m (unexaggerated)"
+                  + "\nWindow " + Math.round(window.width) + "x" + Math.round(window.height)
+                  + "  DPR " + window.devicePixelRatio
         }
+
+        // Full-precision description of the exact camera for bug reports / reproduction.
+        function details() {
+            const lat = cameraReadout.lat, lon = cameraReadout.lon;
+            return "camera: lat=" + lat.toFixed(6) + " lon=" + lon.toFixed(6)
+                + " zoom=" + map.zoomLevel.toFixed(4) + " pitch=" + window.mapTilt.toFixed(2)
+                + " bearing=" + window.mapBearing.toFixed(2)
+                + "\ncameraAltitude=" + cameraReadout.cameraMeters.toFixed(1) + "m"
+                + " ground=" + (isNaN(cameraReadout.groundMeters) ? "n/a" : cameraReadout.groundMeters.toFixed(1) + "m")
+                + " exaggeration=" + map.terrainExaggeration.toFixed(2)
+                + "\nprojection=" + (window.globe3D ? "globe" : "mercator")
+                + " terrain=" + window.terrainEnabled
+                + " style=" + window.styleUrl
+                + "\nwindow=" + window.width + "x" + window.height + " scale=" + window.selectedScale.toFixed(2)
+                + "\nJSON: " + JSON.stringify({ center: [lat, lon], zoom: map.zoomLevel, pitch: window.mapTilt,
+                                                  bearing: window.mapBearing, globe: window.globe3D });
+        }
+
+        function copyDetails() {
+            clipboardHelper.text = details();
+            clipboardHelper.selectAll();
+            clipboardHelper.copy();
+            copiedLabel.opacity = 1;
+            copiedFade.restart();
+        }
+
+        TextEdit { id: clipboardHelper; visible: false }
+
+        Rectangle {
+            id: copyButton
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 4
+            width: 46
+            height: 20
+            radius: 4
+            color: copyArea.pressed ? "#2d7ef7" : "#55ffffff"
+            Text {
+                id: copiedLabel
+                anchors.centerIn: parent
+                text: opacity > 0.5 && copiedFade.running ? "Copied" : "Copy"
+                color: "white"
+                font.pixelSize: 11
+                font.bold: true
+            }
+            MouseArea {
+                id: copyArea
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: cameraReadout.copyDetails()
+            }
+        }
+        Timer { id: copiedFade; interval: 1200 }
     }
 
     // ---- Zoom in / out buttons --------------------------------------------------

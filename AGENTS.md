@@ -53,3 +53,19 @@ A stale install shows up as `Cannot assign to non-existent property
   only via the runbook procedure (unload → edit → reopen).
 - Wiki is authoritative: `wiki/runbooks/{build-windows,qt-creator-debug-release}.md`,
   `wiki/architecture/environment.md`, `wiki/decisions/d5-debug-release-libraries.md`.
+
+## GL JS alignment rule (agreed with John, 2026-10-17)
+
+MapLibre GL JS is the reference implementation. Where this fork does the same job as GL JS
+(terrain, tile covers, camera, projection, drape, shaders), follow GL JS's algorithm, units
+and constants, and read its source (github.com/maplibre/maplibre-gl-js) before designing.
+
+Any deviation must be justified and agreed with John BEFORE it is implemented:
+- State what GL JS does (file/function), what you propose instead, and why GL JS's approach
+  cannot be used here.
+- Wait for a decision. Do not ship a stop-gap, heuristic or fork-only feature unprompted.
+- Temporary stop-gaps agreed with John must be recorded in the alignment audit with the
+  intended GL JS-aligned replacement.
+
+Deviations already in the code are listed in `wiki/references/gljs-alignment.md` (MapLibreEarth
+repo); new work must not add to that list without agreement.

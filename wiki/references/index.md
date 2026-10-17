@@ -17,3 +17,4 @@ Background and preserved sources.
 ## Related
 
 - [Concepts](../concepts/index.md) · [Decisions](../decisions/index.md)
+- [GL JS alignment audit](./gljs-alignment.md) — what matches MapLibre GL JS and every departure awaiting agreement (2026-10-17).
