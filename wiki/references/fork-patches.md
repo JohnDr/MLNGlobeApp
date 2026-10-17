@@ -174,6 +174,13 @@ The hand-off was not optional: without it the globe radius grows without bound w
 
 `maplibre-native-0034-terrain-drape-ortho-orientation.patch` fixes the per-tile drape ortho: `matrix::ortho` maps its `top` argument to clip `+1`, but Mercator world-y grows downward, so the previous `(ty, ty+s)` order flipped each drape tile vertically — now passes `(ty+s, ty)`. Corrects the drape orientation; does not affect the (still-open) raster capture. Applies **after** 0033.
 
+## Terrain patches 0035–0040 (2026-10-14 … 2026-10-17)
+
+- **0035** drape fixes (see log). **0036** per-tile ortho `z` at the near plane so the depth offset does not push `z_clip < 0` (Vulkan clips it). **0037** drape UV orientation (`texture(drapeSampler, v_uv)`, no `1 - v`). **0038** drape RTT size = GL JS `terrainTileSize x qualityFactor` family (512).
+- **0039** terrain-aware camera: DEM elevation feed (`Map::queryTerrainElevation`, `TerrainTileManager::sampleElevation`), centre altitude from the DEM, `Transform::raiseCameraAboveTerrain` (camera never below terrain; pitch/zoom re-solved), centre-plane unprojection so panning works with terrain, DEM retry back-off. Also touches the Qt wrapper (`map.cpp`, `map_quick_item.cpp`, `types.hpp`) — those are **normal commits**, not patch content.
+- **0040** the z>=15 / steep-pitch fixes (16 files): mesh z in metres (was double-scaled by pixels-per-metre); per-tile DEM min/max (`DEMData::minElevation/maxElevation`, `TerrainTileManager::getMinMaxElevation/requestAncestor`) feeding elevation-aware tile covers (`TransformState::setTileElevationRange`, set by the orchestrator, used by every source cover and the terrain cover); `Frustum` z in metres + 8-corner `intersects`/`intersectsPrecise` + extra SAT axes; GL JS `calculateTileZoom` variable zoom for terrain (`TileCoverParameters::terrainVariableZoom`, terrain pass `Range(0, demZoom)`, backstop cap 192 tiles); 129x129 terrain mesh; pan/zoom unprojection plane in metres (`getCenterAltitude()`); `UpdateParameters` optionals default to `nullopt` (fixes the `-Wmissing-field-initializers` warning). Verified z14–18, pitch 0–80, Release+Debug.
+- Not in any patch (Qt wrapper, `maplibre-native-qt/src/core`): `MapRenderer::updateRenderer` and `~VulkanRendererBackend` take an Implicit `BackendScope` (Debug assertion fix).
+
 ## Regenerating a patch
 
 Edit the files in `vendor/maplibre-native`, then dump the diff with a UTF-8 writer (PowerShell's `>` writes UTF-16, which `git apply` rejects):
@@ -181,6 +188,8 @@ Edit the files in `vendor/maplibre-native`, then dump the diff with a UTF-8 writ
 ```
 git -C vendor/maplibre-native diff --no-color -- src > patches\....patch
 ```
+
+**Linux method that worked for 0040** (the worktree contains all earlier patches, so a plain `git diff` is wrong): `git archive HEAD` of the submodule into a scratch dir, `git apply` patches 0001..N-1 there as the baseline, copy the changed files into `a/` (baseline) and `b/` (tree), `git diff --no-index a b | sed 's#a/a/#a/#g; s#b/b/#b/#g'`, then verify by applying all patches to a fresh archive and `cmp`-ing the files.
 
 After configure the submodule shows ` m vendor/maplibre-native`; the committed gitlink stays clean and the patches re-apply on a fresh checkout.
 

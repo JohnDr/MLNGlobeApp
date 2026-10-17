@@ -75,7 +75,9 @@ Window {
     // Local style with a raster-dem source + `terrain`, so the satellite imagery is draped over the relief.
     // maplibre's local file source needs "file://" followed directly by the drive path (not a third slash).
     // Adjust this path to wherever the repo's terrain-style.json lives on your machine.
-    readonly property string terrainStyleUrl: "file://C:/hda/dev/Projects/MapLibreEarth/terrain-style.json"
+    readonly property string terrainStyleUrl: Qt.platform.os === "windows"
+        ? "file://C:/hda/dev/Projects/MapLibreEarth/terrain-style.json"
+        : "file:///home/takserver1/dev/projects/maplibreearth/terrain-style.json"
 
     // QSettings returns stored booleans as strings ("true"/"false").
     function asBool(v) {
@@ -288,6 +290,10 @@ Window {
             let styles = parsed.map(function(m) {
                 if (m && m.url === "https://demotiles.maplibre.org/style.json") {
                     return { "name": "Open Waters", "url": "https://tiles.openwaters.io/seamap/style.json" };
+                }
+                // Re-point a saved terrain-style.json entry at this machine's path.
+                if (m && m.url && m.url.endsWith("/terrain-style.json") && m.url !== window.terrainStyleUrl) {
+                    return { "name": m.name, "url": window.terrainStyleUrl };
                 }
                 return m;
             });
@@ -586,6 +592,7 @@ Window {
             id: wheel
             enabled: !window.dialogOpen
             acceptedDevices: Qt.platform.pluginName === "cocoa" || Qt.platform.pluginName === "wayland"
+                            || Qt.platform.pluginName === "xcb"
                             ? PointerDevice.Mouse | PointerDevice.TouchPad
                             : PointerDevice.Mouse
             onWheel: (event) => {
@@ -1088,6 +1095,67 @@ Window {
         }
     }
 
+    // ---- Camera position readout (bottom left) -----------------------------------
+    // Camera height is the altitude above the ground under the map centre (not
+    // terrain-aware): distance-to-centre = 1.5 x viewport height (36.87 deg field of
+    // view) in pixels, times metres per pixel at this latitude and zoom (512 px tiles).
+    Rectangle {
+        id: cameraReadout
+        z: 10
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.margins: 12
+        width: cameraReadoutText.implicitWidth + 16
+        height: cameraReadoutText.implicitHeight + 10
+        radius: 6
+        color: "#cc000000"
+
+        readonly property real lat: map.coordinate[0]
+        readonly property real lon: map.coordinate[1]
+        // Terrain data comes from the map (the elevation tiles load asynchronously), so poll it.
+        readonly property bool terrainStyle: window.styleUrl.indexOf("terrain-style.json") !== -1
+        property int tick: 0
+        // Camera altitude above sea level, and the drawn terrain surface under the map centre
+        // (exaggeration included); NaN until the elevation tile has loaded.
+        // (`tick >= 0` is always true; it makes the bindings depend on the timer.)
+        readonly property real cameraMeters: tick >= 0 ? map.cameraAltitude() : 0
+        readonly property real groundMeters: tick >= 0 && terrainStyle ? map.terrainElevation(lat, lon) : NaN
+        readonly property real surfaceMeters: groundMeters * map.terrainExaggeration
+
+        function formatHeight(m) {
+            return Math.abs(m) >= 10000 ? (m / 1000).toFixed(1) + " km" : Math.round(m) + " m";
+        }
+
+        Timer {
+            interval: 400
+            repeat: true
+            running: true
+            onTriggered: cameraReadout.tick++
+        }
+
+        Text {
+            id: cameraReadoutText
+            anchors.centerIn: parent
+            color: "white"
+            font.pixelSize: 12
+            font.bold: true
+            text: "Lat " + cameraReadout.lat.toFixed(4) + "  Lon " + cameraReadout.lon.toFixed(4)
+                  + "\nCamera " + cameraReadout.formatHeight(cameraReadout.cameraMeters)
+                  + (cameraReadout.terrainStyle
+                     ? (isNaN(cameraReadout.groundMeters)
+                        ? "  Ground ..."
+                        : "  Ground " + cameraReadout.formatHeight(cameraReadout.groundMeters)
+                          + " (x" + map.terrainExaggeration.toFixed(1) + " = "
+                          + cameraReadout.formatHeight(cameraReadout.surfaceMeters) + ")"
+                          + "  Clearance "
+                          + cameraReadout.formatHeight(cameraReadout.cameraMeters - cameraReadout.surfaceMeters))
+                     : "")
+                  + "\nHeading " + window.mapBearing.toFixed(0) + "°"
+                  + "  Pitch " + window.mapTilt.toFixed(0) + "°"
+                  + "  Zoom " + map.zoomLevel.toFixed(1)
+        }
+    }
+
     // ---- Zoom in / out buttons --------------------------------------------------
     Column {
         id: zoomButtons
@@ -1126,21 +1194,6 @@ Window {
                 text: map.zoomLevel.toFixed(1)
                 color: "white"
                 font.pixelSize: 13
-                font.bold: true
-            }
-        }
-
-        // Camera readout (tilt / bearing).
-        Rectangle {
-            width: 56
-            height: 26
-            radius: 6
-            color: "#cc000000"
-            Text {
-                anchors.centerIn: parent
-                text: "p" + window.mapTilt.toFixed(0) + " b" + window.mapBearing.toFixed(0)
-                color: "white"
-                font.pixelSize: 11
                 font.bold: true
             }
         }

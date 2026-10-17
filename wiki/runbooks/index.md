@@ -18,3 +18,4 @@ How to build and run the project.
 ## Related
 
 - [Environment](../architecture/environment.md) · [Verification](../verification/index.md)
+- [Linux terrain — build, test, stress-test, debug](./linux-terrain-test-and-debug.md) — paths, commands, scripted sweeps, memory guard, pitfalls (2026-10-17).

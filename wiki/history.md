@@ -29,3 +29,8 @@ Dated milestones for MapLibreEarth and the MapLibre work behind it. The detailed
 ## Related
 
 - [Next steps](./next-steps.md) · [Wiki log](./log.md) · [Decisions](./decisions/index.md) · [Handover](./references/handover-jdreadme.md)
+
+## 2026-10-16/17 — terrain z>=15 fixed, steep-pitch hang fixed
+
+Started from the "z15 terrain draw renders nothing" wiki theory; tint-only shader test showed the terrain drew fine and the drape was empty. Found and fixed (patch 0040): elevation scaled by pixels-per-metre twice; covers ignoring terrain height; frustum z units and elevation-blind `intersects`; pan unprojection plane in the wrong unit (high-pitch pan "crazy"); an unbounded terrain tile set (16,679 tiles at pitch 71) that exhausted GPU memory and crashed the PC; far-terrain flattening (17x17 mesh); Debug `BackendScope` assertions (Qt wrapper); `-Wmissing-field-initializers`. Added vendored core/render/benchmark tests in a dedicated build tree, the scripted screenshot-sweep method and `memguard.sh`. See [log](./log.md).
+

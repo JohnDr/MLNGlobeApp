@@ -783,3 +783,38 @@ So at z15 the terrain **cover is correct** (tiles' centres on-screen — one dea
 Next: instrument the terrain **projection UBO** — log the `pd.mainMatrix` actually written for a terrain drawable (and the drawable's `uboIndex` / depth) and compare with the CPU-composed matrix, to see whether the shader reads a different/wrong matrix at z15 (the projection-UBO consolidation path). The earlier RenderDoc mesh output showed the shader's `gl_Position` off-screen with elevation; the flat case removes elevation, so the UBO content is the remaining candidate.
 
 **Tree:** the cover diagnostic is in `terrain_pass.cpp` (temporary); P1 (`drapeTileSize` 512) kept; both installs + the app built.
+
+
+## 2026-10-16 — z>=15 terrain/drape bug SOLVED (patch 0040)
+
+**The "terrain draw renders no pixels at z15" conclusion was wrong.** With the fragment shader forced to the hillshade tint the terrain drew fine at z15–16; the blue was the *drape texture* (background only) plus, later, missing/over-scaled terrain. Four separate faults, all fixed in `maplibre-native-0040-terrain-elevation-aware-cover.patch`:
+
+1. **Elevation scaled by pixels-per-metre twice.** `Camera::getWorldToCamera` already multiplies the z column by `pixelsPerMeter` (GL JS convention: z in **metres**). The terrain mesh (and the symbol elevation function) baked z in world *pixels* (`e * exaggeration / metersPerPixel`), so the surface was flattened below ~z16 and exaggerated above it until it rose through the camera (all blue by z16.5 at pitch 0). Fix: mesh z and `elevationFunction` are metres. Hillshade now uses each tile's own ground width (it used the current-zoom `metersPerPixel`).
+2. **Tile covers ignored terrain height** (the sea-level footprint of the frustum is not where raised terrain is visible): raster tiles for the drape and DEM tiles at the bottom of a pitched view were culled → empty drape (z>=15) and blue strips at the bottom. Fix = GL JS `coveringTiles` + `Terrain#getMinMaxElevation`: each DFS node's bounding box spans its DEM tile's min/max elevation (`DEMData::minElevation/maxElevation`; loaded tile at the node's zoom, else nearest loaded ancestor, else sea level..centre elevation; a coarse z9 ancestor is requested so a range exists). Provided to every source's cover through `TransformState::setTileElevationRange` (set by the orchestrator from `TerrainPass::elevationRangeFunction`).
+3. **`Frustum` z units.** GL JS keeps the unprojected frustum z in metres (box z in metres too); the port scaled z like x/y. `fromInvProjMatrix` now keeps z in metres (globe unaffected).
+4. **`Frustum::intersects/intersectsPrecise` ignored box elevation** (only 4 corners at z=0, z-edge separating axes missing). Now 8 corners + the `[0,0,1] x edge` axes.
+
+Verified (Qt Creator, Release and Debug, scripted sweep with screenshots): imagery drapes at z14, 15, 16, 16.5, 17, 18 at pitch 0 and 50, no blue. A brief beige hillshade tint appears for a few seconds after a large zoom jump while raster tiles load (expected fallback, more visible in Debug).
+
+**Method note:** a temporary QML Timer in `main.qml` (zoom/pitch sweep + `contentItem.grabToImage` to /tmp/shots, then `Qt.quit()`) lets Claude run the whole test through `run_project` without hands on the window. Keep it out of commits.
+
+**Also fixed (maplibre-native-qt, not in the patch):** Debug `BackendScope::exists()` assertion on window resize and on backend teardown — `MapRenderer::updateRenderer` and `~VulkanRendererBackend` now take an Implicit `BackendScope` (it also made Debug `test_mln_quick` pass). **Tests:** vendored core tests now build in `~/dev/tmp/build-maplibre-native-core-tests` (see maplibre-native-qt AGENTS.md): 1056 pass; 3 fail identically without 0040 (`StyleConversion.Projection`, `CustomDrawableLayer.Line/Fill`). **Open / not done:**  (c) Terrain mesh is still 17x17 baked; no DEM-at-`floor(zoom)` rule yet (GL JS divergence, not needed for this bug). (d) Pre-existing warning `map_impl.cpp:153 missing initializer terrainTileset`.
+
+## 2026-10-17 — GPU memory runaway at steep pitch (machine hang) FIXED
+
+**Symptom:** with pitch >~65 and zoom ~12–13 the app hung and, once, took the whole PC down (reboot). Kernel log (`journalctl -k -b -1`): `MapLibreEarth` looping in `amdgpu_gem_create_ioctl` under memory pressure -> TTM swap-out list corruption (~8M warnings). Cause: **unbounded terrain tile cover.** The terrain pass used one DEM zoom (14) all the way to the horizon; at pitch 71 / zoom 12.75 it requested **16,679 terrain tiles** (1,652–4,635 drape render targets of 512x512, a mesh and a DEM request each).
+**Fix** (in patch 0040, `terrain_pass.cpp`): the terrain cover is capped to the nearest **128** tiles (cover is sorted centre-first). Measured at pitch 71–80: cover 128, drape targets <=128, GPU memory ~150 MB. A per-distance LOD cover (`TileLodMode::Distance`, zoom range 8..14) was tried and **rejected**: it coarsened the near field (blurry/blue frames); also fixed the Distance-mode box z units in `tile_cover.cpp` (box z is metres, camera is tile units).
+**Superseded** by the GL JS-style LOD cover (see the entry below).
+**Safety net:** `~/dev/tmp/memguard.sh` (persistent log `~/dev/tmp/memguard.log`) kills MapLibreEarth and dumps stacks when its RSS > 8 GB, system MemAvailable < 5 GB or amdgpu GTT > 9 GB. Run it before any pitch/zoom stress test. Build-filter lesson: grep compile output for `error:` (not ` error `) or failed builds look like successes.
+
+
+## 2026-10-17 (later) — terrain cover now uses GL JS `calculateTileZoom` (supersedes the 128-tile cap)
+
+The fixed-zoom cover + 128-tile cap above was a stop-gap and not GL JS behaviour. GL JS (`covering_tiles.ts`) always allows variable zoom when terrain is present (`allowVariableZoom` returns true for `options.terrain`) and picks each tile's zoom with `createCalculateTileZoomFunction(9.314, 3.0)`. The fork already had that function for the globe path; it is now used by the **flat** `util::tileCover` when `TileCoverParameters::terrainVariableZoom` is set and the transform carries a tile elevation range (i.e. terrain on):
+- `TerrainPass` covers `Range(0, demZoom)` with `terrainVariableZoom`; `tile_pyramid.cpp` (every source's cover) sets it too, like GL JS passing `terrain` to each source's `coveringTiles`. The 192-tile cap remains only as a backstop.
+- Measured (Ben Nevis view, Debug, memguard on): pitch 71 / zoom 12.75 -> **77 terrain tiles** (z7..z14, 31 at z14; was 16,679), pitch 80 / z13 -> 50, pitch 50 / z15 -> 6; GPU memory ~150 MB. Near field at DEM zoom, far field coarse; imagery drapes to the horizon.
+- Distance-mode box z units fixed (box z metres vs camera tile units) in the same patch. Patch 0040 now touches 16 files.
+- Not done: the vendored render tests were not rerun after this last change (it only triggers when terrain is on); core 1056/1059 (same 3 known failures), Qt `ctest` passes in both configs.
+
+## 2026-10-17 (later) — far terrain no longer flattened: mesh 17x17 -> 129x129
+GL JS draws every terrain tile with a 128x128 mesh; ours was 17x17 per tile at any zoom, so a coarse far-field tile (z7–z9, tens of km wide) got a handful of height samples and the distant relief looked smoothed away. `TerrainGridSegments` is now 128 (129^2 vertices still fit uint16 indices) and the mesh is no longer rebuilt on every 0.25 zoom (heights are metres, hillshade uses the tile's own width, so nothing in it depends on the current zoom any more; only demZoom/exaggeration/tileset changes rebuild). Verified with screenshots at pitch 66–80 (ridgelines to the horizon). Remaining GL JS differences: no skirts/seam handling between LOD levels, one 512 px drape target per tile (GL JS 1024 for 256-px sources).

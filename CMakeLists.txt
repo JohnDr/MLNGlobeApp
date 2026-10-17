@@ -25,6 +25,7 @@ qt_add_qml_module(
     URI MapLibreEarth
     VERSION 1.0
     RESOURCE_PREFIX "/"
+    OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qml/MapLibreEarth"
     QML_FILES
         main.qml
 )

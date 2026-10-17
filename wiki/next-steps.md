@@ -9,6 +9,26 @@ status: draft
 
 Ordered to-do list. Update it at the end of each session and record results in [Project history](./history.md) and the [wiki log](./log.md).
 
+## RESUME HERE — authoritative (2026-10-17, end of session)
+
+**State:** 3D terrain works on Linux/Vulkan at zoom 14–18, pitch 0–80, Release and Debug: imagery drapes to the horizon, panning at high pitch is correct, no GPU-memory runaway. Everything is in patch **0040** + Qt-wrapper commits (see [fork patches](./references/fork-patches.md), [log 2026-10-16/17](./log.md), [Linux runbook](./runbooks/linux-terrain-test-and-debug.md)). Older "RESUME HERE" sections below are **historical** (their "z15 draw fault" theory was wrong: the blue was the empty drape + double-scaled elevation + cover culling).
+
+**First thing after a reboot:** open Qt Creator (`~/Qt/Tools/QtCreator/bin/qtcreator -client ~/dev/projects/maplibreearth/CMakeLists.txt`), reconnect the MCP, start `~/dev/tmp/memguard.sh` in a terminal before any stress test, check `git status` in the three repos (`maplibreearth`, `maplibre-native-qt`, `maplibre-native`).
+
+**Open / next, in priority order**
+1. **Compare far terrain with GL JS side by side** (user: far terrain flattened earlier than GL JS). Mesh is now 129x129 per tile (was 17x17); if still flatter, check vertical exaggeration, DEM zoom per LOD level (`demZoom = clamp(floor(zoom)+2, 0, 14)` vs GL JS `source zoom = terrain zoom - deltaZoom` with loaded-parent fallback) and hillshade.
+2. **Drape quality:** RTT is 512 px per tile (GL JS 1024 for 256-px sources) -> near imagery soft at zoom 16–18; add an RTT pool/LRU before raising it. Beige tint for a few seconds after big zoom jumps = drape/raster loading (consider keeping the old texture until the new one is ready).
+3. **LOD seams:** GL JS has no cracks between LOD levels; ours has no skirts — inspect tile boundaries at steep pitch.
+4. **Remaining differences from GL JS:** per-tile RTT cache/pool, DEM neighbour border backfill for hillshade, `maxContentElevation`/horizon plane for covers, globe terrain (mesh still flat).
+5. **Tests:** vendored `tile_cover`/`dem_data` tests pass but there are no tests for the elevation-aware cover, `Frustum` with elevated boxes, the terrain LOD cover or `TerrainTileManager::getMinMaxElevation` — add them (`vendor/maplibre-native/test/...` is part of the patch workflow). Three core tests fail for unrelated reasons (`StyleConversion.Projection`, `CustomDrawableLayer.Line/Fill`); render tests: `fill-extrusion-pattern/tile-buffer` fails, `text-font/{burmese,khmer,devanagari}` error — all pre-existing.
+6. **Upstreaming** stays on hold ([D6](./decisions/d6-draft-upstream-prs.md)).
+
+**Key facts to remember**
+- World z is **metres** (camera matrix scales z by pixels-per-metre); `TransformState::z` is pixels; use `getCenterAltitude()` for metres.
+- Terrain tile cover: DFS with per-node DEM min/max boxes, variable zoom via `calculateTileZoom`; a flat sea-level cover or one fixed zoom to the horizon is wrong (culling / 16,679 tiles -> kernel hang).
+- The PC crash of 2026-10-17 was the app (amdgpu GEM allocation storm); always run stress tests under `memguard.sh`. `/tmp` is wiped on reboot.
+- Build/run policy: app only through Qt Creator MCP; library by command line, **both configs + both installs**; filter compile output by `error:`.
+
 ## Where things stand (2026-10-11)
 
 - MapLibreEarth builds and runs on Windows (Release **and** Debug) and Android arm64-v8a; deployed to a Galaxy S23 (serial `RFCW910087W`).
@@ -172,3 +192,8 @@ Capture to use: `C:\Users\JohnD\OneDrive\Pictures\MapLibre.rdc` (a full drape fr
 **Environment:** library builds via `%LOCALAPPDATA%\Temp\opencode\build-libs-both.bat` (prints `LIB_REFRESH_OK`); Release install `C:\hda\dev\tmp\install\maplibre-native-qt`, Debug `...\install-maplibre-native-qt-debug`; app build/run via the **Qt Creator MCP** (project must be open; `qt-creator_debug` launches non-blocking, `qt-creator_stop_debug` stops). Registry `HKCU:\Software\MapLibre\MapLibreEarth\map`. Test styles: `osm-terrain-style.json` (OSM, labelful — the reliable one), `terrain-style.json` (Esri).
 
 **Tree state:** library worktree = patches 0001..0038 (all diagnostics removed); app `main.qml` at the committed state (no Timer); both installs + the app rebuilt clean.
+
+
+## RESUME HERE — 3D terrain (2026-10-16): z>=15 drape/terrain FIXED
+
+Patch **0040** fixes the z>=15 blue/empty-drape bug (see [log](./log.md) 2026-10-16): mesh z in metres (was double-scaled by pixels-per-metre), elevation-aware tile covers (per-tile DEM min/max, GL JS `coveringTiles`), frustum z in metres, elevation-aware `Frustum::intersects`. Verified z14–18 at pitch 0/50 in Release and Debug. Remaining: Debug-only assertion at app exit (`VulkanRendererBackend` teardown), run/refresh the vendored tile_cover/dem_data unit tests, then the DEM-zoom (`floor(zoom)`) + mesh-structure divergences if wanted.

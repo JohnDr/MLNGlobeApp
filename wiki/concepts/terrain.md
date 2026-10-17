@@ -35,13 +35,19 @@ All downstream patches are in `maplibre-native-qt/patches/` (see [Fork patches](
 
 Key code: `src/mln/renderer/terrain_pass.{hpp,cpp}`, `terrain_tile_manager.{hpp,cpp}`, `include/mln/shaders/vulkan/terrain.hpp`, and the orchestration in `render_orchestrator.cpp` (`updateLayers`, `renderTerrainDrapeTargets`) + `renderer_impl.cpp`.
 
-## Current state (2026-10-12)
+## Current state (2026-10-17)
+
+Works on Linux/Vulkan, zoom 14–18, pitch 0–80, Release and Debug (see [next steps](../next-steps.md) and the [Linux runbook](../runbooks/linux-terrain-test-and-debug.md)). Architecture additions since the table above: patches **0034–0040** (drape orientation/size, terrain-aware camera with DEM elevation, elevation-aware covers with per-tile DEM min/max, GL JS variable-zoom terrain cover, 129x129 mesh in **metres**, frustum fixes) — details in [fork patches](../references/fork-patches.md).
+
+## History (2026-10-12 snapshot)
 
 - ✅ Terrain renders as a **shaded elevated surface** (flat/Mercator), with a **per-tile RTT drape**.
 - ✅ Symbols stay screen-space; per-tile texture cache in place.
 - ✅ App: a **"3D Terrain (satellite draped)"** map in the Maps list (`terrain-style.json`, Esri World Imagery + AWS terrarium).
 - ✅ **Raster drape FIXED (2026-10-14).** Two bugs: (1) the per-tile projection was written to a single-window per-layer buffer (fixed by per-target blocks in the tweaker, selected via `uboIndex`); (2) the **real cause** — the per-tile ortho mapped the tile's `z = 0` to the **near plane**, and the per-drawable depth offset (`enableDepth`, `multiplyWithProjectionMatrix` `projMatrix[14] -= K`) then pushed `z_clip < 0`, which **Vulkan clips** → *every* drape draw discarded → fallback tint (0032). Fix: `matrix::ortho(ortho, tx, tx+s, ty+s, ty, -1.5, 0.5)` (tile `z` → `0.5`). Imagery now drapes on the relief (verified on-device). **Orientation (fixed 2026-10-14):** the drape target stores north at `v = 0`, exactly what the terrain mesh's `v_uv` encodes, so the extra `1.0 - v_uv.y` in `terrain.hpp` was a spurious flip (rendered as a 180° rotation). Dropped it → `texture(drapeSampler, v_uv)` (patch 0037). Drape is now upright. **Open:** the drape is **empty at zoom >= 15** (works <= 14) — the z16 raster cover overlaps the z14 DEM targets correctly but the overlapping tiles are not drawn into the offscreen target. (The "seam" seen earlier with Esri imagery was that imagery's own mosaic/parallax, not a bug.) See [Next steps](../next-steps.md) for the resume point.
 - 🔶 Globe terrain renders but the mesh needs the globe curvature / pole-capped tessellation. Fog/sky not started.
+
+- ✅ **z>=15 drape/terrain fixed (2026-10-16, patch 0040):** mesh z is in **metres** (the camera matrix scales z by pixels-per-metre), tile covers use per-tile DEM min/max elevation (GL JS `coveringTiles`), frustum z in metres + elevation-aware box tests. See [log](../log.md).
 
 ## Gotchas learned
 
