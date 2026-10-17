@@ -366,6 +366,8 @@ Window {
         }
         appState.setValue("map/coordinate", map.coordinate);
         appState.setValue("map/zoomLevel", map.zoomLevel);
+        appState.setValue("map/tilt", window.mapTilt);
+        appState.setValue("map/bearing", window.mapBearing);
         appState.setValue("map/globe3D", window.globe3D);
         appState.setValue("map/styleUrl", window.styleUrl);
         appState.setValue("ui/darkMode", window.darkMode);
@@ -418,6 +420,21 @@ Window {
             // follow the MapLibre Demo -> Open Waters change
             window.styleUrl = "https://tiles.openwaters.io/seamap/style.json";
             appState.setValue("map/styleUrl", window.styleUrl);
+        }
+
+        // Restore the camera tilt and heading. Done after the style: assigning a draped-terrain style gives a
+        // default tilt of 50 when the tilt is still near zero, which must not override the saved camera. The style's
+        // load then re-applies them (see onStyleLoadedChanged -> applyCamera).
+        const savedTilt = Number(appState.value("map/tilt"));
+        const savedBearing = Number(appState.value("map/bearing"));
+        if (appState.value("map/tilt") !== undefined && isFinite(savedTilt)) {
+            window.mapTilt = Math.max(0, Math.min(85, savedTilt));
+        }
+        if (appState.value("map/bearing") !== undefined && isFinite(savedBearing)) {
+            window.mapBearing = savedBearing;
+        }
+        if (appState.value("map/tilt") !== undefined || appState.value("map/bearing") !== undefined) {
+            window.applyCamera(false);
         }
 
         window.darkMode = asBool(appState.value("ui/darkMode"));
