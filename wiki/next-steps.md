@@ -13,7 +13,7 @@ Ordered to-do list. Update it at the end of each session and record results in [
 
 **State:** 3D terrain works on Linux/Vulkan at zoom 14–18, pitch 0–80, Release and Debug: imagery drapes to the horizon, panning at high pitch is correct, no GPU-memory runaway. Everything is in patch **0040** + Qt-wrapper commits (see [fork patches](./references/fork-patches.md), [log 2026-10-16/17](./log.md), [Linux runbook](./runbooks/linux-terrain-test-and-debug.md)). Older "RESUME HERE" sections below are **historical** (their "z15 draw fault" theory was wrong: the blue was the empty drape + double-scaled elevation + cover culling).
 
-**First thing after a reboot:** open Qt Creator (`~/Qt/Tools/QtCreator/bin/qtcreator -client ~/dev/projects/maplibreearth/CMakeLists.txt`), reconnect the MCP, start `~/dev/tmp/memguard.sh` in a terminal before any stress test, check `git status` in the three repos (`maplibreearth`, `maplibre-native-qt`, `maplibre-native`).
+**First thing after a reboot:** open Qt Creator (`~/Qt/Tools/QtCreator/bin/qtcreator -client ~/dev/projects/maplibreearth/CMakeLists.txt`), reconnect the MCP, start `~/dev/projects/maplibreearth/tools/memguard.sh` in a terminal before any stress test, check `git status` in the three repos (`maplibreearth`, `maplibre-native-qt`, `maplibre-native`).
 
 **Open / next, in priority order**
 1. **Compare far terrain with GL JS side by side** (user: far terrain flattened earlier than GL JS). Mesh is now 129x129 per tile (was 17x17); if still flatter, check vertical exaggeration, DEM zoom per LOD level (`demZoom = clamp(floor(zoom)+2, 0, 14)` vs GL JS `source zoom = terrain zoom - deltaZoom` with loaded-parent fallback) and hillshade.

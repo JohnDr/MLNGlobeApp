@@ -34,7 +34,7 @@ Temporarily append a QML `Item` with `Timer`s to `main.qml` (restore the file af
 
 ## Memory guard (use for any pitch/zoom stress test)
 
-`~/dev/tmp/memguard.sh` (start in a terminal first, leave it running): logs every 2 s to `~/dev/tmp/memguard.log` and, if `MapLibreEarth` RSS > 8 GB, system MemAvailable < 5 GB or amdgpu GTT (`/sys/class/drm/card1/device/mem_info_gtt_used`) > 9 GB, dumps all stacks to `~/dev/tmp/memguard_stacks.txt` and kills it. Why: on 2026-10-17 an unbounded terrain cover (16,679 tiles at pitch 71) drove amdgpu GEM allocations until the kernel wedged (list_debug corruption, reboot). Forensics: `journalctl -k -b -1 | grep -E "amdgpu|MapLibreEarth"` after a crash.
+`tools/memguard.sh` in the app repo (copy of `~/dev/tmp/memguard.sh`; start in a terminal first, leave it running): logs every 2 s to `~/dev/tmp/memguard.log` and, if `MapLibreEarth` RSS > 8 GB, system MemAvailable < 5 GB or amdgpu GTT (`/sys/class/drm/card1/device/mem_info_gtt_used`) > 9 GB, dumps all stacks to `~/dev/tmp/memguard_stacks.txt` and kills it. Why: on 2026-10-17 an unbounded terrain cover (16,679 tiles at pitch 71) drove amdgpu GEM allocations until the kernel wedged (list_debug corruption, reboot). Forensics: `journalctl -k -b -1 | grep -E "amdgpu|MapLibreEarth"` after a crash.
 
 ## Pitfalls / facts learned (details in [log](../log.md))
 
