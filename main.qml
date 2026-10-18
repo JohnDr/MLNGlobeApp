@@ -350,11 +350,8 @@ Window {
         window.mapIndex = i;
         window.styleUrl = window.mapStyles[i].url;
         appState.setValue("map/styleUrl", window.styleUrl);
-        // The draped-terrain style only drapes in the flat (Mercator) projection (the globe mesh is still rough),
-        // so switch to 2D and give it a tilt so the relief is immediately visible.
+        // Give the draped-terrain style a tilt so the relief is immediately visible.
         if (window.styleUrl.indexOf("terrain-style.json") !== -1) {
-            window.globe3D = false;
-            appState.setValue("map/globe3D", false);
             if (window.mapTilt < 5) {
                 window.mapTilt = 50;
                 window.mapBearing = 0;
@@ -476,10 +473,8 @@ Window {
     onStyleUrlChanged: {
         syncBuildingOverride();
         // The draped-terrain style needs its "dem" terrain enabled (setting terrainSource="dem" turns terrain on;
-        // an empty terrainSource would clear the style's own terrain) and the flat projection to drape.
+        // an empty terrainSource would clear the style's own terrain).
         if (window.styleUrl.indexOf("terrain-style.json") !== -1) {
-            window.globe3D = false;
-            appState.setValue("map/globe3D", false);
             window.terrainEnabled = true;
             appState.setValue("map/terrainEnabled", true);
             if (window.mapTilt < 5) {

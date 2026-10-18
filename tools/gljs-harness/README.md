@@ -6,7 +6,7 @@ with the camera set from the URL, so MapLibreEarth can be compared with the refe
     cd tools/gljs-harness && python3 serve.py
     http://localhost:8765/?lat=56.645543&lon=-5.014887&zoom=13.3176&pitch=81.12&bearing=189.375
 
-Parameters: lat, lon, zoom, pitch, bearing, exag (terrain exaggeration, default 1), hillshade=0/1, osm=0/1.
+Parameters: lat, lon, zoom, pitch, bearing, exag (terrain exaggeration, default 1), hillshade=0/1, osm=0/1, globe=0/1 (globe projection).
 `window.__ready` becomes true when the map is idle (all tiles loaded) - use it before screenshots.
 The HUD (bottom left) prints the camera in the same order as MapLibreEarth's Copy block.
 Compare at the same window size / pixel ratio; MapLibreEarth's panel reports its window size and scale.

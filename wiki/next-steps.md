@@ -11,7 +11,7 @@ Ordered to-do list. Update it at the end of each session and record results in [
 
 ## RESUME HERE — authoritative (2026-10-18)
 
-**State:** terrain, sky and the GL JS comparison tooling are in place and aligned with GL JS (the reference; deviations need John's agreement, see [alignment audit](./references/gljs-alignment.md) and the standing rule in both `AGENTS.md`). Core patches **0001–0049** (fork branch `maplibreearth-patches` of `johndr/maplibre-native`, one commit per patch; files in `maplibre-native-qt/patches/`). What exists now:
+**State:** terrain, sky and the GL JS comparison tooling are in place and aligned with GL JS (the reference; deviations need John's agreement, see [alignment audit](./references/gljs-alignment.md) and the standing rule in both `AGENTS.md`). Core patches **0001–0051** (fork branch `maplibreearth-patches` of `johndr/maplibre-native`, one commit per patch; files in `maplibre-native-qt/patches/`). What exists now:
 - 3D terrain with GL JS tile covers/DEM zoom (0040, 0045), per-target drape UBOs for all draped layer types (0043), hillshade coverage and no baked mesh shade (0044), RTT pool + GL JS fingerprint/one-stale-tile-per-frame/follow-up frames (0046), drape mipmaps/anisotropy, fog far plane, DEM backfill redraw (0047), LOD edge stitching (agreed departure), GL JS near/far planes, skirts, `roundZoom` for raster tiles (0048), DEM cell-centre (-0.5 px) sampling (0049).
 - Sky (`sky` style object with expressions/transitions, globe atmosphere, terrain fog; 0041–0042), Qt/QML API `skyEnabled` + `sky`, toolbar Sky switch. With sky off the area above the horizon is the app's space colour.
 - App: GL JS-format camera panel (bottom left, Copy button), performance panel (Load/Idle/FPS/Frame, top left), "3D Terrain (GL JS example)" style (`gljs-terrain-style.json`, Mapterhorn DEM, needs the Qt WebP plugin: `~/Qt/6.11.2/gcc_64/plugins/imageformats/libqwebp.so`, built from qtimageformats v6.11.2 in `~/dev/tmp/qtimageformats`), terrain exaggeration 1.0.
@@ -23,7 +23,7 @@ Ordered to-do list. Update it at the end of each session and record results in [
 
 **Open / next**
 1. **Debug app build** has not been rebuilt or run since the sky/drape work (MCP cannot switch to Debug); the Debug libraries are rebuilt and `test_mln_quick` passes only with `QSG_RENDER_LOOP=basic` (pre-existing threaded-loop assertion in `MapRenderer::updateRenderer`).
-2. **Globe terrain** (holes at ~z11), **globe atmosphere** verified only briefly.
+2. **Globe terrain** fixed 2026-10-18 (patches 0050/0051, see log part 10). Open: sky colour above the horizon at z11 pitch 70 on the globe (pale vs GL JS blue); the `main.qml` auto-switch of the globe off for terrain styles was removed (John, 2026-10-18); Debug app not run.
 3. **Zoom 14.5 / pitch 81 comparisons** are by eye or against older captures; re-capture when touching terrain again.
 4. Not exercised: location indicator and custom drawable layers with the new near/far planes; benchmarks have no pre-change baseline.
 5. Tests missing for the elevation-aware cover/frustum/LOD (core tests: 3 known pre-existing failures `StyleConversion.Projection`, `CustomDrawableLayer.Line/Fill`; render tests 1200 pass, `fill-extrusion-pattern/tile-buffer` fails, `text-font/{burmese,khmer,devanagari}` error).

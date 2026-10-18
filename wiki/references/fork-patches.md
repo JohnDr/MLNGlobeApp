@@ -203,3 +203,7 @@ After configure the submodule shows ` m vendor/maplibre-native`; the committed g
 ## Related
 
 - [Style-spec properties](../concepts/style-spec-properties.md) · [D3](../decisions/d3-downstream-patches.md) · [MapLibre Native core](../modules/maplibre-native-core.md)
+
+## Globe terrain patches 0050-0051 (2026-10-18)
+- **0050** drape targets are flat Mercator on the globe (`projMatrixOverride`: main matrix = fallback matrix, transition 0, GL JS `applyGlobeMatrix: false`) and use the wrap-0 tile matrix (tiles across the antimeridian). Files: `layer_tweaker.cpp`, `paint_parameters.cpp`.
+- **0051** terrain pole caps on the globe (GL JS `_buildSkirts` pole rows): polar tiles' outer skirt row at the pole sentinel Y, not lowered; `projectTileFor3D` pole handling. Files: `terrain_pass.cpp`, `shaders/vulkan/common.hpp`.

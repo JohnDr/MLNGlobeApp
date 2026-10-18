@@ -38,3 +38,7 @@ Started from the "z15 terrain draw renders nothing" wiki theory; tint-only shade
 ## 2026-10-17/18 — sky, GL JS alignment, drape and terrain fidelity
 
 Added the sky (expressions, transitions, globe atmosphere, QML API), a GL JS reference harness and the Mapterhorn "3D Terrain" example style, then closed the visible differences against GL JS in order: terrain LOD centre bug (tiles one level too deep), TileJSON DEM sources, hillshade not draping (only the raster tweaker kept per-drape-target UBOs), baked mesh shade removal, GL JS DEM zoom/RTT size, RTT pool and fingerprint (re-render storm), mipmaps, fog far plane, LOD edge stitching, GL JS projection planes and skirts, `roundZoom` for raster tiles, half-DEM-pixel sampling. Decisions: keep the 192-tile cap, accept the ~5-15 % hillshade sharpness gap. See [log](./log.md) and the [alignment audit](./references/gljs-alignment.md).
+
+## 2026-10-18 — globe + terrain fixed (patches 0050, 0051)
+
+Reproduced the globe problems with scripted sweeps on both terrain styles and compared with GL JS (`globe=1` in the harness). Root cause: terrain drape targets were rendered with the globe projection; they are now flat Mercator (GL JS `applyGlobeMatrix: false`), use the wrap-0 tile matrix (antimeridian) and polar tiles are capped (GL JS `_buildSkirts` pole rows). The `main.qml` auto-switch of the globe off for terrain styles was removed. Open: sky colour above the horizon at z11 pitch 70 on the globe. Details: [log 2026-10-18 part 10](./log.md).
