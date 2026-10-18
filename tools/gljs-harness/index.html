@@ -8,12 +8,15 @@
 <style>
   body { margin: 0; padding: 0; }
   html, body, #map { height: 100%; }
+  #skybox { position: absolute; left: 8px; top: 8px; z-index: 5; background: rgba(30,30,30,.85); color: #fff;
+            font: 13px sans-serif; padding: 6px 10px; border-radius: 4px; cursor: pointer; user-select: none; }
   #hud { position: absolute; left: 8px; bottom: 8px; z-index: 5; background: rgba(30,30,30,.85); color: #fff;
          font: 12px/1.4 monospace; padding: 6px 8px; border-radius: 4px; white-space: pre; user-select: text; }
 </style>
 </head>
 <body>
 <div id="map"></div>
+<label id="skybox"><input type="checkbox" id="sky" checked> Sky</label>
 <div id="hud">loading…</div>
 <script type="module">
   // Reference renderer for alignment checks against MapLibreEarth. Same style as
@@ -29,6 +32,10 @@
   // Optional fixed render size / pixel ratio (to match the app's window), and ?save=NAME to POST a PNG when idle.
   const W = num('w', 0), Hh = num('h', 0), DPR = num('dpr', 0);
   if (W && Hh) { const m = document.getElementById('map'); m.style.cssText = 'position:fixed;left:0;top:0;width:' + W + 'px;height:' + Hh + 'px'; }
+  // Explicit spec defaults: setSky({}) at runtime is treated as "no change" and shows nothing until a reload.
+  const SKY = { 'sky-color': '#88C6FC', 'horizon-color': '#ffffff', 'fog-color': '#ffffff', 'fog-ground-blend': 0.5,
+                'horizon-fog-blend': 0.8, 'sky-horizon-blend': 0.8,
+                'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0] };
   const layers = [];
   if (num('osm', 1)) layers.push({ id: 'osm', type: 'raster', source: 'osm' });
   if (num('hillshade', 1)) layers.push({ id: 'hills', type: 'hillshade', source: 'hillshadeSource',
@@ -48,10 +55,15 @@
       layers,
       terrain: { source: 'terrainSource', exaggeration: exag },
       ...(num('globe', 0) ? { projection: { type: 'globe' } } : {}),
-      sky: {}
+      ...(num('sky', 1) ? { sky: SKY } : {})
     }
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true, showZoom: true, showCompass: true }));
+  map.addControl(new maplibregl.GlobeControl()); // toggles globe / mercator, like the app's globe button
+  // Sky switch: on = the spec-default `sky` (default sky, fog and globe atmosphere), off = no `sky` in the style.
+  const skyBox = document.getElementById('sky');
+  skyBox.checked = !!num('sky', 1);
+  skyBox.addEventListener('change', () => map.setSky(skyBox.checked ? SKY : undefined));
   const hud = document.getElementById('hud');
   function update() {
     const c = map.getCenter();
