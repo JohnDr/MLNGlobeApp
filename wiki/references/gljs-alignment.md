@@ -47,8 +47,22 @@ Audit date: 2026-10-17. Nothing below is marked *agreed* yet — John has not re
 | 12 | Camera collision | `_raiseCameraByPitchAndZoom` family | `Transform::raiseCameraAboveTerrain` (modelled on it, not diffed) | unverified |
 | 13 | Globe terrain | terrain on globe is supported | mesh/drape in globe incomplete; holes seen at ~z11 | departs – proposed |
 | 15 | Draped layers other than raster | every draped layer renders per RTT tile with its own matrix | only the raster tweaker keeps per-drape-target UBO blocks; hillshade/fill/line/color-relief reuse one projection for all drape targets (hillshade shows as a repeated picture or is missing) | **fixed** by patch 0043 (hillshade, color-relief, fill, line, background; circle/symbol/heatmap/fill-extrusion tweakers not draped, untouched) - see log 2026-10-18 |
-| 14 | Sky / fog | far plane from `_calculateNearFarZ` | far plane from the native `getProjMatrix` (`getFogDepthRange`) | departs – small; needs a decision |
+| 14 | Sky / fog / projection planes | fog matrix near = camera-to-sea-level distance, far = `_calculateNearFarZ`; the same far plane (and `nearZ = height / 50`) is the projection's | **aligned** (patches 0047/0048): `getFogDepthRange` ports `_calculateNearFarZ`, and with terrain `getProjMatrix` uses its far plane and `nearZ = height / 50` (the nearClipped matrix keeps its own near). Globe untouched | **fixed** |
 
 ## How to use this page
 
 Before changing terrain/cover/camera/drape code: find the GL JS function, link it here, and if the change adds a row to "Departs", ask John first. When a row is resolved, move it to "Aligned" with the GL JS reference. Record decisions in [log](../log.md).
+
+
+## Agreed deviations from GL JS
+
+| Area | GL JS | Fork | Agreed |
+|---|---|---|---|
+| LOD edge stitching (patch 0048) | skirts only: tiles of different zoom sample different DEM zooms and a crack is hidden by the skirt | the finer tile's edge vertices take their heights from the coarser neighbour's mesh edge (its DEM sampled at its 129 vertices, linearly interpolated), per side, with corners from the north/south edges; the mesh is rebuilt when a neighbour or its DEM changes. The skirts stay | John, 2026-10-18: "stitch the tile edges from the coarser DEM" and "Keep them [skirts] because GL JS has them" |
+
+## Decided: keep as GL JS (2026-10-18)
+
+- Mipmaps/anisotropy on the drape targets (row 8): kept.
+- Hillshade strength depends on the hillshade tile's zoom (`exaggeration` in `hillshade_prepare`), so a step appears where hillshade tile zooms change across a drape tile boundary: kept as GL JS ("keep GL JS's zoom dependence").
+- Skirt length now GL JS's: `metersPerWorldUnit(0.5, 0.5) / 2^zoom / 5` at the **map zoom**, equator-based, applied in the vertex shader (`u_ele_delta`); the mesh carries a skirt flag in `w`.
+- Tile-zoom function per source (patch 0048): `roundZoom` (GL JS: true for raster and raster-dem sources, false for terrain tiles) now rounds each tile's zoom in the terrain LOD cover, and the centre zoom is `zoom + log2(512 / tileSize)` (`TileCoverParameters::roundZoom`, `centerZoomShift`); with terrain the raster-dem nominal zoom is rounded as well.
