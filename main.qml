@@ -1257,9 +1257,14 @@ Window {
         property int tick: 0
         // Camera altitude above sea level, and the drawn terrain surface under the map centre
         // (exaggeration included); NaN until the elevation tile has loaded.
-        // (`tick >= 0` is always true; it makes the bindings depend on the timer.)
-        readonly property real cameraMeters: tick >= 0 ? map.cameraAltitude() : 0
-        readonly property real groundMeters: tick >= 0 && terrainStyle ? map.terrainElevation(lat, lon) : NaN
+        property real cameraMeters: 0
+        property real groundMeters: NaN
+        // Refreshed imperatively by the timer below. Bindings of the form `tick >= 0 ? map.cameraAltitude() : 0` were
+        // evaluated once at start-up, before the map had terrain, and never again, so the panel stayed at 0 / NaN.
+        function refresh() {
+            cameraMeters = map.cameraAltitude();
+            groundMeters = terrainStyle ? map.terrainElevation(lat, lon) : NaN;
+        }
         readonly property real surfaceMeters: groundMeters * map.terrainExaggeration
 
         // GL JS reports the bearing in (-180, 180].
@@ -1276,7 +1281,10 @@ Window {
             interval: 400
             repeat: true
             running: true
-            onTriggered: cameraReadout.tick++
+            onTriggered: {
+                cameraReadout.tick++;
+                cameraReadout.refresh();
+            }
         }
 
         // Selectable (drag to select, Ctrl+C copies the selection as shown).

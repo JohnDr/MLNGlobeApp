@@ -9,7 +9,27 @@ status: draft
 
 Ordered to-do list. Update it at the end of each session and record results in [Project history](./history.md) and the [wiki log](./log.md).
 
-## RESUME HERE — authoritative (2026-10-17, end of session)
+## RESUME HERE — authoritative (2026-10-18)
+
+**State:** terrain, sky and the GL JS comparison tooling are in place and aligned with GL JS (the reference; deviations need John's agreement, see [alignment audit](./references/gljs-alignment.md) and the standing rule in both `AGENTS.md`). Core patches **0001–0049** (fork branch `maplibreearth-patches` of `johndr/maplibre-native`, one commit per patch; files in `maplibre-native-qt/patches/`). What exists now:
+- 3D terrain with GL JS tile covers/DEM zoom (0040, 0045), per-target drape UBOs for all draped layer types (0043), hillshade coverage and no baked mesh shade (0044), RTT pool + GL JS fingerprint/one-stale-tile-per-frame/follow-up frames (0046), drape mipmaps/anisotropy, fog far plane, DEM backfill redraw (0047), LOD edge stitching (agreed departure), GL JS near/far planes, skirts, `roundZoom` for raster tiles (0048), DEM cell-centre (-0.5 px) sampling (0049).
+- Sky (`sky` style object with expressions/transitions, globe atmosphere, terrain fog; 0041–0042), Qt/QML API `skyEnabled` + `sky`, toolbar Sky switch. With sky off the area above the horizon is the app's space colour.
+- App: GL JS-format camera panel (bottom left, Copy button), performance panel (Load/Idle/FPS/Frame, top left), "3D Terrain (GL JS example)" style (`gljs-terrain-style.json`, Mapterhorn DEM, needs the Qt WebP plugin: `~/Qt/6.11.2/gcc_64/plugins/imageformats/libqwebp.so`, built from qtimageformats v6.11.2 in `~/dev/tmp/qtimageformats`), terrain exaggeration 1.0.
+- **Reference harness:** `tools/gljs-harness/` (GL JS 6.14.0, same style, camera from the URL; match the app with `w`/`h` = logical size and `dpr` = system scale x app scale; see its README). Capture/compare method and numbers: [log 2026-10-18](./log.md).
+
+**Decisions taken (do not re-litigate):** keep the 192-tile drape cap (no byte memory budget); keep drape mipmaps; keep GL JS hillshade zoom dependence; accept the remaining ~5-15 % hillshade sharpness gap vs GL JS (John, 2026-10-18); edge stitching from the coarser DEM is an agreed departure.
+
+**First thing after a reboot:** open Qt Creator (`~/Qt/Tools/QtCreator/bin/qtcreator -client ~/dev/projects/maplibreearth/CMakeLists.txt`), reconnect the MCP, check `git status` in the three repos, `/tmp` is wiped (use `~/dev/tmp`), restart the harness server (`python3 tools/gljs-harness/serve.py`, port 8765) and `tools/memguard.sh` before stress tests. Build/run policy unchanged: app only via the Qt Creator MCP (Debug cannot be switched via the MCP: ask John), libraries from the command line for **both** configs and installs.
+
+**Open / next**
+1. **Debug app build** has not been rebuilt or run since the sky/drape work (MCP cannot switch to Debug); the Debug libraries are rebuilt and `test_mln_quick` passes only with `QSG_RENDER_LOOP=basic` (pre-existing threaded-loop assertion in `MapRenderer::updateRenderer`).
+2. **Globe terrain** (holes at ~z11), **globe atmosphere** verified only briefly.
+3. **Zoom 14.5 / pitch 81 comparisons** are by eye or against older captures; re-capture when touching terrain again.
+4. Not exercised: location indicator and custom drawable layers with the new near/far planes; benchmarks have no pre-change baseline.
+5. Tests missing for the elevation-aware cover/frustum/LOD (core tests: 3 known pre-existing failures `StyleConversion.Projection`, `CustomDrawableLayer.Line/Fill`; render tests 1200 pass, `fill-extrusion-pattern/tile-buffer` fails, `text-font/{burmese,khmer,devanagari}` error).
+6. Upstreaming stays on hold ([D6](./decisions/d6-draft-upstream-prs.md)).
+
+## Earlier "RESUME HERE" (2026-10-17, end of session) — historical
 
 **State:** 3D terrain works on Linux/Vulkan at zoom 14–18, pitch 0–80, Release and Debug: imagery drapes to the horizon, panning at high pitch is correct, no GPU-memory runaway. Everything is in patch **0040** + Qt-wrapper commits (see [fork patches](./references/fork-patches.md), [log 2026-10-16/17](./log.md), [Linux runbook](./runbooks/linux-terrain-test-and-debug.md)). Older "RESUME HERE" sections below are **historical** (their "z15 draw fault" theory was wrong: the blue was the empty drape + double-scaled elevation + cover culling).
 

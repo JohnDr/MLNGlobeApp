@@ -66,3 +66,6 @@ Before changing terrain/cover/camera/drape code: find the GL JS function, link i
 - Hillshade strength depends on the hillshade tile's zoom (`exaggeration` in `hillshade_prepare`), so a step appears where hillshade tile zooms change across a drape tile boundary: kept as GL JS ("keep GL JS's zoom dependence").
 - Skirt length now GL JS's: `metersPerWorldUnit(0.5, 0.5) / 2^zoom / 5` at the **map zoom**, equator-based, applied in the vertex shader (`u_ele_delta`); the mesh carries a skirt flag in `w`.
 - Tile-zoom function per source (patch 0048): `roundZoom` (GL JS: true for raster and raster-dem sources, false for terrain tiles) now rounds each tile's zoom in the terrain LOD cover, and the centre zoom is `zoom + log2(512 / tileSize)` (`TileCoverParameters::roundZoom`, `centerZoomShift`); with terrain the raster-dem nominal zoom is rounded as well.
+- DEM sampling convention (patch 0049): DEM pixel i is at tile fraction (i + 0.5) / dim, as GL JS (`DEM_CELL_CENTER_OFFSET`, `uv * dim + 1.5`): **aligned**. Centre elevation at Glencoe now 739.85 m (GL JS 739.91).
+
+- 2026-10-18: sharpness gap at c81 (about 5-15%, mostly hillshade layer, far band for raster) investigated: not caused by drape mipmaps/anisotropy (measured); no confirmed GL JS divergence found; cause open.

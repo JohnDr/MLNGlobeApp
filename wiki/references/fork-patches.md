@@ -189,6 +189,13 @@ Edit the files in `vendor/maplibre-native`, then dump the diff with a UTF-8 writ
 git -C vendor/maplibre-native diff --no-color -- src > patches\....patch
 ```
 
+## Terrain/sky patches 0041–0049 (2026-10-17 … 2026-10-18)
+
+- **0041** sky + terrain fog (`style::Sky`, `SkyPass`, `SkyShader`, terrain fog UBO, `TransformState::getFogDepthRange`). **0042** sky expressions/transitions (`RenderSky`), globe atmosphere (`AtmosphereShader`), space colour above the horizon with the sky off.
+- **0043** per-drape-target UBO blocks for hillshade/color-relief/fill/line/background (was raster only). **0044** hillshade coverage (finer near-field tiles allowed with terrain variable zoom) and removal of the baked per-vertex shade (mesh is x/y/z).
+- **0045** GL JS DEM tile zoom and drape size (`rttSize = tileSize*2*2`), RTT fingerprint. **0046** RTT recycle pool, clear at rest, fingerprint with zoom/visible layers, one stale tile per frame, follow-up frames. **0047** drape mipmaps + anisotropy 16, neighbour redraw on DEM backfill, GL JS fog far plane. **0048** LOD edge stitching (agreed departure), GL JS near/far planes with terrain, GL JS skirt length, `roundZoom` for raster/raster-dem covers. **0049** DEM cell-centre sampling (`DEMData::getElevationAtPoint`, -0.5 px).
+- Qt wrapper (normal commits, not patch content): `Map::setSky/clearSky/hasSky`, `MapQuickItem` `skyEnabled`/`sky`, `renderedFrames()`, `averageFrameTimeMs()`, `mapLoaded`/`mapIdle`.
+
 **Linux method that worked for 0040** (the worktree contains all earlier patches, so a plain `git diff` is wrong): `git archive HEAD` of the submodule into a scratch dir, `git apply` patches 0001..N-1 there as the baseline, copy the changed files into `a/` (baseline) and `b/` (tree), `git diff --no-index a b | sed 's#a/a/#a/#g; s#b/b/#b/#g'`, then verify by applying all patches to a fresh archive and `cmp`-ing the files.
 
 After configure the submodule shows ` m vendor/maplibre-native`; the committed gitlink stays clean and the patches re-apply on a fresh checkout.
