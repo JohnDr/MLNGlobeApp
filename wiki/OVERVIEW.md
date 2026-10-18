@@ -54,7 +54,7 @@ MapLibreEarth is one QML app ([`main.qml`](./entry-points/main-qml.md), `main.cp
 
 ### Verification
 
-- [Verification index](./verification/index.md) — [Windows](./verification/windows.md), [Android](./verification/android.md), [Open Waters](./verification/open-waters.md).
+- [Verification index](./verification/index.md) — [Windows](./verification/windows.md), [Android](./verification/android.md), [Open Waters](./verification/open-waters.md), [Linux tests](./verification/linux-tests.md).
 
 ### Reference
 

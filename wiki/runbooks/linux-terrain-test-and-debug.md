@@ -26,7 +26,18 @@ cmake --install build-maplibre-native-qt-Release; cmake --install build-maplibre
 ## Tests
 
 - Qt: `QT_QPA_PLATFORM=xcb QSG_RENDER_LOOP=basic ctest` in each library tree (`test_mln_quick`; passes in both).
-- Vendored core tests (configure once): `cmake -G Ninja -S vendor/maplibre-native -B ~/dev/tmp/build-maplibre-native-core-tests -DCMAKE_BUILD_TYPE=Release -DMLN_WITH_VULKAN=ON -DMLN_WITH_OPENGL=OFF -DMLN_WITH_GLFW=OFF -DMLN_WITH_WERROR=OFF -DMLN_TEXT_SHAPING_HARFBUZZ=OFF`, then `ninja mbgl-test-runner mbgl-render-test-runner mbgl-benchmark-runner`; run **from `vendor/maplibre-native`**. Baseline 2026-10-17: 1056 pass, 3 fail and fail identically without patch 0040 (`StyleConversion.Projection`, `CustomDrawableLayer.Line/Fill`). Render tests must be run **per group** (one process over all groups aborts with "Failed to initialize thread-specific storage key"): for each dir in `metrics/integration/render-tests`, `mbgl-render-test-runner -p metrics/linux-vulkan.json -f render-tests/<group>/` -> 1200 pass; `fill-extrusion-pattern/tile-buffer` fails and `text-font/{burmese,khmer,devanagari}` error (identical without 0040). Benchmarks: `mbgl-benchmark-runner --benchmark_filter=TileCover`.
+- Vendored core tests (configure once): `cmake -G Ninja -S vendor/maplibre-native -B ~/dev/tmp/build-maplibre-native-core-tests -DCMAKE_BUILD_TYPE=Release -DMLN_WITH_VULKAN=ON -DMLN_WITH_OPENGL=OFF -DMLN_WITH_GLFW=OFF -DMLN_WITH_WERROR=OFF -DMLN_TEXT_SHAPING_HARFBUZZ=OFF`, then `ninja mbgl-test-runner mbgl-render-test-runner mbgl-benchmark-runner`; run **from `vendor/maplibre-native`**. Status 2026-10-18 (after patch 0055): 1110 pass, 0 fail on Vulkan (the 3 failures of 2026-10-17, `StyleConversion.Projection` and `CustomDrawableLayer.Line/Fill`, turned out to be fork regressions fixed by 0055; pristine upstream passes them). Render tests must be run **per group** (one process over all groups aborts with "Failed to initialize thread-specific storage key"): for each dir in `metrics/integration/render-tests`, `mbgl-render-test-runner -p metrics/linux-vulkan.json -f render-tests/<group>/` -> only `fill-extrusion-pattern/tile-buffer` (fails) and `text-font/{burmese,khmer,devanagari}` (error) are not passing, identical to pristine upstream. Benchmarks: `mbgl-benchmark-runner --benchmark_filter=TileCover`.
+
+## Test trees (2026-10-18)
+
+| Tree | Purpose |
+|---|---|
+| `~/dev/tmp/build-maplibre-native-core-tests` | fork, Vulkan (canonical, `mbgl-test-runner`, `mbgl-render-test-runner`, `mbgl-expression-test`) |
+| `~/dev/tmp/build-maplibre-native-core-tests-opengl` | fork, OpenGL (`-DMLN_WITH_OPENGL=ON -DMLN_WITH_VULKAN=OFF`; needs `sudo apt install libgles-dev`) |
+| `~/dev/tmp/maplibre-native-pristine` + `build-pristine-opengl` / `build-pristine-vulkan` | upstream `c7506d6` baseline: a copy of `vendor/maplibre-native` (without `.git`) with every patch reverse-applied (`git apply -R`, newest first) |
+| `~/dev/tmp/build-maplibre-native-qt-Release` | Qt library; `cmake --build` then `QT_QPA_PLATFORM=xcb QSG_RENDER_LOOP=basic ctest` |
+
+Rules learned: run the unit suites **one at a time** (fixed test HTTP server port 3000; parallel runs hang); never `pkill -f mbgl-test-runner` from the same shell (kills the shell, kill by PID); `node shaders/generate_shader_code.mjs` writes into the tree and clobbers `shader_source.*`/`shader_manifest.hpp` (see [Linux tests](../verification/linux-tests.md)); app gesture tests: `tests/gesture/run.sh`. Scripts used (in `~/dev/tmp`): `run-render-tests.sh`, `run-gl-tests.sh`, `run-verify.sh` (Qt build + ctest + three render suites).
 
 ## Scripted screenshot sweeps (no hands on the window)
 
@@ -47,5 +58,5 @@ Temporarily append a QML `Item` with `Timer`s to `main.qml` (restore the file af
 
 ## Where the code lives on GitHub (2026-10-17)
 
-- `johndr/maplibreearth` (app + wiki) `main`; `johndr/maplibre-native-qt` (wrapper + `patches/0001..0040`) `main`; `johndr/maplibre-native` branch **`maplibreearth-patches`** = upstream `android-v13.6.1` (`c7506d6`) + one commit per patch 0001..0040 (tree identical to the patched `vendor/maplibre-native` working tree). `main` of that fork is untouched upstream.
+- `johndr/maplibreearth` (app + wiki) `main`; `johndr/maplibre-native-qt` (wrapper + `patches/0001..0040`) `main`; `johndr/maplibre-native` branch **`maplibreearth-patches`** = upstream `android-v13.6.1` (`c7506d6`) + one commit per patch 0001..0055 (tree identical to the patched `vendor/maplibre-native` working tree). `main` of that fork is untouched upstream.
 - When a new patch `NNNN` is added to `maplibre-native-qt/patches/`: in a **worktree** of `~/dev/projects/maplibre-native` on `maplibreearth-patches` run `git apply --index patches/NNNN-....patch` and commit (identity: this Linux account has no git identity; use `GIT_AUTHOR_NAME/EMAIL` + `GIT_COMMITTER_*` env vars, JohnD <johndrummond0@gmail.com>), then `git push origin maplibreearth-patches`. If an existing patch is regenerated (as 0040 was repeatedly), amend/replace its commit accordingly.

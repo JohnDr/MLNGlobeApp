@@ -972,3 +972,32 @@ Fix (recommended, not a departure): apply the -0.5 cell-centre offset once, in t
 - **Not done:** keyboard and shift-drag box zoom; globe drawing still uses the old centre-offset pan/scale; pitch 77.5+ drags not numerically confirmed; wheel zoom, rotate/pitch and double-click not covered by the render check; Debug app built but John verified only Release so far.
 - Files: `main.qml`; `maplibre-native-qt` `src/core/map.*`, `src/quick/plugins/map_quick_item.*`; patch `maplibre-native-0053-gljs-terrain-pointer-anchor.patch`.
 
+
+## 2026-10-18 — Linux test coverage for terrain/camera/gesture core
+
+- **Added:** patch `maplibre-native-0054-terrain-camera-tests.patch` (tests only): `test/map/terrain_camera.test.cpp` (22 tests for patch 0053 primitives), `TerrainTileCover.*` (9) and elevated-box `BoundingVolumes.*` (4).
+- **Verified:** core suite 1106 tests, only the 3 known failures; render tests identical to the known list. Tolerances measured: `setLocationAtPoint` residue ~0.3 m at elevation; `putCenterOnTerrainKeepingCamera` camera drift up to ~6 m at pitch 75.
+- **Gaps:** `getMinMaxElevation`, `terrainPointForPixel`/elevation-hold flow, globe paths, GL JS golden tile lists — see the session notes `linux-test-coverage-2026-10-18.md`.
+
+### 2026-10-18 (later) — globe and gesture-logic tests
+
+- **Added:** 4 `TerrainCameraGlobe.*` tests (patch 0054 regenerated) and `tests/gesture/` (`tst_gesture.qml`, `run.sh`): 35 QtQuickTest cases running the real `gest` object extracted from `main.qml` against a mock map (bezier, anchor-elevation guard, drag pan fallbacks, scroll zoom incl. 0.337 levels per notch, inertia). Run `tests/gesture/run.sh`.
+- **Not covered:** the MouseArea/WheelHandler wiring outside `gest` (rotate/pitch, bearing snap, middle-drag, double click).
+
+### 2026-10-18 (later) — upstream contribution readiness
+
+- **Added:** [Linux tests](./verification/linux-tests.md) (suite results, fork tests, coverage gaps) and [Preparing to contribute upstream](./runbooks/upstream-contribution-plan.md) (maplibre-native / maplibre-native-qt rules and CI gates, what we meet, the plan). Linked from the verification and runbooks indexes and the overview.
+- **Finding:** testing requirements are only partly met: Linux/Vulkan only; no OpenGL, Windows or Android runs; no pristine-upstream baseline.
+
+### 2026-10-18 (later) — Linux OpenGL run
+
+- **Result:** with OpenGL the fork fails 15 unit and 497 render tests where pristine upstream `c7506d6` passes all unit tests and fails 5 render tests. Likely cause: patches 0014/0030 changed shared symbol GLSL/UBO for Vulkan only. Recorded in [Linux tests](./verification/linux-tests.md) and the [contribution plan](./runbooks/upstream-contribution-plan.md); the earlier "known failures" list is corrected (two of them are ours).
+
+### 2026-10-18 (later) - OpenGL regression fixed (patch 0055)
+
+- **Fixed:** stale OpenGL symbol shader headers + missing `ProjectionUBO` binding for symbols, custom drawable fill/line tweakers without `ProjectionUBO`, stale `StyleConversion.Projection` expectation. Vulkan 1110/1110 and OpenGL 1145/1145 unit tests pass; OpenGL render failures equal pristine (5). Pristine Vulkan baseline: 1025/1025.
+- **Corrected:** the earlier "known failures" (`StyleConversion.Projection`, `CustomDrawableLayer.Line/Fill`) were fork regressions, not upstream failures. See [Linux tests](./verification/linux-tests.md).
+
+### 2026-10-18 (later) - post-0055 verification
+
+- Qt library tree rebuilt, `test_mln_quick` passes. Render suites: Vulkan fork = pristine Vulkan (4 failing/erroring), OpenGL fork = pristine OpenGL (5). Core unit: Vulkan 1110, OpenGL 1145 all pass.

@@ -19,3 +19,4 @@ How to build and run the project.
 
 - [Environment](../architecture/environment.md) · [Verification](../verification/index.md)
 - [Linux terrain — build, test, stress-test, debug](./linux-terrain-test-and-debug.md) — paths, commands, scripted sweeps, memory guard, pitfalls (2026-10-17).
+- [Preparing to contribute upstream](./upstream-contribution-plan.md) — contribution rules, CI gates, readiness and plan (2026-10-18).
