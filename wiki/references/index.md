@@ -18,3 +18,4 @@ Background and preserved sources.
 
 - [Concepts](../concepts/index.md) · [Decisions](../decisions/index.md)
 - [GL JS alignment audit](./gljs-alignment.md) — what matches MapLibre GL JS and every departure awaiting agreement (2026-10-17).
+- [Gestures vs GL JS](./gesture-gljs-alignment.md) — pointer gestures compared with GL JS, agreed deviations, render check.

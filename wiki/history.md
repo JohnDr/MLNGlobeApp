@@ -42,3 +42,5 @@ Added the sky (expressions, transitions, globe atmosphere, QML API), a GL JS ref
 ## 2026-10-18 — globe + terrain fixed (patches 0050, 0051)
 
 Reproduced the globe problems with scripted sweeps on both terrain styles and compared with GL JS (`globe=1` in the harness). Root cause: terrain drape targets were rendered with the globe projection; they are now flat Mercator (GL JS `applyGlobeMatrix: false`), use the wrap-0 tile matrix (antimeridian) and polar tiles are capped (GL JS `_buildSkirts` pole rows). The `main.qml` auto-switch of the globe off for terrain styles was removed. Open: sky colour above the horizon at z11 pitch 70 on the globe. Details: [log 2026-10-18 part 10](./log.md).
+
+**2026-10-18** — Pointer gestures aligned with MapLibre GL JS: left-drag pan with inertia and terrain anchoring, GL JS scroll zoom (calibrated to John's browser), right/ctrl-drag rotate+pitch, double-click zoom, middle-drag kept as smooth zoom. Found and fixed a y-flip bug in the first terrain unprojection with an automated render check (patch 0053). See [gesture page](./references/gesture-gljs-alignment.md).

@@ -59,6 +59,10 @@ Before changing terrain/cover/camera/drape code: find the GL JS function, link i
 | Area | GL JS | Fork | Agreed |
 |---|---|---|---|
 | LOD edge stitching (patch 0048) | skirts only: tiles of different zoom sample different DEM zooms and a crack is hidden by the skirt | the finer tile's edge vertices take their heights from the coarser neighbour's mesh edge (its DEM sampled at its 129 vertices, linearly interpolated), per side, with corners from the north/south edges; the mesh is rebuilt when a neighbour or its DEM changes. The skirts stay | John, 2026-10-18: "stitch the tile edges from the coarser DEM" and "Keep them [skirts] because GL JS has them" |
+| Pointer gestures (2026-10-18, patch 0053 + `main.qml`) | wheel vs trackpad by timing heuristic | decided from Qt's `pixelDelta` (trackpad) vs `angleDelta` (wheel); same rates, sigmoid, 200 ms easing | John, 2026-10-18 |
+| Middle-button drag | no handler | continuous zoom `2^(-dy/250)` about the cursor (drag up = zoom in) | John, 2026-10-18 (keep the smooth zoom of the earlier app) |
+| Wheel notch size | `deltaY` of the browser | `wheelNotchDelta` 242.6, calibrated against GL JS on John's setup (0.337 zoom levels per click) | John, 2026-10-18 |
+| Terrain pick for drags and scroll anchors | rendered depth (`_raycastTerrain` on the coverage index) | ray march against the DEM in `TransformState::raycastTerrain` | John, 2026-10-18 (see [gesture page](./gesture-gljs-alignment.md)) |
 
 ## Decided: keep as GL JS (2026-10-18)
 

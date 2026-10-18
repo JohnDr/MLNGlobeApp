@@ -23,6 +23,7 @@ Ordered to-do list. Update it at the end of each session and record results in [
 
 **Open / next**
 1. **Debug app build** has not been rebuilt or run since the sky/drape work (MCP cannot switch to Debug); the Debug libraries are rebuilt and `test_mln_quick` passes only with `QSG_RENDER_LOOP=basic` (pre-existing threaded-loop assertion in `MapRenderer::updateRenderer`).
+2. **Pointer gestures** aligned with GL JS 2026-10-18 (patch 0053 + `main.qml`, see [gesture page](./references/gesture-gljs-alignment.md), log part 11). Open: keyboard handlers and shift-drag box zoom; globe-drawing pan/zoom still the old centre-offset code; wheel zoom, rotate/pitch and double-click not yet numerically checked on terrain (the render-check method on the gesture page can be reused); Debug app built but only Release verified by John.
 2. **Globe terrain** fixed 2026-10-18 (patches 0050/0051, see log part 10). Open: sky colour above the horizon at z11 pitch 70 on the globe (pale vs GL JS blue); the `main.qml` auto-switch of the globe off for terrain styles was removed (John, 2026-10-18); Debug app not run.
 3. **Zoom 14.5 / pitch 81 comparisons** are by eye or against older captures; re-capture when touching terrain again.
 4. Not exercised: location indicator and custom drawable layers with the new near/far planes; benchmarks have no pre-change baseline.

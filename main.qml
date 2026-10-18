@@ -350,14 +350,6 @@ Window {
         window.mapIndex = i;
         window.styleUrl = window.mapStyles[i].url;
         appState.setValue("map/styleUrl", window.styleUrl);
-        // Give the draped-terrain style a tilt so the relief is immediately visible.
-        if (window.styleUrl.indexOf("terrain-style.json") !== -1) {
-            if (window.mapTilt < 5) {
-                window.mapTilt = 50;
-                window.mapBearing = 0;
-                applyCamera(true);
-            }
-        }
     }
 
     // ---- Persisted state --------------------------------------------------------
@@ -430,9 +422,8 @@ Window {
             appState.setValue("map/styleUrl", window.styleUrl);
         }
 
-        // Restore the camera tilt and heading. Done after the style: assigning a draped-terrain style gives a
-        // default tilt of 50 when the tilt is still near zero, which must not override the saved camera. The style's
-        // load then re-applies them (see onStyleLoadedChanged -> applyCamera).
+        // Restore the camera tilt and heading. The style's
+        // load re-applies them (see onStyleLoadedChanged -> applyCamera).
         const savedTilt = Number(appState.value("map/tilt"));
         const savedBearing = Number(appState.value("map/bearing"));
         if (appState.value("map/tilt") !== undefined && isFinite(savedTilt)) {
@@ -477,11 +468,6 @@ Window {
         if (window.styleUrl.indexOf("terrain-style.json") !== -1) {
             window.terrainEnabled = true;
             appState.setValue("map/terrainEnabled", true);
-            if (window.mapTilt < 5) {
-                window.mapTilt = 50;
-                window.mapBearing = 0;
-                applyCamera(true);
-            }
         } else if (window.terrainEnabled) {
             // The terrain toggle only applies to the draped-terrain style (it has a "dem" source); leave it off
             // for other styles so we don't ask for a source they don't have.
@@ -532,7 +518,7 @@ Window {
 
         style: window.styleUrl
         zoomLevel: 4
-        coordinate: [59.91, 10.75]
+        coordinate: [51.5074, -0.1278]
 
         // 2D / 3D projection. 3D = globe (sphere when zoomed out); 2D = flat Mercator.
         projectionType: window.globe3D ? MapLibre.Globe : MapLibre.Mercator
@@ -580,37 +566,363 @@ Window {
             }
         }
 
-        // Mouse gestures, handled explicitly so each button is deterministic:
-        //   left = pan, middle = tilt/rotate, right = continuous zoom.
+        // Mouse gestures, aligned with MapLibre GL JS (handler_manager.ts, handler/mouse.ts, handler/scroll_zoom.ts,
+        // handler_inertia.ts, handler/click_zoom.ts). See wiki/references/gljs-alignment.md for the agreed deviations.
+        //   left drag = pan (grabbed point stays under the cursor, at the terrain height there) with inertia
+        //   right drag / ctrl+left drag = rotate (0.8 deg/px, circular about the centre) + pitch (-0.5 deg/px)
+        //   wheel / trackpad = scroll zoom about the cursor; double click = zoom in (shift: out)
+        //   middle drag = continuous zoom (DEVIATION agreed with John: kept from the earlier app, not in GL JS)
+        QtObject {
+            id: gest
+            readonly property real clickTolerance: 3
+            readonly property real rotateSpeed: 0.8
+            readonly property real pitchSpeed: -0.5
+            readonly property real bearingSnap: 7
+            // pan
+            property var samples: []
+            property real anchorElevation: NaN
+            // Terrain drag whose start point is not on the terrain (sky / beyond the DEM): GL JS pans by the pixel delta about the centre.
+            property bool centerPan: false
+            property real inertiaDone: 0
+            property point inertiaPan: Qt.point(0, 0)
+            // scroll zoom (ScrollZoomHandler)
+            readonly property real wheelZoomDelta: 4.000244140625
+            readonly property real defaultZoomRate: 1 / 100
+            readonly property real wheelZoomRate: 1 / 450
+            readonly property real maxScalePerFrame: 2
+            // deltaY the reference browser reports for one mouse wheel notch. Calibrated on John's setup: GL JS zooms
+            // 0.337 levels per click there (2/(1+exp(-d/450)) = 2^0.337 -> d = 242.6); ours gave 0.151 with 100.
+            property real wheelNotchDelta: 242.6
+            property real wheelDelta: 0
+            property string wheelType: ""
+            property real lastWheelTime: 0
+            property point aroundPoint: Qt.point(0, 0)
+            property bool zoomActive: false
+            property real targetZoom: NaN
+            property real startZoom: NaN
+            property var zoomEasing: null
+            property var prevEase: null
+
+            // WebKit/GL JS unit bezier.
+            function bezier(x1, y1, x2, y2) {
+                const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+                const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+                const sx = t => ((ax * t + bx) * t + cx) * t;
+                const sy = t => ((ay * t + by) * t + cy) * t;
+                const dx = t => (3 * ax * t + 2 * bx) * t + cx;
+                return function (x) {
+                    let t = x;
+                    for (let i = 0; i < 8; i++) {
+                        const e = sx(t) - x;
+                        if (Math.abs(e) < 1e-6) { return sy(t); }
+                        const d = dx(t);
+                        if (Math.abs(d) < 1e-6) { break; }
+                        t -= e / d;
+                    }
+                    let lo = 0, hi = 1;
+                    t = x;
+                    while (lo < hi) {
+                        const v = sx(t);
+                        if (Math.abs(v - x) < 1e-6) { break; }
+                        if (x > v) { lo = t; } else { hi = t; }
+                        t = (hi - lo) * 0.5 + lo;
+                    }
+                    return sy(t);
+                };
+            }
+            readonly property var defaultEasing: bezier(0.25, 0.1, 0.25, 1)
+            readonly property var inertiaEasing: bezier(0, 0, 0.3, 1)
+
+            // Anchor elevation for a pointer position (GL JS screenTerrainPointToMercatorCoordinate); NaN = centre plane.
+            function elevationAt(pos) {
+                if (map.globeRendering()) { return NaN; }
+                const tp = map.terrainPointAt(pos);
+                if (tp.elevation === undefined) { return NaN; }
+                // handler_manager.ts: an anchor plane too close to the camera is not stable; solve on the centre plane.
+                if (tp.elevation - map.elevation() >= 0.9 * (map.cameraAltitude() - map.elevation())) { return NaN; }
+                return tp.elevation;
+            }
+
+            // GL JS pan (setLocationAtPoint): the location under `from` goes under `to`.
+            function dragPan(from, to, elevation) {
+                if (map.globeRendering() || centerPan) {
+                    map.pan(Qt.point(to.x - from.x, to.y - from.y));
+                    return;
+                }
+                const loc = map.coordinateAtElevation(from, elevation);
+                if (loc.latitude !== undefined && map.setLocationAtPoint(loc.latitude, loc.longitude, to, elevation)) {
+                    return;
+                }
+                // Pointer above the horizon: pan by the pixel delta about the centre (handler_manager.ts).
+                map.pan(Qt.point(to.x - from.x, to.y - from.y));
+            }
+
+            // Zoom by dz levels, keeping the location under `pos` (at the terrain height there) in place.
+            function zoomAround(pos, dz) {
+                if (!dz) { return; }
+                if (map.globeRendering()) {
+                    map.scale(Math.pow(2.0, dz), pos);
+                    return;
+                }
+                const elevation = elevationAt(pos);
+                const loc = map.coordinateAtElevation(pos, elevation);
+                map.easeTo({ zoom: map.zoomLevel + dz }, { duration: 0 });
+                if (loc.latitude !== undefined) {
+                    map.setLocationAtPoint(loc.latitude, loc.longitude, pos, elevation);
+                }
+            }
+
+            // ---- pan inertia (handler_inertia.ts) ----
+            function record(dx, dy) {
+                const now = Date.now();
+                samples = samples.filter(s => now - s.t <= 160).concat([{ t: now, dx: dx, dy: dy }]);
+            }
+            function startInertia() {
+                const now = Date.now();
+                const e = samples.filter(s => now - s.t <= 160);
+                samples = [];
+                if (e.length < 2) { return; }
+                let first = Math.max(0, e.length - 2);
+                while (first > 0 && e[first - 1].t >= now - 60) { first--; }
+                const used = e.slice(first);
+                if (used.length < 2) { return; }
+                let px = 0, py = 0;
+                for (let i = 1; i < used.length; i++) { px += used[i].dx; py += used[i].dy; }
+                const mag = Math.hypot(px, py);
+                if (!mag) { return; }
+                const duration = now - used[0].t;
+                const linearity = 0.3, maxSpeed = 1400, deceleration = 2500;
+                const speed = Math.max(-maxSpeed, Math.min(maxSpeed, mag * linearity / (duration / 1000)));
+                const seconds = Math.abs(speed) / (deceleration * linearity);
+                const amount = speed * (seconds / 2);
+                inertiaPan = Qt.point(px * amount / mag, py * amount / mag);
+                inertiaDone = 0;
+                inertiaAnim.previous = 0;
+                inertiaAnim.duration = seconds * 1000;
+                inertiaAnim.restart();
+            }
+            function stopInertia() { inertiaAnim.stop(); }
+
+            // ---- scroll zoom (scroll_zoom.ts) ----
+            function wheelEvent(angleY, pixelY, shift, pos) {
+                // Qt tells wheel (angleDelta only) from trackpad (pixelDelta) directly: GL JS's timing heuristic is not needed.
+                let value;
+                if (pixelY !== 0) {
+                    wheelType = "trackpad";
+                    value = -pixelY;
+                } else {
+                    wheelType = "wheel";
+                    value = -angleY / 120 * wheelNotchDelta;
+                }
+                if (shift && value) { value = value / 4; }
+                lastWheelTime = Date.now();
+                wheelDelta -= value;
+                if (!zoomActive) {
+                    zoomActive = true;
+                    aroundPoint = pos;
+                    frameTimer.start();
+                }
+            }
+            function zoomFrame() {
+                const cur = map.zoomLevel;
+                if (wheelDelta !== 0) {
+                    const rate = (wheelType === "wheel" && Math.abs(wheelDelta) > wheelZoomDelta) ? wheelZoomRate : defaultZoomRate;
+                    let scale = maxScalePerFrame / (1 + Math.exp(-Math.abs(wheelDelta * rate)));
+                    if (wheelDelta < 0 && scale !== 0) { scale = 1 / scale; }
+                    const from = isNaN(targetZoom) ? cur : targetZoom;
+                    targetZoom = Math.max(0, Math.min(22, from + Math.log(scale) / Math.LN2));
+                    if (wheelType === "wheel") {
+                        startZoom = cur;
+                        zoomEasing = smoothOutEasing(200);
+                    }
+                    wheelDelta = 0;
+                }
+                const target = isNaN(targetZoom) ? cur : targetZoom;
+                let zoom, finished = false;
+                if (wheelType === "wheel" && !isNaN(startZoom) && zoomEasing) {
+                    const t = Math.min((Date.now() - lastWheelTime + 5) / 200, 1);
+                    zoom = startZoom + (target - startZoom) * zoomEasing(t);
+                    finished = t >= 1;
+                } else {
+                    zoom = target;
+                    finished = true;
+                }
+                zoomAround(aroundPoint, zoom - cur);
+                if (finished) {
+                    frameTimer.stop();
+                    zoomActive = false;
+                    clearTimer.restart();
+                }
+            }
+            function smoothOutEasing(duration) {
+                let easing = defaultEasing;
+                if (prevEase) {
+                    const t = (Date.now() - prevEase.start) / prevEase.duration;
+                    const speed = prevEase.easing(t + 0.01) - prevEase.easing(t);
+                    const x = 0.27 / Math.sqrt(speed * speed + 0.0001) * 0.01;
+                    const y = Math.sqrt(0.27 * 0.27 - x * x);
+                    easing = bezier(x, y, 0.25, 1);
+                }
+                prevEase = { start: Date.now(), duration: duration, easing: easing };
+                return easing;
+            }
+        }
+
+        NumberAnimation {
+            id: inertiaAnim
+            target: gest
+            property: "inertiaDone"
+            from: 0
+            to: 1
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: [0, 0, 0.3, 1, 1, 1]
+            property real previous: 0
+            onStarted: previous = 0
+            onRunningChanged: if (!running) { gest.inertiaDone = 0; map.setElevationHold(false); }
+        }
+        Connections {
+            target: gest
+            function onInertiaDoneChanged() {
+                if (!inertiaAnim.running) { return; }
+                const k = gest.inertiaDone, d = k - inertiaAnim.previous;
+                inertiaAnim.previous = k;
+                const c = Qt.point(map.width / 2, map.height / 2);
+                gest.dragPan(c, Qt.point(c.x + gest.inertiaPan.x * d, c.y + gest.inertiaPan.y * d), NaN);
+            }
+        }
+        Timer {
+            id: frameTimer
+            interval: 16
+            repeat: true
+            onTriggered: gest.zoomFrame()
+        }
+        Timer {
+            id: clearTimer
+            interval: 200
+            onTriggered: { gest.targetZoom = NaN; gest.startZoom = NaN; }
+        }
+
         MouseArea {
             id: mouseGestures
             anchors.fill: parent
             enabled: !window.dialogOpen
             acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+            property point startPos
             property point lastPos
             property int activeButton: Qt.NoButton
+            property bool rotateMode: false
+            property bool moved: false
+            property point panApplied
+            property bool panPending: false
+
+            function flushPan() {
+                if (!panPending) { return; }
+                panPending = false;
+                const to = Qt.point(lastPos.x, lastPos.y);
+                gest.dragPan(panApplied, to, gest.anchorElevation);
+                gest.record(to.x - panApplied.x, to.y - panApplied.y);
+                panApplied = to;
+            }
+            FrameAnimation {
+                running: mouseGestures.panPending
+                onTriggered: mouseGestures.flushPan()
+            }
 
             onPressed: (mouse) => {
-                lastPos = Qt.point(mouse.x, mouse.y);
+                gest.stopInertia();
+                gest.wheelDelta = 0;
+                startPos = Qt.point(mouse.x, mouse.y);
+                lastPos = startPos;
                 activeButton = mouse.button;
+                moved = false;
+                rotateMode = mouse.button === Qt.RightButton
+                             || (mouse.button === Qt.LeftButton && (mouse.modifiers & Qt.ControlModifier));
+                gest.samples = [];
+                panPending = false;
             }
-            onReleased: activeButton = Qt.NoButton
-            onPositionChanged: (mouse) => {
-                if (activeButton === Qt.NoButton) {
-                    return;
+            onReleased: (mouse) => {
+                if (moved && activeButton === Qt.LeftButton && !rotateMode) {
+                    flushPan();
+                    gest.startInertia();
+                    if (!inertiaAnim.running) { map.setElevationHold(false); }
                 }
-                const dx = mouse.x - lastPos.x;
-                const dy = mouse.y - lastPos.y;
-                lastPos = Qt.point(mouse.x, mouse.y);
-                if (activeButton === Qt.LeftButton) {
-                    map.pan(Qt.point(dx, dy));
-                } else if (activeButton === Qt.MiddleButton) {
-                    window.mapTilt = Math.max(0, Math.min(85, window.mapTilt - dy * 0.3));
-                    window.mapBearing = window.mapBearing + dx * 0.3;
+                if (moved && rotateMode) {
+                    // bearingSnap: snap to north within 7 degrees at the end of the gesture.
+                    let b = window.mapBearing % 360;
+                    if (b > 180) { b -= 360; } else if (b < -180) { b += 360; }
+                    if (b !== 0 && Math.abs(b) < gest.bearingSnap) {
+                        window.mapBearing = 0;
+                        window.applyCamera(true);
+                    }
+                }
+                activeButton = Qt.NoButton;
+            }
+            onDoubleClicked: (mouse) => {
+                if (mouse.button !== Qt.LeftButton) { return; }
+                // ClickZoomHandler: zoom +1 (shift: -1) over 300 ms about the pointer, default easing.
+                dblZoom.pos = Qt.point(mouse.x, mouse.y);
+                dblZoom.sign = (mouse.modifiers & Qt.ShiftModifier) ? -1 : 1;
+                dblZoom.last = 0;
+                dblZoom.restart();
+            }
+            onPositionChanged: (mouse) => handleMove(Qt.point(mouse.x, mouse.y))
+            function handleMove(cur) {
+                if (activeButton === Qt.NoButton) { return; }
+                if (!moved && Math.hypot(cur.x - lastPos.x, cur.y - lastPos.y) < gest.clickTolerance) { return; }
+                const first = !moved;
+                moved = true;
+                const prev = Qt.point(lastPos.x, lastPos.y); // copy: point values are references in QML JS
+                lastPos = cur;
+                if (activeButton === Qt.MiddleButton) {
+                    map.scale(Math.pow(2.0, -(cur.y - prev.y) / 250.0), cur); // drag up = zoom in
+                } else if (rotateMode) {
+                    const c = Qt.point(map.width / 2, map.height / 2);
+                    let bearing;
+                    if (Math.abs(c.y - prev.y) > 100) {
+                        // getAngleDelta(): the y axis is "saved" for pitch.
+                        const a = Qt.point(cur.x - c.x, cur.y - c.y), b = Qt.point(prev.x - c.x, prev.y - c.y);
+                        bearing = Math.atan2(a.x * b.y - a.y * b.x, a.x * b.x + a.y * b.y) * 180 / Math.PI;
+                    } else {
+                        bearing = (cur.x - prev.x) * gest.rotateSpeed;
+                        if (cur.y < c.y) { bearing = -bearing; }
+                    }
+                    window.mapBearing += bearing;
+                    window.mapTilt = Math.max(0, Math.min(85, window.mapTilt + (cur.y - prev.y) * gest.pitchSpeed));
                     window.applyCamera(false);
-                } else if (activeButton === Qt.RightButton) {
-                    map.scale(Math.pow(2.0, dy / 250.0), Qt.point(mouse.x, mouse.y));
+                } else {
+                    if (first) {
+                        gest.anchorElevation = gest.elevationAt(startPos);
+                        gest.centerPan = window.terrainEnabled && !map.globeRendering() && map.terrainPointAt(startPos).elevation === undefined;
+                        if (!map.globeRendering()) { map.setElevationHold(true); } // GL JS holdElevation('gesture')
+                    }
+                    // Like GL JS, pointer moves are combined and applied once per frame (see panFrame).
+                    if (first) { panApplied = prev; }
+                    panPending = true;
                 }
+            }
+        }
+
+        NumberAnimation {
+            id: dblZoom
+            property point pos
+            property real sign: 1
+            property real last: 0
+            property real progress: 0
+            target: dblZoom
+            property: "progress"
+            from: 0
+            to: 1
+            duration: 300
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: [0.25, 0.1, 0.25, 1, 1, 1]
+        }
+        // progress drives the zoom steps
+        Connections {
+            target: dblZoom
+            function onProgressChanged() {
+                const d = dblZoom.progress - dblZoom.last;
+                dblZoom.last = dblZoom.progress;
+                gest.zoomAround(dblZoom.pos, dblZoom.sign * d);
             }
         }
 
@@ -622,7 +934,9 @@ Window {
                             ? PointerDevice.Mouse | PointerDevice.TouchPad
                             : PointerDevice.Mouse
             onWheel: (event) => {
-                map.scale(Math.pow(2.0, event.angleDelta.y / 120), wheel.point.position)
+                gest.stopInertia();
+                gest.wheelEvent(event.angleDelta.y, event.pixelDelta.y, (event.modifiers & Qt.ShiftModifier) !== 0,
+                                wheel.point.position);
             }
         }
     }
