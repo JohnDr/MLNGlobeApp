@@ -810,6 +810,93 @@ Window {
         }
     }
 
+    // ---- Performance metrics (as the MapLibre GL JS "Display performance metrics" example) ---------
+    // Load: time until the map finished loading; Idle: time until it was fully rendered (nothing left to load or
+    // draw); FPS: map frames rendered per second; Frame: average CPU time (encoding + rendering) per frame. Timing restarts whenever a style (re)loads.
+    Rectangle {
+        id: metricsPanel
+        z: 10
+        anchors.top: controlCluster.bottom
+        anchors.left: parent.left
+        anchors.topMargin: 8
+        anchors.leftMargin: 8
+        // Same look as the camera panel at the bottom left.
+        color: "#d91e1e1e"
+        radius: 4
+        width: metricsColumn.implicitWidth + 16
+        height: metricsColumn.implicitHeight + 12
+
+        property double createdAt: Date.now()
+        property string loadText: "\u2014"
+        property string idleText: "\u2014"
+        property string fpsText: "\u2014"
+        property string frameText: "\u2014"
+        property int lastFrames: 0
+        property double lastFpsTime: Date.now()
+
+        function restart() {
+            createdAt = Date.now();
+            loadText = "\u2014";
+            idleText = "\u2014";
+        }
+
+        Column {
+            id: metricsColumn
+            anchors.centerIn: parent
+
+            Repeater {
+                model: [
+                    { label: "Load:  ", value: metricsPanel.loadText },
+                    { label: "Idle:  ", value: metricsPanel.idleText },
+                    { label: "FPS:   ", value: metricsPanel.fpsText },
+                    { label: "Frame: ", value: metricsPanel.frameText }
+                ]
+                Text {
+                    required property var modelData
+                    text: modelData.label + modelData.value
+                    color: "white"
+                    font.pixelSize: 12
+                    font.family: "monospace"
+                }
+            }
+        }
+
+        Connections {
+            target: map
+            function onMapLoaded() {
+                if (metricsPanel.loadText === "\u2014") {
+                    metricsPanel.loadText = (Date.now() - metricsPanel.createdAt).toFixed(0) + " ms";
+                }
+            }
+            function onMapIdle() {
+                if (metricsPanel.idleText === "\u2014") {
+                    metricsPanel.idleText = (Date.now() - metricsPanel.createdAt).toFixed(0) + " ms";
+                }
+            }
+            function onStyleLoadedChanged() {
+                if (!map.styleLoaded) {
+                    metricsPanel.restart();
+                }
+            }
+        }
+
+        Timer {
+            interval: 1000
+            running: true
+            repeat: true
+            onTriggered: {
+                const now = Date.now();
+                const frames = map.renderedFrames();
+                const elapsed = now - metricsPanel.lastFpsTime;
+                metricsPanel.fpsText = Math.round((frames - metricsPanel.lastFrames) * 1000 / elapsed).toString();
+                const frameMs = map.averageFrameTimeMs();
+                metricsPanel.frameText = isNaN(frameMs) ? "\u2014" : frameMs.toFixed(1) + " ms";
+                metricsPanel.lastFrames = frames;
+                metricsPanel.lastFpsTime = now;
+            }
+        }
+    }
+
     // ---- Settings dialog (App scale) --------------------------------------------
     Dialog {
         id: settingsDialog

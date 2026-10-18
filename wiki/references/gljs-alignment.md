@@ -33,19 +33,20 @@ Audit date: 2026-10-17. Nothing below is marked *agreed* yet — John has not re
 
 | # | Area | GL JS | Fork | Status |
 |---|---|---|---|---|
-| 1 | Mesh construction | one shared flat mesh, elevation sampled from the DEM texture in the vertex shader | per-tile mesh with CPU-baked elevation and CPU hillshade (rebuild when exaggeration changes) | departs – proposed (target: shared mesh + DEM texture sampling) |
-| 2 | Hillshade | separate hillshade layer; terrain draw has no baked shading | baked shade in vertex `w`, applied in the terrain shader | departs – proposed |
-| 3 | DEM tile zoom | source zoom derived from tile size / deltaZoom / source min,max; loaded-parent fallback | `clamp(floor(zoom)+2, 0, 14)`, no parent fallback for the mesh | departs – proposed |
-| 4 | Cover centre zoom | `transform.zoom + scaleZoom(transform.tileSize / options.tileSize)` | `zoom + (demZoom - floor(zoom))` | unverified / departs – proposed |
+| 1 | Mesh construction | one shared flat mesh, elevation sampled from the DEM texture in the vertex shader | per-tile mesh with CPU-baked elevation (rebuild when exaggeration changes; the CPU hillshade went in patch 0044) | departs – proposed (target: shared mesh + DEM texture sampling) |
+| 2 | Hillshade | separate hillshade layer; terrain draw has no baked shading | baked shade removed by patch 0044 (mesh is xyz, shader draws the drape texture directly) | **fixed** 2026-10-18 |
+| 3 | DEM tile zoom | terrain tiles = `coveringTiles` with tileSize = source.tileSize*2, DEM source tile = terrain z - deltaZoom(1), parent fallback, mesh samples a sub-rectangle | same (`TerrainTileManager::terrainZoomFor`, `sourceTileFor`, `getSourceTile`; mesh samples the DEM quadrant) | **fixed** by patch 0045 |
+| 4 | Cover centre zoom | `transform.zoom + scaleZoom(transform.tileSize / options.tileSize)` | `zoom + (nominalZ - floor(zoom))`, identical for power-of-two tile sizes since nominalZ = floor of the GL JS value | **aligned** (patch 0045) |
 | 5 | Extra DEM requests | none (uses source cache) | requests a z9 ancestor for every visited cover node so a range exists early | departs – proposed |
-| 6 | Tile cap | none | 192-tile backstop in the terrain pass | departs – proposed (remove once LOD cover is proven bounded) |
+| 6 | Tile cap | none; the count is bounded by the LOD cover only | 192-tile backstop in the terrain pass kept: measured cover maximum 17 tiles over pitch 0-85, zoom 10-17 (12-15 at pitch 70-85), but boundedness is not proven; each tile now holds a 16.8 MB drape target | departs - proposed (remove once the LOD cover is shown bounded) |
 | 7 | Horizon culling margin | `getElevationForTileCulling` adds up to 500 m near the horizon | not implemented | departs – proposed |
-| 8 | Drape targets | RTT pool/cache, 1024 px for 256-px sources | one 512 px target per terrain tile, no pool | departs – proposed |
-| 9 | Unrendered drape | no tint; terrain draws its texture | beige hypsometric tint where the drape alpha is 0 (fork feature, patch 0032) | departs – proposed (remove or agree) |
-| 10 | Stale drape while reloading | previous RTT kept until the new one renders | cleared/re-rendered; navy/beige tiles for seconds after big zoom jumps | departs – proposed |
+| 8 | Drape targets | RTT recycle pool (`painter._rttObjectRecyclePool`), released when a tile leaves the cover or changes, pool cleared at rest (`clearRTTPool`); rttSize = terrain tile size * 2 (2048 px for the 512-px DEM) | same (patches 0045/0046): pool in `RenderOrchestrator`, size as GL JS, pool emptied when the camera is at rest; no shared depth attachment (our drape targets have none) | **aligned** |
+| 9 | Unrendered drape | no tint; terrain draws its texture | removed (patch 0045): the terrain shader draws the drape texture as is, like `terrain.fragment.glsl` | **fixed** |
+| 10 | Drape refresh | `RTTFingerprint` (source tile ids + revision + zoom + visible layers); `zoom` kept while moving, one stale tile per frame, `needsFollowUpFrame` | same classes none/zoom/sourceTiles/visibleLayers/revision with the same policy (patch 0046); follow-up frame via `observer->onInvalidate()`. A source tile's revision is our `onTileChanged` count, which also fires on layer-property re-evaluation (e.g. a zoom expression on the drape layer re-prepares its tiles), so those refresh as `revision` (immediately) | **aligned** (revision source differs) |
 | 11 | Missing DEM tiles | **unverified** (believed: treated as flat) | flat sea-level mesh | unverified |
 | 12 | Camera collision | `_raiseCameraByPitchAndZoom` family | `Transform::raiseCameraAboveTerrain` (modelled on it, not diffed) | unverified |
 | 13 | Globe terrain | terrain on globe is supported | mesh/drape in globe incomplete; holes seen at ~z11 | departs – proposed |
+| 15 | Draped layers other than raster | every draped layer renders per RTT tile with its own matrix | only the raster tweaker keeps per-drape-target UBO blocks; hillshade/fill/line/color-relief reuse one projection for all drape targets (hillshade shows as a repeated picture or is missing) | **fixed** by patch 0043 (hillshade, color-relief, fill, line, background; circle/symbol/heatmap/fill-extrusion tweakers not draped, untouched) - see log 2026-10-18 |
 | 14 | Sky / fog | far plane from `_calculateNearFarZ` | far plane from the native `getProjMatrix` (`getFogDepthRange`) | departs – small; needs a decision |
 
 ## How to use this page
