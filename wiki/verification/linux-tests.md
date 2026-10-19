@@ -7,7 +7,7 @@ status: current
 ---
 ## Summary
 
-Linux (Ubuntu 26.04, Vulkan) is the only platform where the test suites have been run so far. All figures are from 2026-10-18 on the patched vendored core (upstream `c7506d6` + patches 0001-0054).
+Linux (Ubuntu 26.04, Vulkan) is the only platform where the test suites have been run so far. All figures are from 2026-10-18/19 on the patched vendored core (upstream `c7506d6` + patches 0001-0056; re-run after 0056 on 2026-10-19 with identical results).
 
 | Suite | Result |
 |-------|--------|

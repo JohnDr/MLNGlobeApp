@@ -1008,3 +1008,7 @@ Fix (recommended, not a departure): apply the -0.5 cell-centre offset once, in t
 - **Jump on release (patch 0056):** `Transform::putCenterOnTerrainKeepingCamera` used a fixed-point iteration that oscillates across ridges, leaving centre and zoom inconsistent so the picture moved (image difference 23 at the Glencoe preset). It now scans down the view ray from the camera for the first point whose ground is at its own height and bisects; the picture difference is 1.3 (noise). Unit tests `TerrainCamera.*` (26) pass.
 - **Method:** unattended in-app runs (a temporary QML Timer drives the same code path as the mouse, `grabToImage` before/after, a numpy difference); reusable, see the [gesture page](references/gesture-gljs-alignment.md). All temporary code removed. John verified at the Glencoe and IOW presets.
 
+
+### 2026-10-19 - full re-run with patch 0056
+
+- Rebuilt the Vulkan and OpenGL test trees and the Qt library with 0056: unit tests Vulkan 1110/1110, OpenGL 1145/1145 (incl. the 26 `TerrainCamera.*`); Qt `test_mln_quick` passes; render failures Vulkan 4 and OpenGL 5, both identical to the pristine lists. No change from the post-0055 results.
