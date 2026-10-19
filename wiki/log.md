@@ -1001,3 +1001,10 @@ Fix (recommended, not a departure): apply the -0.5 cell-centre offset once, in t
 ### 2026-10-18 (later) - post-0055 verification
 
 - Qt library tree rebuilt, `test_mln_quick` passes. Render suites: Vulkan fork = pristine Vulkan (4 failing/erroring), OpenGL fork = pristine OpenGL (5). Core unit: Vulkan 1110, OpenGL 1145 all pass.
+
+## 2026-10-19 - gesture follow-ups after the preset bug reports (patch 0056, main.qml, map_quick_item)
+- **Right-drag / compass jumped back after a preset:** `map.coordinate` / `map.zoomLevel` hold what was last set through the item; `flyTo` stores the start of the flight and nothing refreshes them, so `applyCamera` re-sent a stale centre. Rotate/pitch and the compass now use `applyOrientation` (pitch and bearing only). `applyCamera` stays for the style-load restore (the style load resets the core camera, so it must use the stored values). New `MapQuickItem::liveCoordinate()` / `liveZoom()` return the map's own camera; used for saving state, presets, wheel zoom and the HUD (HUD bindings depend on the 400 ms tick). The properties themselves stay stored values (live getters broke the restore of the last position on restart: the style load had reset the core to 0,0).
+- **Pan inertia** now capped at 0.75 of the pixels to the horizon (`handlePanInertia` in `mercator_camera_helper.ts`); at pitch 81-85 an uncapped inertia coasted kilometres.
+- **Jump on release (patch 0056):** `Transform::putCenterOnTerrainKeepingCamera` used a fixed-point iteration that oscillates across ridges, leaving centre and zoom inconsistent so the picture moved (image difference 23 at the Glencoe preset). It now scans down the view ray from the camera for the first point whose ground is at its own height and bisects; the picture difference is 1.3 (noise). Unit tests `TerrainCamera.*` (26) pass.
+- **Method:** unattended in-app runs (a temporary QML Timer drives the same code path as the mouse, `grabToImage` before/after, a numpy difference); reusable, see the [gesture page](references/gesture-gljs-alignment.md). All temporary code removed. John verified at the Glencoe and IOW presets.
+

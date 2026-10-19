@@ -125,6 +125,13 @@ Window {
                     { duration: animated ? 300 : 0 });
     }
 
+    // Apply only the tracked tilt + bearing, leaving centre and zoom as the map has them. Used by the gestures and the
+    // compass: `map.coordinate` / `map.zoomLevel` are stale while a preset's flyTo runs and after it (they are only
+    // refreshed by gestures), so re-passing them would jump the map back to an old position.
+    function applyOrientation(animated) {
+        map.easeTo({ pitch: window.mapTilt, bearing: window.mapBearing }, { duration: animated ? 300 : 0 });
+    }
+
     // 2D / 3D projection toggle: 3D = globe (sphere when zoomed out), 2D = flat Mercator.
     // The zoom is left unchanged, so the same zoom applies in both projections.
     function toggle3D() {
@@ -135,18 +142,18 @@ Window {
     function tiltBy(dx, dy) {
         window.mapTilt = Math.max(0, Math.min(85, window.mapTilt - dy * 0.4));
         window.mapBearing = window.mapBearing + dx * 0.4;
-        applyCamera(false);
+        applyOrientation(false);
     }
 
     // Compass rose actions.
     function northUp() {
         window.mapBearing = 0;
-        applyCamera(true);
+        applyOrientation(true);
     }
 
     function tiltZero() {
         window.mapTilt = 0;
-        applyCamera(true);
+        applyOrientation(true);
     }
 
     // Zoom in/out buttons (anchored at the map centre).
@@ -197,11 +204,11 @@ Window {
     }
 
     function addPreset(name, saveMap) {
-        const c = map.coordinate;
+        const c = map.liveCoordinate();
         const entry = {
             "name": name,
             "center": [c[0], c[1]],
-            "zoom": map.zoomLevel,
+            "zoom": map.liveZoom(),
             "globe3D": window.globe3D,
             "tilt": window.mapTilt,
             "bearing": window.mapBearing
@@ -231,12 +238,12 @@ Window {
         }
         // Editing updates all the preset values from the current camera (and the current
         // map when "Save map" is ticked).
-        const c = map.coordinate;
+        const c = map.liveCoordinate();
         const arr = window.presets.slice();
         const p = Object.assign({}, arr[i]);
         p.name = name;
         p.center = [c[0], c[1]];
-        p.zoom = map.zoomLevel;
+        p.zoom = map.liveZoom();
         p.tilt = window.mapTilt;
         p.bearing = window.mapBearing;
         p.globe3D = window.globe3D;
@@ -361,8 +368,8 @@ Window {
             appState.setValue("window/x", window.x);
             appState.setValue("window/y", window.y);
         }
-        appState.setValue("map/coordinate", map.coordinate);
-        appState.setValue("map/zoomLevel", map.zoomLevel);
+        appState.setValue("map/coordinate", map.liveCoordinate());
+        appState.setValue("map/zoomLevel", map.liveZoom());
         appState.setValue("map/tilt", window.mapTilt);
         appState.setValue("map/bearing", window.mapBearing);
         appState.setValue("map/globe3D", window.globe3D);
@@ -666,7 +673,7 @@ Window {
                 }
                 const elevation = elevationAt(pos);
                 const loc = map.coordinateAtElevation(pos, elevation);
-                map.easeTo({ zoom: map.zoomLevel + dz }, { duration: 0 });
+                map.easeTo({ zoom: map.liveZoom() + dz }, { duration: 0 });
                 if (loc.latitude !== undefined) {
                     map.setLocationAtPoint(loc.latitude, loc.longitude, pos, elevation);
                 }
@@ -695,7 +702,19 @@ Window {
                 const speed = Math.max(-maxSpeed, Math.min(maxSpeed, mag * linearity / (duration / 1000)));
                 const seconds = Math.abs(speed) / (deceleration * linearity);
                 const amount = speed * (seconds / 2);
-                inertiaPan = Qt.point(px * amount / mag, py * amount / mag);
+                let panX = px * amount / mag, panY = py * amount / mag;
+                // handlePanInertia (mercator_camera_helper.ts): never past the horizon, 0.75 of the pixels to it
+                // (getMercatorHorizon: cameraToCenterDistance * min(tan(90 - pitch) * 0.85, tan(89.25 - pitch))).
+                const deg = Math.PI / 180;
+                const horizon = Math.abs(1.5 * map.height * Math.min(Math.tan((90 - window.mapTilt) * deg) * 0.85,
+                                                                      Math.tan((89.25 - window.mapTilt) * deg)));
+                const len = Math.hypot(panX, panY);
+                if (len > 0) {
+                    const k = Math.min(horizon * 0.75 / len, 1.0);
+                    panX *= k;
+                    panY *= k;
+                }
+                inertiaPan = Qt.point(panX, panY);
                 inertiaDone = 0;
                 inertiaAnim.previous = 0;
                 inertiaAnim.duration = seconds * 1000;
@@ -724,7 +743,7 @@ Window {
                 }
             }
             function zoomFrame() {
-                const cur = map.zoomLevel;
+                const cur = map.liveZoom();
                 if (wheelDelta !== 0) {
                     const rate = (wheelType === "wheel" && Math.abs(wheelDelta) > wheelZoomDelta) ? wheelZoomRate : defaultZoomRate;
                     let scale = maxScalePerFrame / (1 + Math.exp(-Math.abs(wheelDelta * rate)));
@@ -840,7 +859,8 @@ Window {
                 gest.samples = [];
                 panPending = false;
             }
-            onReleased: (mouse) => {
+            onReleased: (mouse) => handleRelease()
+            function handleRelease() {
                 if (moved && activeButton === Qt.LeftButton && !rotateMode) {
                     flushPan();
                     gest.startInertia();
@@ -852,7 +872,7 @@ Window {
                     if (b > 180) { b -= 360; } else if (b < -180) { b += 360; }
                     if (b !== 0 && Math.abs(b) < gest.bearingSnap) {
                         window.mapBearing = 0;
-                        window.applyCamera(true);
+                        window.applyOrientation(true);
                     }
                 }
                 activeButton = Qt.NoButton;
@@ -888,7 +908,7 @@ Window {
                     }
                     window.mapBearing += bearing;
                     window.mapTilt = Math.max(0, Math.min(85, window.mapTilt + (cur.y - prev.y) * gest.pitchSpeed));
-                    window.applyCamera(false);
+                    window.applyOrientation(false);
                 } else {
                     if (first) {
                         gest.anchorElevation = gest.elevationAt(startPos);
@@ -1559,8 +1579,10 @@ Window {
         radius: 4
         color: "#d91e1e1e"
 
-        readonly property real lat: map.coordinate[0]
-        readonly property real lon: map.coordinate[1]
+        // `tick` (the 400 ms timer) makes the live camera values re-evaluate; the comma operator keeps the dependency.
+        readonly property real lat: (tick, map.liveCoordinate())[0]
+        readonly property real lon: (tick, map.liveCoordinate())[1]
+        readonly property real zoomNow: (tick, map.liveZoom())
         // Terrain data comes from the map (the elevation tiles load asynchronously), so poll it.
         readonly property bool terrainStyle: window.styleUrl.indexOf("terrain-style.json") !== -1
         property int tick: 0
@@ -1613,7 +1635,7 @@ Window {
             // Same lines and format as the MapLibre GL JS reference harness (tools/gljs-harness/index.html).
             text: "MapLibre Native Qt"
                   + "\nLat " + cameraReadout.lat.toFixed(6) + "  Lon " + cameraReadout.lon.toFixed(6)
-                  + "\nZoom " + map.zoomLevel.toFixed(4) + "  Pitch " + window.mapTilt.toFixed(2)
+                  + "\nZoom " + cameraReadout.zoomNow.toFixed(4) + "  Pitch " + window.mapTilt.toFixed(2)
                   + "  Heading " + cameraReadout.signedHeading(window.mapBearing).toFixed(2)
                   + "\nExaggeration " + map.terrainExaggeration + "  Ground "
                   + (isNaN(cameraReadout.groundMeters) ? "NaN" : cameraReadout.groundMeters.toFixed(1))
@@ -1626,7 +1648,7 @@ Window {
         function details() {
             const lat = cameraReadout.lat, lon = cameraReadout.lon;
             return "camera: lat=" + lat.toFixed(6) + " lon=" + lon.toFixed(6)
-                + " zoom=" + map.zoomLevel.toFixed(4) + " pitch=" + window.mapTilt.toFixed(2)
+                + " zoom=" + cameraReadout.zoomNow.toFixed(4) + " pitch=" + window.mapTilt.toFixed(2)
                 + " bearing=" + window.mapBearing.toFixed(2)
                 + "\ncameraAltitude=" + cameraReadout.cameraMeters.toFixed(1) + "m"
                 + " ground=" + (isNaN(cameraReadout.groundMeters) ? "n/a" : cameraReadout.groundMeters.toFixed(1) + "m")
@@ -1635,7 +1657,7 @@ Window {
                 + " terrain=" + window.terrainEnabled
                 + " style=" + window.styleUrl
                 + "\nwindow=" + window.width + "x" + window.height + " scale=" + window.selectedScale.toFixed(2)
-                + "\nJSON: " + JSON.stringify({ center: [lat, lon], zoom: map.zoomLevel, pitch: window.mapTilt,
+                + "\nJSON: " + JSON.stringify({ center: [lat, lon], zoom: cameraReadout.zoomNow, pitch: window.mapTilt,
                                                   bearing: window.mapBearing, globe: window.globe3D });
         }
 
@@ -1711,7 +1733,7 @@ Window {
             color: "#cc000000"
             Text {
                 anchors.centerIn: parent
-                text: map.zoomLevel.toFixed(1)
+                text: (cameraReadout.tick, map.liveZoom()).toFixed(1)
                 color: "white"
                 font.pixelSize: 13
                 font.bold: true
