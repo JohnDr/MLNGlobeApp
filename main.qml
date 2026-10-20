@@ -76,16 +76,12 @@ Window {
     ]
 
     // Local style with a raster-dem source + `terrain`, so the satellite imagery is draped over the relief.
-    // maplibre's local file source needs "file://" followed directly by the drive path (not a third slash).
-    // Adjust this path to wherever the repo's terrain-style.json lives on your machine.
-    readonly property string terrainStyleUrl: Qt.platform.os === "windows"
-        ? "file://C:/hda/dev/Projects/MapLibreEarth/terrain-style.json"
-        : "file:///home/takserver1/dev/projects/maplibreearth/terrain-style.json"
+    // The style is embedded in the app and written to the writable data directory at startup (main.cpp),
+    // so the same URL works on Windows, Linux and Android.
+    readonly property string terrainStyleUrl: terrainStyleFileUrl
 
     // The MapLibre GL JS "3D Terrain" example style (Mapterhorn DEM + OSM raster + hillshade) for comparison.
-    readonly property string gljsTerrainStyleUrl: Qt.platform.os === "windows"
-        ? "file://C:/hda/dev/Projects/MapLibreEarth/gljs-terrain-style.json"
-        : "file:///home/takserver1/dev/projects/maplibreearth/gljs-terrain-style.json"
+    readonly property string gljsTerrainStyleUrl: gljsTerrainStyleFileUrl
 
     // QSettings returns stored booleans as strings ("true"/"false").
     function asBool(v) {
@@ -306,7 +302,11 @@ Window {
                 if (m && m.url === "https://demotiles.maplibre.org/style.json") {
                     return { "name": "Open Waters", "url": "https://tiles.openwaters.io/seamap/style.json" };
                 }
-                // Re-point a saved terrain-style.json entry at this machine's path.
+                // Re-point saved terrain style entries at the app's installed copies.
+                if (m && m.url && m.url.endsWith("/gljs-terrain-style.json")
+                        && m.url !== window.gljsTerrainStyleUrl) {
+                    return { "name": m.name, "url": window.gljsTerrainStyleUrl };
+                }
                 if (m && m.url && m.url.endsWith("/terrain-style.json") && m.url !== window.terrainStyleUrl) {
                     return { "name": m.name, "url": window.terrainStyleUrl };
                 }
@@ -543,34 +543,176 @@ Window {
         // The 3D-buildings opacity override is added dynamically in C++/QML via
         // syncBuildingOverride() (see the Component at the top level).
 
-        // Two-finger pinch: zoom about the centroid (the point between the
-        // fingers stays put). Scale-only, like the upstream example.
-        PinchHandler {
-            id: pinch
-            target: null
-            acceptedDevices: PointerDevice.TouchScreen
+        // Touch gestures, aligned with MapLibre GL JS's two-finger handlers
+        // (two_fingers_touch.ts): one finger pans; two fingers zoom about the midpoint,
+        // rotate (the finger line's angle) and tilt (a vertical two-finger drag).
+        // Thresholds and speeds are GL JS's: 0.1 zoom levels, 25 px along the touch
+        // circle before rotating, 2 px / 100 ms before a pitch starts, -0.5 deg/px.
+        MultiPointTouchArea {
+            id: touchGestures
+            anchors.fill: parent
+            // Above the mouse MouseArea (declared later) so touches reach this item;
+            // mouseEnabled: false keeps the mouse on the MouseArea below.
+            z: 1
+            mouseEnabled: false
+            minimumTouchPoints: 1
+            maximumTouchPoints: 2
             enabled: !window.dialogOpen
-            onScaleChanged: (delta) => {
-                if (delta > 0.25 && delta < 4.0) {
-                    map.scale(delta, pinch.centroid.position)
-                }
-            }
-        }
 
-        // Single-finger touch pan, as a one-point PinchHandler (touch only, so the
-        // mouse gestures below own the mouse buttons).
-        PinchHandler {
-            id: panHandler
-            target: null
-            acceptedDevices: PointerDevice.TouchScreen
-            minimumPointCount: 1
-            maximumPointCount: 1
-            enabled: !window.dialogOpen
-            onTranslationChanged: (delta) => {
-                if (Math.abs(delta.x) < 200 && Math.abs(delta.y) < 200) {
-                    map.pan(Qt.point(delta.x, delta.y))
+            property bool twoFinger: false
+            property bool zoomActive: false
+            property bool rotateActive: false
+            property var pitchValid: undefined
+            property real firstMoveTime: 0
+            property real startDistance: 0
+            property real lastDistance: 0
+            property real minDiameter: 0
+            property point startVector: Qt.point(0, 0)
+            property point lastVector: Qt.point(0, 0)
+            property point lastA: Qt.point(0, 0)
+            property point lastB: Qt.point(0, 0)
+            property point lastPan: Qt.point(0, 0)
+            property bool panValid: false
+            property bool rotated: false
+
+            // GL JS util Point.angleWith: the signed angle from (bx, by) to (ax, ay).
+            function angleWith(ax, ay, bx, by) {
+                return Math.atan2(ax * by - ay * bx, ax * bx + ay * by) * 180 / Math.PI;
+            }
+
+            function resetTwoFinger() {
+                twoFinger = false;
+                zoomActive = false;
+                rotateActive = false;
+                pitchValid = undefined;
+            }
+
+            function beginTwoFinger(a, b) {
+                twoFinger = true;
+                zoomActive = false;
+                rotateActive = false;
+                pitchValid = undefined;
+                firstMoveTime = 0;
+                startDistance = lastDistance = Math.hypot(a.x - b.x, a.y - b.y);
+                minDiameter = startDistance;
+                startVector = Qt.point(a.x - b.x, a.y - b.y);
+                lastVector = startVector;
+                lastA = Qt.point(a.x, a.y);
+                lastB = Qt.point(b.x, b.y);
+                // GL JS: a vertically arranged pair cannot pitch.
+                if (Math.abs(startVector.y) > Math.abs(startVector.x)) {
+                    pitchValid = false;
                 }
             }
+
+            function moveTwoFinger(a, b) {
+                const distance = Math.hypot(a.x - b.x, a.y - b.y);
+
+                // TwoFingersTouchZoomHandler: 0.1 zoom levels before zooming, then the distance ratio.
+                if (!zoomActive && Math.abs(Math.log2(distance / startDistance)) >= 0.1) {
+                    zoomActive = true;
+                }
+                if (zoomActive) {
+                    map.scale(distance / lastDistance, Qt.point((a.x + b.x) / 2, (a.y + b.y) / 2));
+                }
+                lastDistance = distance;
+
+                // TwoFingersTouchRotateHandler: 25 px along the circle of the closest finger pair.
+                const vector = Qt.point(a.x - b.x, a.y - b.y);
+                if (!rotateActive) {
+                    minDiameter = Math.min(minDiameter, distance);
+                    const threshold = 25 / (Math.PI * minDiameter) * 360;
+                    if (Math.abs(angleWith(vector.x, vector.y, startVector.x, startVector.y)) >= threshold) {
+                        rotateActive = true;
+                    }
+                }
+                if (rotateActive) {
+                    window.mapBearing += angleWith(vector.x, vector.y, lastVector.x, lastVector.y);
+                    window.applyOrientation(false);
+                    rotated = true;
+                }
+                lastVector = vector;
+
+                // TwoFingersTouchPitchHandler: both fingers move vertically in the same direction.
+                const vectorA = Qt.point(a.x - lastA.x, a.y - lastA.y);
+                const vectorB = Qt.point(b.x - lastB.x, b.y - lastB.y);
+                if (pitchValid === undefined) {
+                    const movedA = Math.hypot(vectorA.x, vectorA.y) >= 2;
+                    const movedB = Math.hypot(vectorB.x, vectorB.y) >= 2;
+                    if (!movedA && !movedB) {
+                        // Neither finger has moved enough yet.
+                    } else if (!movedA || !movedB) {
+                        // One finger first: wait 100 ms for the other before rejecting the pitch.
+                        if (firstMoveTime === 0) {
+                            firstMoveTime = Date.now();
+                        }
+                        if (Date.now() - firstMoveTime >= 100) {
+                            pitchValid = false;
+                        }
+                    } else {
+                        const sameDirection = (vectorA.y > 0) === (vectorB.y > 0);
+                        pitchValid = Math.abs(vectorA.y) > Math.abs(vectorA.x)
+                                && Math.abs(vectorB.y) > Math.abs(vectorB.x) && sameDirection;
+                    }
+                }
+                if (pitchValid === true) {
+                    window.mapTilt = Math.max(0, Math.min(85,
+                            window.mapTilt + (vectorA.y + vectorB.y) * 0.5 * -0.5));
+                    window.applyOrientation(false);
+                    lastA = Qt.point(a.x, a.y);
+                    lastB = Qt.point(b.x, b.y);
+                }
+            }
+
+            function handleTouches(points) {
+                const live = [];
+                for (let i = 0; i < points.length; ++i) {
+                    if (points[i].pressed) {
+                        live.push(points[i]);
+                    }
+                }
+
+                if (live.length >= 2) {
+                    if (!twoFinger) {
+                        beginTwoFinger(live[0], live[1]);
+                    } else {
+                        moveTwoFinger(live[0], live[1]);
+                    }
+                } else if (live.length === 1) {
+                    const p = live[0];
+                    if (twoFinger) {
+                        // A finger lifted: the two-finger gesture ends; the remaining
+                        // finger continues as a pan from its current position.
+                        resetTwoFinger();
+                        panValid = false;
+                    }
+                    if (panValid) {
+                        const dx = p.x - lastPan.x;
+                        const dy = p.y - lastPan.y;
+                        if (Math.abs(dx) < 200 && Math.abs(dy) < 200) {
+                            map.pan(Qt.point(dx, dy));
+                        }
+                    }
+                    panValid = true;
+                    lastPan = Qt.point(p.x, p.y);
+                } else {
+                    // Gesture over: GL JS `bearingSnap` snaps a bearing within 7 degrees to north.
+                    if (rotated) {
+                        let b = window.mapBearing % 360;
+                        if (b > 180) { b -= 360; }
+                        if (b < -180) { b += 360; }
+                        if (b !== 0 && Math.abs(b) < gest.bearingSnap) {
+                            window.mapBearing = 0;
+                            window.applyOrientation(false);
+                        }
+                    }
+                    rotated = false;
+                    resetTwoFinger();
+                    panValid = false;
+                }
+            }
+
+            onTouchUpdated: (points) => handleTouches(points)
         }
 
         // Mouse gestures, aligned with MapLibre GL JS (handler_manager.ts, handler/mouse.ts, handler/scroll_zoom.ts,

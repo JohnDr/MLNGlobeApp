@@ -4,11 +4,15 @@
 
 #include <QtQuick/qquickitem.h>
 #include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QLoggingCategory>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
+#include <QStandardPaths>
 #include <QtQuick/QSGRendererInterface>
 #include <QCoreApplication>
 #include <QProcess>
@@ -24,6 +28,21 @@
 //     QGuiApplication is constructed, so changing it requires a restart), and
 //   - arbitrary key/value state (window geometry, map camera) backed by
 //     QSettings.
+// Write an embedded style resource to the app's writable data directory and
+// return a MapLibre file URL for it. MapLibre's file source needs "file://"
+// followed directly by the path (two slashes on Windows, three on Unix).
+static QString installStyleFile(const QString &name) {
+    const QString directory = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(directory);
+    const QString path = directory + QLatin1Char('/') + name;
+    QFile::remove(path);
+    const bool copied = QFile::copy(QStringLiteral(":/") + name, path);
+    const QString url = QStringLiteral("file://") + QDir::fromNativeSeparators(path);
+    qDebug() << "Style" << name << "installed:" << copied << "at" << url
+             << "size:" << QFileInfo(path).size();
+    return url;
+}
+
 class AppStateController : public QObject {
     Q_OBJECT
 public:
@@ -125,6 +144,10 @@ int main(int argc, char *argv[]) {
     // Check if location services are available
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("appState"), &appState);
+    engine.rootContext()->setContextProperty(QStringLiteral("terrainStyleFileUrl"),
+                                             installStyleFile(QStringLiteral("terrain-style.json")));
+    engine.rootContext()->setContextProperty(QStringLiteral("gljsTerrainStyleFileUrl"),
+                                             installStyleFile(QStringLiteral("gljs-terrain-style.json")));
 
     qDebug() << "Starting QML engine...";
 

@@ -37,10 +37,20 @@ TestCase {
             tc.log.push(["setLocationAtPoint", lat, lon, pos.x, pos.y, el]);
             return setResult;
         }
+        function liveZoom() { return zoomLevel; }
         function pan(p) { tc.log.push(["pan", p.x, p.y]); }
         function scale(f, pos) { tc.log.push(["scale", f, pos.x, pos.y]); }
-        function easeTo(cam, opt) { tc.log.push(["easeTo", cam.zoom]); zoomLevel = cam.zoom; }
+        function easeTo(cam, opt) {
+            tc.log.push(["easeTo", cam.zoom]);
+            if (cam.zoom !== undefined) { zoomLevel = cam.zoom; }
+        }
         function setElevationHold(h) { tc.log.push(["hold", h]); }
+    }
+    // main.qml's `gest` reads window.mapTilt/mapBearing in the inertia and camera helpers.
+    QtObject {
+        id: window
+        property real mapTilt: 0
+        property real mapBearing: 0
     }
     QtObject {
         id: frameTimer
@@ -81,7 +91,8 @@ TestCase {
             else if (text[i] === "}" && --depth === 0) { end = i; break; }
         }
         verify(end > 0, "unbalanced gest block");
-        // `window` is only used inside functions we do not call; give it a harmless stand-in.
+        // The created object sees this file's ids: `map`, `window` (mapTilt/mapBearing stand-in)
+        // and the QtObjects above are the mocks.
         // The created object does not see a replaced Date.now, so route its clock through the test (the only rewrite).
         const block = text.substring(m.index, end + 1).replace(/Date\.now\(\)/g, "tc.fakeNow");
         return Qt.createQmlObject("import QtQuick\n" + block, tc, "gest-from-main.qml");

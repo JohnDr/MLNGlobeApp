@@ -30,6 +30,15 @@ qt_add_qml_module(
         main.qml
 )
 
+# Terrain styles, embedded so they are available on every platform (Android
+# cannot read the developer-machine paths used for the desktop file:// URLs).
+qt_add_resources(MapLibreEarth map_styles
+    PREFIX "/"
+    FILES
+        terrain-style.json
+        gljs-terrain-style.json
+)
+
 set_target_properties(
     MapLibreEarth
     PROPERTIES
