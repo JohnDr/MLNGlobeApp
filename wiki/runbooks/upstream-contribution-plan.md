@@ -45,4 +45,4 @@ Met on Linux/Vulkan only: core unit, render and expression tests and the Qt quic
 
 ## Related
 
-- [Linux tests](../verification/linux-tests.md) · [Upstream PRs](../references/upstream-prs.md) · [Fork patches](../references/fork-patches.md) · [GL JS alignment](../references/gljs-alignment.md)
+- [Progress tracker](upstream-contribution-progress.md) · [Linux tests](../verification/linux-tests.md) · [Upstream PRs](../references/upstream-prs.md) · [Fork patches](../references/fork-patches.md) · [GL JS alignment](../references/gljs-alignment.md)
