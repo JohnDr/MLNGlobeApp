@@ -81,7 +81,8 @@ The Windows-only stops (`OnlineFileSource.ConnectionError`, `LocalFileSource.Inv
 - `sky/` (3 tests: `basic`, `atmosphere-globe`, `zoom-expression`): **3/3 pass** on Linux/Vulkan — the Metal sky expectations hold here.
 - `terrain/` (6 tests): **6/6 ignored** (all-platform ignore, graded against GL JS) — same as Windows.
 - Full suite, #4533 (all 184 groups, ≈38 min): only two failing groups — `projection` (the checkerboard test above) and `fill-extrusion-pattern/tile-buffer`, the pre-existing upstream Linux/Vulkan baseline failure also present on pristine `c7506d6`. `text-font` 7/7 pass here (pristine had `burmese`/`khmer`/`devanagari` errors).
-- Full suites for #4534 and #4190: pending (running).
+- Full suite, #4534 (184 groups): the **same two failures** as #4533 — `projection/globe/fill-seams/checkerboard` and `fill-extrusion-pattern/tile-buffer`.
+- Full suite, #4190 (184 groups): **only** `fill-extrusion-pattern/tile-buffer` (the pre-existing baseline failure). This branch is based on `main` and carries no globe (`projection/globe`) or `sky/` fixtures, so those groups do not exist here — its `projection` group is the pre-globe four tests, all passing.
 
 ## Pickup after restart / OS switch
 
@@ -113,7 +114,7 @@ The Windows-only stops (`OnlineFileSource.ConnectionError`, `LocalFileSource.Inv
 
 ## Next actions (ordered)
 
-1. ~~**Linux**: build/test #4533/#4534/#4190; run `fill-seams` and `raster-warped`~~ **Done 2026-10-21**: all three build, unit tests all pass; `raster-warped` is Windows-only; `fill-seams/checkerboard` fails on both Windows and Linux/RADV but by one pixel (10 mismatched vs 9.83 allowed) against the Metal expectation, and passes on lavapipe. Diffs saved. Full render suites for #4534/#4190 still running.
+1. ~~**Linux**: build/test #4533/#4534/#4190; run `fill-seams` and `raster-warped`~~ **Done 2026-10-21**: all three build, unit tests all pass; `raster-warped` is Windows-only; `fill-seams/checkerboard` fails on both Windows and Linux/RADV but by one pixel (10 mismatched vs 9.83 allowed) against the Metal expectation, and passes on lavapipe. Diffs saved. Full render suites also finished: #4534 matches #4533's two failures; #4190 has only the pre-existing `fill-extrusion-pattern/tile-buffer`.
 2. **Post one consolidated test report** after Linux: #4533 (seams + platform), #4534 (Windows Vulkan render pass, CI failures), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests).
 3. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
 4. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
