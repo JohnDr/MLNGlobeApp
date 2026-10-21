@@ -1,7 +1,7 @@
 ---
 type: Runbook
 title: Upstream contribution progress
-description: "Live tracker for offering the fork's terrain/globe/sky work upstream: branch status, per-platform test results, and pickup steps across Windows, Android and Linux."
+description: "Live tracker for offering the fork's terrain/globe/sky work upstream: branch status, per-platform test results (Windows, Android, Linux, macOS) and pickup steps."
 tags:
   - runbook
   - upstream
@@ -84,6 +84,19 @@ The Windows-only stops (`OnlineFileSource.ConnectionError`, `LocalFileSource.Inv
 - Full suite, #4534 (184 groups): the **same two failures** as #4533 — `projection/globe/fill-seams/checkerboard` and `fill-extrusion-pattern/tile-buffer`.
 - Full suite, #4190 (184 groups): **only** `fill-extrusion-pattern/tile-buffer` (the pre-existing baseline failure). This branch is based on `main` and carries no globe (`projection/globe`) or `sky/` fixtures, so those groups do not exist here — its `projection` group is the pre-globe four tests, all passing.
 
+### macOS (from the PR CI logs, 2026-10-21)
+
+A Mac was not available here, but the failing CI jobs were mined for exact signatures. `#4533` (globe) passes **both** `macOS WebGPU (Dawn)` and `(wgpu)`; `#4534` and `#4190` do not:
+
+| PR | Job | Failing step | Signature |
+|---|---|---|---|
+| #4534 sky | macOS WebGPU (Dawn) | Run WebGPU render tests | 1484 passed, 84 ignored, **1 failed** — `render-tests/sky/atmosphere-globe` |
+| #4534 sky | macOS WebGPU (wgpu) | Run WebGPU render tests | **abort** in wgpu-native (`src/lib.rs:422`, uncaptured error) — WGSL parse error: `name 'target' is a reserved keyword` at `wgsl:222` (`let target = atmosphere.inv_view_projection * …`) |
+| #4190 terrain | macOS WebGPU (Dawn) | Run unit tests | **14 image-diff failures**: `Annotations.LineAnnotation`, `Annotations.ChangeMaxZoom`, `FeatureTracking.{ApiQuery,NDCBoundSymbol,NDCBoundSymbolOffset,NDCBoundCircle,NDCBoundFill,Overlap}`, `ColorRelief.UploadsDEMTextureOncePerTile`, `LocalGlyphRasterizer.NoLocalWithContentInsetsAndPitch`, `TileLOD.{disabled,pitchThreshold,scale,radius}` |
+| #4190 terrain | macOS WebGPU (wgpu) | Run unit tests | **abort** — WGSL parse error: `redefinition of 'GlobalPaintParamsUBO'` (`wgsl:209` vs `wgsl:234`) while running `Map.RenderingStatisticsTrackDrawsAcrossFrames` |
+
+Both aborts are WGSL compile failures inside wgpu-native, so the sky and terrain shader sources are the first place to look. Also failing for the same PRs: `#4534` `ios-build` and Android OpenGL instrumentation/render tests; `#4190` `ios-build-webgpu-dawn`, `android-build-webgpu-wgpu` and the Windows tests.
+
 ## Pickup after restart / OS switch
 
 ### Windows
@@ -112,14 +125,26 @@ The Windows-only stops (`OnlineFileSource.ConnectionError`, `LocalFileSource.Inv
 - Force software Vulkan (what CI uses) for AA comparisons: `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json`.
 - Qt tests: N/A — none of the three branches touches the Qt wrapper.
 
+### macOS (to do — Mac expected 2026-10-22)
+
+Metal and WebGPU are not exercisable from Windows or Linux, so the Mac is the only place the two remaining CI failures (Dawn + wgpu, above) can be reproduced and fixed. Mirror `.github/workflows/macos-ci.yml`:
+
+- Presets: `cmake --preset macos-webgpu-dawn` / `macos-webgpu-wgpu` (also available: `macos-metal`, `macos-vulkan`, `ios-metal`, `ios-webgpu-{dawn,wgpu}`). Build targets `mbgl-test-runner mbgl-render-test-runner mbgl-expression-test`.
+- Unit tests: `build-macos-webgpu-<impl>/mbgl-test-runner --gtest_filter=-Map.StyleNetworkErrorRetry:LocalGlyphRasterizer.PingFang:LocalGlyphRasterizer.PingFangWithBoldInStyle:LocalGlyphRasterizer.PingFangSemibold:Map.Offline`.
+- WebGPU render tests: `build-macos-webgpu-<impl>/mbgl-render-test-runner --manifestPath metrics/macos-webgpu-<impl>.json`.
+- Metal baseline for the Linux checkerboard question: `cmake --preset macos-metal`, then `-f render-tests/projection/globe/` and compare against the RADV frame (`~/dev/tmp/…/fill-seams/checkerboard/actual.png` here, or `/tmp/opencode/checkerboard-radv-actual.png`).
+- Hypotheses to test, in order: (a) the terrain shader concatenation emits `GlobalPaintParamsUBO` twice (`wgsl:209`/`234`) — the wgpu abort; (b) the sky vertex shader's `target` identifier is a reserved WGSL keyword — rename and re-run; (c) whether Dawn's `sky/atmosphere-globe` failure and the 14 terrain unit-test diffs are real rendering differences (read `actual.png`/`diff.png`, the unit tests print `getImageDiff … <= imageThreshold`).
+- CI logs already mined: `/tmp/opencode/ci-logs/api-{117211053553,117211053314,118198908406,118198908267}.log` (Dawn+wgpu for #4534 and #4190).
+
 ## Next actions (ordered)
 
 1. ~~**Linux**: build/test #4533/#4534/#4190; run `fill-seams` and `raster-warped`~~ **Done 2026-10-21**: all three build, unit tests all pass; `raster-warped` is Windows-only; `fill-seams/checkerboard` fails on both Windows and Linux/RADV but by one pixel (10 mismatched vs 9.83 allowed) against the Metal expectation, and passes on lavapipe. Diffs saved. Full render suites also finished: #4534 matches #4533's two failures; #4190 has only the pre-existing `fill-extrusion-pattern/tile-buffer`.
-2. **Post one consolidated test report** after Linux: #4533 (seams + platform), #4534 (Windows Vulkan render pass, CI failures), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests).
-3. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
-4. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
-5. **Existing PRs**: #4752 review/CI, #323 CI approval, #326.
-6. **Design proposal only** if `TerrainPass`/`terrain_stitch` is materially better than `RenderTerrain`; write a comparison for the TSC first.
+2. **macOS WebGPU** (Mac available 2026-10-22): reproduce and fix/diagnose #4190's 14 unit-test image diffs and its `GlobalPaintParamsUBO` WGSL redefinition, plus #4534's `target`-keyword wgpu abort and the Dawn `sky/atmosphere-globe` failure — both branches fail these jobs while #4533 is green. Also re-measure `fill-seams/checkerboard` on Metal for the Linux expectation question.
+3. **Post one consolidated test report** after macOS: #4533 (seams + platform), #4534 (Windows Vulkan render pass, CI failures incl. the WGSL ones), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests).
+4. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
+5. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
+6. **Existing PRs**: #4752 review/CI, #323 CI approval, #326.
+7. **Design proposal only** if `TerrainPass`/`terrain_stitch` is materially better than `RenderTerrain`; write a comparison for the TSC first.
 
 ## Guardrails
 
@@ -131,6 +156,7 @@ The Windows-only stops (`OnlineFileSource.ConnectionError`, `LocalFileSource.Inv
 
 - ~~Are the two Windows/Vulkan seam failures platform-specific or a stale globe snapshot?~~ **Answered 2026-10-21**: `raster-warped` is Windows-only (passes on Linux/RADV); `fill-seams/checkerboard` reproduces on Windows **and** Linux/RADV but is a one-pixel threshold miss (10 mismatched vs 9.83 allowed) against the Metal-rendered expectation, and passes under lavapipe — an expectation-coverage gap, not a stale snapshot.
 - Does #4190 already cover the terrain-camera ray scan (it has `TerrainCamera` tests and #4711)?
+- Is the sky shader's `target` identifier the cause of #4534's wgpu abort, and is `GlobalPaintParamsUBO` really emitted twice in #4190's terrain WGSL (or is it Dawn/wgpu divergence)?
 - Which Qt API shape should the upstream core expose?
 - ~~Which Linux build/deps path is fastest for the PR branches?~~ **Answered 2026-10-21**: worktrees of the existing clone + hard-linked submodules (no download, no junctions), Release Vulkan Ninja build ≈2.5 min per branch — see Linux pickup above.
 
