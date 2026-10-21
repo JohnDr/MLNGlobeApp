@@ -11,7 +11,7 @@ status: current
 ---
 # Upstream contribution progress
 
-> Live tracker, updated 2026-10-20. Strategy: join the existing upstream feature branches, report test results, and contribute focused gaps (Qt/QMapLibre wrapper first). **Do not** submit the 56-patch fork stack or a competing globe/terrain/sky implementation.
+> Live tracker, updated 2026-10-21. Strategy: join the existing upstream feature branches, report test results, and contribute focused gaps (Qt/QMapLibre wrapper first). **Do not** submit the 56-patch fork stack or a competing globe/terrain/sky implementation.
 
 ## Strategy (agreed 2026-10-20)
 
@@ -59,9 +59,29 @@ Built from the PR CI `android-ui-test-vulkan` artifacts (package `org.maplibre.a
 - **#4190**: `TerrainActivity` renders pitched 3D terrain with draped imagery. **PASS**.
 - **#4534**: no Sky activity; `GlobeActivity` shows no atmosphere. Not visually verifiable; CI failures above stand.
 
-### Linux
+### Linux (Ubuntu 26.04, Vulkan/RADV, AMD Radeon 780M) — 2026-10-21
 
-Pending (planned 2026-10-21). The existing [Linux tests](../verification/linux-tests.md) cover the fork on 13.6.1, not these PR branches.
+All three branches built as worktrees of the local clone (`~/dev/tmp/mln-pr4533|pr4534|pr4190`), submodules populated from the shared object store (no re-download), Release + `MLN_WITH_VULKAN=ON`/X11 (no GLFW/OpenGL), Ninja, build trees `~/dev/tmp/build-pr45xx-vk`. Core build ≈2.5 min; the existing [Linux tests](../verification/linux-tests.md) path works unchanged for PR branches.
+
+**Unit tests** (`mbgl-test-runner`, Vulkan, RADV; one runner at a time — fixed HTTP test port 3000):
+
+| Branch | Head | Result |
+|---|---|---|
+| #4533 globe | `ff96700` | **1243 tests / 145 suites — all pass**, 4 disabled |
+| #4534 sky | `2a85b5d` | **1245 tests — all pass**, 4 disabled |
+| #4190 terrain | `c6b31b7` | **1145 tests — all pass**, 30 tests named `*Terrain*` included |
+
+The Windows-only stops (`OnlineFileSource.ConnectionError`, `LocalFileSource.InvalidUTF8Path`) did **not** reproduce on Linux.
+
+**Render tests** (`mbgl-render-test-runner -p metrics/linux-vulkan.json`, one group per process):
+
+- `projection/globe` (72 tests): 66 passed, 3 ignored, 2 passed-but-ignored, **1 failed** — `projection/globe/fill-seams/checkerboard`. Byte-identical outcome on #4533 `ff96700` and #4534 `2a85b5d` (`actual.png` md5 `127999d3…`), so it is not a stale globe snapshot.
+- `raster-warped` **passes** on Linux/RADV: its Windows/Vulkan failure is platform-specific, not a globe defect.
+- The checkerboard failure is a **threshold technicality, not a visible seam**. mapbox `pixelmatch` (threshold 0.1285, as in GL JS) counts **10 mismatched pixels of 65536** against `allowed = 0.00015` (9.83 px). All 10 sit on the image border (x=0 column, x=247, y=252 row) where the globe wraps; the other 4180 differing pixels are anti-aliasing-only. The same frame on **lavapipe** (`VK_ICD_FILENAMES=…/lvp_icd.json` — the software ICD GitHub's Ubuntu runners fall back to, which is why Linux CI is green) scores **9 mismatched pixels and passes**. Graded instead against the repo's own Linux expectation for this test (`metrics/expectations/platform-linux-opengl/…/checkerboard/expected.png`) the RADV frame differs by ≤59/255 with one pixel over 25: RADV Vulkan looks like RADV OpenGL, so the test fails on the Metal-rendered expectation, not on the globe's seams.
+- `sky/` (3 tests: `basic`, `atmosphere-globe`, `zoom-expression`): **3/3 pass** on Linux/Vulkan — the Metal sky expectations hold here.
+- `terrain/` (6 tests): **6/6 ignored** (all-platform ignore, graded against GL JS) — same as Windows.
+- Full suite, #4533 (all 184 groups, ≈38 min): only two failing groups — `projection` (the checkerboard test above) and `fill-extrusion-pattern/tile-buffer`, the pre-existing upstream Linux/Vulkan baseline failure also present on pristine `c7506d6`. `text-font` 7/7 pass here (pristine had `burmese`/`khmer`/`devanagari` errors).
+- Full suites for #4534 and #4190: pending (running).
 
 ## Pickup after restart / OS switch
 
@@ -82,15 +102,18 @@ Pending (planned 2026-10-21). The existing [Linux tests](../verification/linux-t
 - Install `InstrumentationTestAppVulkan.apk` (or `...MultiBackend.apk`); uninstall the package first when switching artifacts (different debug signatures).
 - Activities: `org.maplibre.android.testapp/org.maplibre.android.testapp.activity.style.GlobeActivity` and `...style.TerrainActivity`.
 
-### Linux (next)
+### Linux (works — 2026-10-21)
 
-1. Build `pr4533`, `pr4534`, `pr4190` from a normal clone (submodules initialised; no junctions).
-2. Run `mbgl-test-runner` and the render suite per group; compare `fill-seams/checkerboard` and `raster-warped` with Windows.
-3. Run its Qt tests if the wrapper is under test.
+- Source trees: `git worktree add ~/dev/tmp/mln-pr<NNNN> pr<NNNN>` inside the existing clone `~/dev/projects/maplibre-native` (PR refs fetched with `git fetch https://github.com/maplibre/maplibre-native refs/pull/<n>/head:refs/heads/pr<n>`; submodule pointers are unchanged by all three, so no re-download). Populate submodules by hard-linking the clone's checkouts and pointing each `.git` file at the shared `…/.git/modules/<name>` (helper `/tmp/opencode/link-submodules.sh`).
+- Configure: `cmake -B ~/dev/tmp/build-pr<NNNN>-vk -S . -G Ninja -DCMAKE_BUILD_TYPE=Release -DMLN_WITH_VULKAN=ON -DMLN_WITH_X11=ON -DMLN_WITH_GLFW=OFF -DMLN_WITH_OPENGL=OFF -DMLN_WITH_PMTILES=ON` — GLFW defaults ON and then demands `glfw3`.
+- Build (`PATH=$HOME/Qt/Tools/Ninja:$PATH`): `ninja -C ~/dev/tmp/build-pr<NNNN>-vk mbgl-test-runner mbgl-render-test-runner mbgl-expression-test` (≈2.5 min, 16 cores).
+- Run: unit tests from the source dir, one runner at a time (port 3000); render tests `-p metrics/linux-vulkan.json -f render-tests/<group>/`; all 184 groups via `/tmp/opencode/render-suite.sh <src> <bin> metrics/linux-vulkan.json <outdir>`.
+- Force software Vulkan (what CI uses) for AA comparisons: `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json`.
+- Qt tests: N/A — none of the three branches touches the Qt wrapper.
 
 ## Next actions (ordered)
 
-1. **Linux**: build/test #4533/#4534/#4190; run `fill-seams` and `raster-warped` to establish whether the seams are Windows-only. Save diffs.
+1. ~~**Linux**: build/test #4533/#4534/#4190; run `fill-seams` and `raster-warped`~~ **Done 2026-10-21**: all three build, unit tests all pass; `raster-warped` is Windows-only; `fill-seams/checkerboard` fails on both Windows and Linux/RADV but by one pixel (10 mismatched vs 9.83 allowed) against the Metal expectation, and passes on lavapipe. Diffs saved. Full render suites for #4534/#4190 still running.
 2. **Post one consolidated test report** after Linux: #4533 (seams + platform), #4534 (Windows Vulkan render pass, CI failures), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests).
 3. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
 4. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
@@ -105,10 +128,10 @@ Pending (planned 2026-10-21). The existing [Linux tests](../verification/linux-t
 
 ## Open questions
 
-- Are the two Windows/Vulkan seam failures platform-specific or a stale globe snapshot?
+- ~~Are the two Windows/Vulkan seam failures platform-specific or a stale globe snapshot?~~ **Answered 2026-10-21**: `raster-warped` is Windows-only (passes on Linux/RADV); `fill-seams/checkerboard` reproduces on Windows **and** Linux/RADV but is a one-pixel threshold miss (10 mismatched vs 9.83 allowed) against the Metal-rendered expectation, and passes under lavapipe — an expectation-coverage gap, not a stale snapshot.
 - Does #4190 already cover the terrain-camera ray scan (it has `TerrainCamera` tests and #4711)?
 - Which Qt API shape should the upstream core expose?
-- Which Linux build/deps path is fastest for the PR branches?
+- ~~Which Linux build/deps path is fastest for the PR branches?~~ **Answered 2026-10-21**: worktrees of the existing clone + hard-linked submodules (no download, no junctions), Release Vulkan Ninja build ≈2.5 min per branch — see Linux pickup above.
 
 ## Related
 
