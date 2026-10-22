@@ -34,8 +34,9 @@ was written against a different `gfx` API than the pinned core `c7506d6`: it ove
 committed in `maplibre-native-qt` (`e15fa52`). Patch 0058 moves one terrain-camera test pixel off a
 sea-level crossing (test-only).
 
-Still open: the human visual Metal feature checks in §4, and the macOS WebGPU / PR-branch work in
-[upstream contribution progress](./upstream-contribution-progress.md).
+Still open: the human visual Metal feature checks in §4. The macOS WebGPU / PR-branch work is done
+(2026-10-22) and recorded in [upstream contribution progress](./upstream-contribution-progress.md#macos-webgpu--reproduced-and-fixed-2026-10-22)
+and [macOS verification](../verification/macos.md#webgpu-pr-branches-2026-10-22).
 
 ## Prerequisites
 

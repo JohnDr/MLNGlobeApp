@@ -99,6 +99,46 @@ the workers, so the new request queues behind them. The test passes alone and to
 `MapSnapshotter.*`. That is upstream test infrastructure (shared server, no per-test isolation), not
 fork code.
 
+## WebGPU PR branches (2026-10-22)
+
+The macOS WebGPU jobs exist only in `.github/workflows/macos-ci.yml` (Metal is not in CI), so the
+three upstream PR branches were rebuilt here from worktrees of the vendor clone:
+
+```bash
+cmake --preset macos-webgpu-wgpu -DCMAKE_OSX_ARCHITECTURES=arm64     # Debug, deployment target 14.3
+# brew: glfw icu4c libuv jpeg-turbo webp libpng; PKG_CONFIG_PATH needs icu4c, libuv, glfw
+cmake --build build-macos-webgpu-wgpu --target mbgl-test-runner mbgl-render-test-runner
+```
+
+Dawn was left to its CI log (job `118198908406`), which fails at the same *Run unit tests* step with
+the same 14 tests that the wgpu run reproduces.
+
+| PR | Before | After the local fixes |
+|----|--------|----------------------|
+| #4534 sky | `-f render-tests/sky/` aborts, exit 134: `name 'target' is a reserved keyword` (`wgsl:222`) | sky **3/3**, render suite **1485 pass / 0 fail**, unit **1257 pass / 0 fail** |
+| #4190 terrain | `Map.RenderingStatisticsTrackDrawsAcrossFrames` aborts, exit 134: `redefinition of 'GlobalPaintParamsUBO'` (`wgsl:209`); once cleared, **18 unit image-diff failures** (CI reported 14 on Dawn — the wgpu extras are the four pitched-circle variants) | unit **1157 pass / 0 fail**, render suite **1368 pass / 0 fail** |
+| #4533 globe | green in CI | Metal `render-tests/projection/globe/` **71 pass + 1 ignored, 0 fail**, including `fill-seams/checkerboard` |
+
+Five bugs across four files, all uncommitted experiments in the PR worktrees (nothing pushed; diffs
+saved as `~/dev/tmp/webgpu-pr-fixes/*.patch`):
+
+1. `include/mln/shaders/webgpu/sky.hpp` (#4534) — `target` → `view_pos` (reserved keyword), and the
+   fragment redeclared `const PI`, which the shared prelude already defines.
+2. `include/mln/shaders/webgpu/circle.hpp` (#4190) — the per-shader prelude's `GlobalPaintParamsUBO`
+   still had the pre-terrain 48-byte layout while the vertex redeclared the 64-byte one, so the
+   concatenated module redefined the struct *and* the `paintParams` binding.
+3. `include/mln/shaders/webgpu/line.hpp` (#4190) — `drape_tile` had been added to the WGSL
+   `LineDrawableUBO` (112 B vs the C++ 96 B) and `LineEvaluatedPropsUBO` (64 B vs 48 B). The CPU
+   uploads `LineDrawableUnionUBO` (128 B stride), so `LineDrawableEntry` became 144 B and every line
+   drawable was read at the wrong offset: tile-border debug lines turned into giant red quads,
+   annotation lines collapsed and pitched circles were misplaced — 17 of the 18 unit failures.
+4. `src/mln/webgpu/texture2d.cpp` (#4190) — the WebGPU backend never incremented
+   `RenderingStats::numTextureUpdates`/`textureUpdateBytes` (GL, Vulkan and Metal all do), so
+   `ColorRelief.UploadsDEMTextureOncePerTile` tripped its "the test proves nothing" guard.
+
+Details and commands:
+[upstream contribution progress](../runbooks/upstream-contribution-progress.md#macos-webgpu--reproduced-and-fixed-2026-10-22).
+
 ## Known issues on macOS
 
 1. **`Map.*` Metal deadlock — root-caused, upstream issue
