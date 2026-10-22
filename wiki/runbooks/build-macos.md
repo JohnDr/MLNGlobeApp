@@ -24,13 +24,13 @@ Qt 6.12.0 and `-DCMAKE_OSX_ARCHITECTURES=arm64`: the library compiles and instal
 **3/3 green** (`test_mln_quick`, `test_mln_location`, `test_mln_widgets`), and the app starts on
 **Metal** (`Graphics API: 6`) with `Root objects loaded successfully`.
 
-The 56 patches needed **no core changes** on Metal. Two **wrapper** fixes were needed because
-`MetalRendererBackend` was written against a different `gfx` API than the pinned core `c7506d6`:
-it overrode `updateAssumedState()` (declared only by `gl::RendererBackend`) and assigned the private
-`Renderable::size` directly (now the protected `setRenderableSize()`). Both are committed in
-`maplibre-native-qt` (`e15fa52`).
+The 57 patches needed **no core changes** on Metal, but 0057 was needed to make **symbols** render
+(icons/text) — see §4. Two **wrapper** fixes were needed because `MetalRendererBackend` was written
+against a different `gfx` API than the pinned core `c7506d6`: it overrode `updateAssumedState()`
+(declared only by `gl::RendererBackend`) and assigned the private `Renderable::size` directly (now the
+protected `setRenderableSize()`). Both are committed in `maplibre-native-qt` (`e15fa52`).
 
-Still open: universal (`x86_64;arm64`) build, the visual Metal feature checks in §4, and the
+Still open: universal (`x86_64;arm64`) build, the human visual Metal feature checks in §4, and the
 macOS WebGPU / PR-branch work in
 [upstream contribution progress](./upstream-contribution-progress.md).
 
@@ -80,8 +80,10 @@ done
 git -C vendor/maplibre-native status --short | wc -l   # expect a few dozen modified files
 ```
 
-A failed `--check` means the submodule is not at the pin, or is already patched. Patches 0001–0056
-must apply in `ls` order (the four-digit prefixes make that the patch order).
+A failed `--check` means the submodule is not at the pin, or is already patched. Patches 0001–0057
+must apply in `ls` order (the four-digit prefixes make that the patch order). Patch 0057 ports the
+projection UBO to the Metal symbol shaders (`include/mln/shaders/mtl/symbol.hpp`); without it icons
+and text render nothing on Metal because the shaders still read the pre-globe `drawable.matrix`.
 
 ## 2. Build + install the library (Metal)
 
@@ -157,18 +159,54 @@ configure a Debug app build dir against it.
 
 ## 4. First-run checks
 
-Library build, `ctest` and app startup are verified (2026-10-22). The visual checks are still open.
+Library build, `ctest`, app startup and the core Metal test suites are verified (2026-10-22). Only the
+human visual checks (item 2) are still open.
 
 1. **Startup — verified.** Metal backend starts, QML loads; watch for
    `Failed to create graphics backend` or `Cannot assign to non-existent property
    "terrainExaggeration"` (the latter means an old/foreign QMapLibre was picked up, i.e.
    `QMapLibre_DIR` is stale).
-2. **Fork features on Metal — not yet checked visually:** globe projection (the app's
-   `gljs-terrain-style.json`), terrain + `terrainExaggeration`, and the custom style layers.
-3. **`ctest` — verified 3/3** (quick, location, widgets). Pristine upstream is green on macOS, so
+2. **Fork features on Metal — needs a human look:** globe projection (the app's
+   `gljs-terrain-style.json`), terrain + `terrainExaggeration`, and the custom style layers. The
+   app window cannot be captured from this shell (`screencapture` → "could not create image from
+   display", no Screen Recording permission), so the projection paths behind these features are
+   covered by the render tests below instead — including a temporary globe-projection symbol test. 
+3. **`ctest` — 3/3 pass** (quick, location, widgets). Pristine upstream is green on macOS, so
    failures here are fork-specific and worth recording.
-4. Record the outcome in [upstream contribution progress](./upstream-contribution-progress.md) — the
-   same Metal build is the baseline for the macOS WebGPU work on the upstream PR branches.
+4. **Metal symbol shaders — fixed by patch 0057** (`maplibre-native-0057-globe-symbols-metal.patch`).
+   Patches 0003/0004/0014 moved the fill/line/raster/background shaders to the per-tile
+   `ProjectionUBO` but never touched `include/mln/shaders/mtl/symbol.hpp`, so on Metal the symbol
+   vertex shaders still projected through the pre-globe `drawable.matrix` while the CPU uploaded the
+   globe contract — every `icon-*`, `text-*` and `symbol-*` render test drew a blank frame (104/175
+   groups passed before, 175/175 after). Patch 0057 mirrors the Vulkan symbol shaders: the
+   `SymbolDrawableUBO` grows to `18 * 16`, all three vertex shaders bind `idProjectionUBO`, and the
+   anchor/label-plane/z logic uses `projectTileWithElevation()`.
+
+### Core test results, 2026-10-22 (Metal, `metrics/macos-xcode11-release-style.json`)
+
+- **Render tests: all 175 groups pass**, run one process per group
+  (`~/dev/tmp/render-suite-macos.sh` → `~/dev/tmp/render-macos/summary.txt`). Before 0057 only 104
+  groups passed.
+- **Expression tests: 332 pass, 18 ignored, 0 fail.**
+- **Unit tests (everything except `Map.*`): 990 pass, 1 fail** — `991` tests / `130` suites, filter
+  `-Map.*:HTTPFileSource.*:OnlineFileSource.*:MainResourceLoader.*:MapSnapshotter.*:LocalGlyphRasterizer.PingFang*`.
+  The one failure is a fork-test boundary case, not Metal: see below.
+- **`Map.*` (58 tests) cannot complete** — the upstream Metal backend deadlocks in
+  `OffscreenTextureResource::bind()` → `_MTLCommandBuffer initWithQueue:` →
+  `dispatch_semaphore_wait`, at a random `Map.*` test. It reproduces on pristine `c7506d6`, so it is
+  upstream, not fork-specific.
+- **Server-dependent tests (60) cannot run on macOS Metal** — `HTTPFileSource`, `OnlineFileSource`,
+  `MainResourceLoader`, `MapSnapshotter`. `test/src/mln/test/test.cpp` only starts the in-process
+  `HttpServer` for `(TEST_HAS_SERVER && __QT__) || USE_CPP_TEST_SERVER`, and `test/CMakeLists.txt`
+  defines `USE_CPP_TEST_SERVER` only for Windows/Linux/WebGPU, so `Test::HasServer` stays true while
+  no server is listening.
+
+### Known fork issue on macOS: `TerrainCamera.RaycastSlopeHitLiesOnTerrainAndOnTheRay`
+
+`test/map/terrain_camera.test.cpp:204` asserts `EXPECT_GT(hit->elevation, 0.0)`; on this Mac the hit
+lands exactly on the slope's zero crossing and the elevation is `-3.31e-07` (the rest of the test —
+hit on the slope surface, hit on the pixel ray — passes). It is a floating-point boundary in the
+test, not a projection/render problem; a tolerance fix needs agreeing before it is patched.
 
 ## Troubleshooting
 

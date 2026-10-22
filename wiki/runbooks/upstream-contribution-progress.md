@@ -11,7 +11,7 @@ status: current
 ---
 # Upstream contribution progress
 
-> Live tracker, updated 2026-10-21. Strategy: join the existing upstream feature branches, report test results, and contribute focused gaps (Qt/QMapLibre wrapper first). **Do not** submit the 56-patch fork stack or a competing globe/terrain/sky implementation.
+> Live tracker, updated 2026-10-21. Strategy: join the existing upstream feature branches, report test results, and contribute focused gaps (Qt/QMapLibre wrapper first). **Do not** submit the 57-patch fork stack or a competing globe/terrain/sky implementation.
 
 ## Strategy (agreed 2026-10-20)
 
@@ -31,7 +31,7 @@ status: current
 
 ## Gap analysis (summary)
 
-- Fork work: 56 core patches on 13.6.1, 258 files, all authored by JohnD (audit on 2026-10-20).
+- Fork work: 57 core patches on 13.6.1 (patch 0057 is the 2026-10-22 macOS/Metal symbol fix), all authored by JohnD (audit on 2026-10-20).
 - Upstream branches touch 233 of those 258 files; only 25 are untouched by all three (#4533/#4534/#4190).
 - Architectures differ: upstream `RenderTerrain` / `style::Terrain` / `TerrainLayerTweaker` / `TerrainLoadMode` / `TerrainSkirtLength`; ours `TerrainTileManager` / `TerrainPass` / `terrain_stitch` / per-tile RTT pool. File overlap is infrastructure, not mergeable code.
 - **Likely unique candidates**: Qt/QMapLibre wrapper (terrain/sky/globe API, `liveCoordinate`/`liveZoom`, metrics, gestures), terrain-camera ray-scan centre (verify against #4190's `TerrainCamera` tests and #4711), RTT drape pool/fingerprint, globe-terrain pole caps, flat draped wrapped tiles.
@@ -97,6 +97,36 @@ A Mac was not available here, but the failing CI jobs were mined for exact signa
 
 Both aborts are WGSL compile failures inside wgpu-native, and both are already confirmed in these checkouts: `shaders/atmosphere.vertex.glsl:12` declares `vec4 target`, which the generator emits verbatim to WebGPU (`include/mln/shaders/webgpu/sky.hpp:99` — `let target = …`), and several generated WebGPU headers carry repeated `struct GlobalPaintParamsUBO` definitions (`background.hpp` ×3, `fill.hpp` ×6, `circle.hpp` ×2), which collide when two such sources are concatenated into one module. `main`'s (run `39495626975`, 2026-10-20) and #4533's macOS WebGPU jobs are green, so both failures are branch-introduced. Also failing for the same PRs: `#4534` `ios-build` and Android OpenGL instrumentation/render tests; `#4190` `ios-build-webgpu-dawn`, `android-build-webgpu-wgpu` and the Windows tests.
 
+### macOS fork build (native Metal) — 2026-10-22
+
+First validation of the fork's 57 patches on macOS/Metal (macOS 27.0.1, Xcode 27.1, Qt 6.12.0, arm64;
+build/run path in [Build (macOS)](./build-macos.md)).
+
+| Check | Result |
+|---|---|
+| Library build + `ctest` | 3/3 pass (`test_mln_quick`, `test_mln_location`, `test_mln_widgets`) |
+| App | starts on Metal (`Graphics API: 6`), QML root loads |
+| Core render tests, all 175 groups | **175/175 pass** (`metrics/macos-xcode11-release-style.json`, one process per group) |
+| Expression tests | **332 pass, 18 ignored, 0 fail** |
+| Core unit tests, `-Map.*` and the 4 server suites | **990 pass, 1 fail** (991 tests / 130 suites) |
+| `Map.*` (58 tests) | **cannot complete** — upstream Metal deadlock (`OffscreenTextureResource::bind()` → `dispatch_semaphore_wait`), reproduces on pristine `c7506d6` |
+| Server suites (60 tests: `HTTPFileSource`, `OnlineFileSource`, `MainResourceLoader`, `MapSnapshotter`) | **cannot run** — upstream builds `USE_CPP_TEST_SERVER` only for Windows/Linux/WebGPU, so no `HttpServer` on macOS Metal |
+
+**Fork regression found and fixed — patch 0057** (`maplibre-native-0057-globe-symbols-metal.patch`).
+Patches 0003/0004/0014 give every backend a per-tile `ProjectionUBO` (globe + terrain elevation) but
+never ported the Metal symbol shaders, which still projected through the pre-globe `drawable.matrix`.
+On Metal every `icon-*`/`text-*`/`symbol-*` render test drew a blank frame: **104/175 groups before,
+175/175 after**. The port mirrors `vulkan/symbol.hpp` (anchor through `projectTileWithElevation()`,
+along-line/variable-anchor and `pitch_with_map` label-plane handling, the Vulkan `z`/clip logic), and
+`SymbolDrawableUBO` in `mtl/symbol.hpp` grows to `18 * 16` to match the shared layout. Pristine
+`c7506d6` passes `icon-size` on Metal, so this was a fork regression, not upstream. A temporary
+globe-projection symbol render test also rendered correctly.
+
+**Known fork test issue on macOS:** `TerrainCamera.RaycastSlopeHitLiesOnTerrainAndOnTheRay`
+(`test/map/terrain_camera.test.cpp:204`) asserts `hit->elevation > 0.0` and gets `-3.31e-07` — the hit
+lands exactly on the slope's zero crossing, so it is a floating-point boundary in the test, not a
+render/projection defect. Tolerance fix proposed, not yet applied.
+
 ## Pickup after restart / OS switch
 
 ### Windows
@@ -148,7 +178,7 @@ Metal and WebGPU are not exercisable from Windows or Linux, so the Mac is the on
 
 ## Guardrails
 
-- No competing full implementation; no 56-patch dump.
+- No competing full implementation; no 57-patch dump.
 - Keep MapLibreEarth on 13.6.1 until upstream features land.
 - GL JS is the reference; disclose AI use; each PR needs tests and a platform statement.
 
