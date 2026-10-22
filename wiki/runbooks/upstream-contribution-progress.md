@@ -276,6 +276,27 @@ so the bugs were backend-agnostic WGSL/generated-header mistakes, not Dawn/wgpu 
 
 **Local only**: the three worktrees are experiments; the fixes are uncommitted and nothing was pushed. The diffs are saved as `~/dev/tmp/webgpu-pr-fixes/pr4534-webgpu-wgsl.patch` and `~/dev/tmp/webgpu-pr-fixes/pr4190-webgpu.patch` (`git diff` in `~/dev/tmp/mln-pr4534` / `~/dev/tmp/mln-pr4190`).
 
+### iOS / Xcode (works — 2026-10-23, simulator only)
+
+Machine changes on the Mac mini (one-off; repeat if this Mac is reimaged):
+`xcodebuild -runFirstLaunch` — it had been returning **69**, Xcode's components were never installed, so
+`CoreSimulator.framework` was missing and every iOS CMake preset died in compiler detection — then
+`xcodebuild -downloadPlatform iOS` (iOS 27.0 + 27.1 simulator runtimes, ~16 min, disk 88 → 71 GB); and
+`brew install bazelisk`, because two iOS phase scripts shell out to `bazel` (the repo's `.bazelversion`
+pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` → 0,
+`xcrun simctl list runtimes` → 27.0/27.1, `cmake --preset ios-webgpu-dawn` configures in ~78 s.
+
+- Build from worktree `~/dev/tmp/mln-pr4190` (presets default to the **simulator**):
+  `cmake --preset ios-metal` / `ios-webgpu-dawn`, then
+  `cmake --build build-ios-webgpu-dawn --target mbgl-core ios-sdk-static app`. `ios-metal` builds clean
+  (`libmbgl-core.a` + fat `ios-sdk-static.framework` + ObjC demo `app`); `ios-webgpu-dawn` needs the
+  local uncommitted one-line `#import <mln/gfx/context.hpp>` in `platform/ios/src/MLNMapView+WebGPU.mm`
+  (next-actions 11a). That include fix is the only iOS-related uncommitted change.
+- Blocked: this Xcode 27.1 install has **no `Simulator.app`**, so simulator screenshots stay blank
+  (needs an Xcode repair) — a text-only simulator test is unaffected
+  (`bazel test //platform/ios/test:ios_test --//:renderer=metal`, heavy, builds its own SDK). Device runs
+  need Apple ID signing, not set up. Detail: [macOS verification → iOS on this Mac](../verification/macos.md#ios-on-this-mac-toolchain-fixed-2026-10-23).
+
 ## Next actions (ordered)
 
 1. ~~**Linux**: build/test #4533/#4534/#4190; run `fill-seams` and `raster-warped`~~ **Done 2026-10-21**: all three build, unit tests all pass; `raster-warped` is Windows-only; `fill-seams/checkerboard` fails on both Windows and Linux/RADV but by one pixel (10 mismatched vs 9.83 allowed) against the Metal expectation, and passes on lavapipe. Diffs saved. Full render suites also finished: #4534 matches #4533's two failures; #4190 has only the pre-existing `fill-extrusion-pattern/tile-buffer`.
