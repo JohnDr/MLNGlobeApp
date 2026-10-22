@@ -22,7 +22,9 @@ build that exercises the fork's patches against the Metal backend.
 **Status 2026-10-22 — validated (first macOS/Metal build).** Built on macOS 27.0.1 with Xcode 27.1,
 Qt 6.12.0 and `-DCMAKE_OSX_ARCHITECTURES=arm64`: the library compiles and installs, `ctest` is
 **3/3 green** (`test_mln_quick`, `test_mln_location`, `test_mln_widgets`), and the app starts on
-**Metal** (`Graphics API: 6`) with `Root objects loaded successfully`.
+**Metal** (`Graphics API: 6`) with `Root objects loaded successfully`. The install and the app have
+since been rebuilt with the preset's default **universal** `x86_64;arm64` (§4, item 5); the arm64
+slice is what runs here, because this Mac has no Rosetta.
 
 The series needs one **core** fix on Metal — patch 0057, which makes **symbols** (icons/text) render
 through the globe `ProjectionUBO` (see §4) — plus two **wrapper** fixes, because `MetalRendererBackend`
@@ -32,8 +34,7 @@ was written against a different `gfx` API than the pinned core `c7506d6`: it ove
 committed in `maplibre-native-qt` (`e15fa52`). Patch 0058 moves one terrain-camera test pixel off a
 sea-level crossing (test-only).
 
-Still open: universal (`x86_64;arm64`) build, the human visual Metal feature checks in §4, and the
-macOS WebGPU / PR-branch work in
+Still open: the human visual Metal feature checks in §4, and the macOS WebGPU / PR-branch work in
 [upstream contribution progress](./upstream-contribution-progress.md).
 
 ## Prerequisites
@@ -102,7 +103,10 @@ cmake --install "$HOME/dev/tmp/build-maplibre-native-qt-macos"
 - The `macOS` preset = Ninja, `RelWithDebInfo`, `MLN_WITH_METAL=ON`, deployment target 13.0,
   universal `x86_64;arm64`.
 - On an Apple Silicon mini add `-DCMAKE_OSX_ARCHITECTURES=arm64` for roughly half the build time.
-  Drop it again for anything you hand to someone else — universal is what upstream ships.
+  Drop it again for anything you hand to someone else — universal is what upstream ships. The
+  canonical install at `~/dev/tmp/install-maplibre-native-qt-macos` is **universal** as of
+  2026-10-22 (built with the preset defaults); use the override only for a faster local arm64-only
+  loop, and reconfigure without it before handing anything over.
 - First build only: the vendored core plus tests take **20–40 min**; later builds are incremental.
 - Tests (quick/location/widgets; gated by the component options above):
 
@@ -131,7 +135,7 @@ export QMapLibre_DIR="$HOME/dev/tmp/install-maplibre-native-qt-macos"   # prefix
 
 cmake --preset default \
   -B "$HOME/dev/tmp/build-MapLibreEarth-macos" \
-  -DCMAKE_OSX_ARCHITECTURES=arm64          # Apple Silicon; drop it for universal
+  -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"   # current canonical build; use arm64 for a quick loop
 cmake --build "$HOME/dev/tmp/build-MapLibreEarth-macos"
 open "$HOME/dev/tmp/build-MapLibreEarth-macos/MapLibreEarth.app"
 ```
@@ -184,6 +188,14 @@ human visual checks (item 2) are still open.
    groups passed before, 175/175 after). Patch 0057 mirrors the Vulkan symbol shaders: the
    `SymbolDrawableUBO` grows to `18 * 16`, all three vertex shaders bind `idProjectionUBO`, and the
    anchor/label-plane/z logic uses `projectTileWithElevation()`.
+5. **Universal (`x86_64;arm64`) build — verified 2026-10-22.** The library was reconfigured with the
+   `macOS` preset's defaults (no arch override), rebuilt and installed; `lipo -archs` reports
+   `x86_64 arm64` for `QMapLibre`, `QMapLibreQuickPrivate` and both MapLibre QML plugins
+   (`libdeclarative_maplibre`, `libdeclarative_maplibre_locationplugin`). The app was rebuilt the same
+   way (`lipo -archs` on the executable → `x86_64 arm64`), `ctest` stays 3/3, and it starts on Metal
+   (`Graphics API: 6`, `Root objects loaded successfully`). Only the arm64 slice can be executed
+   here — this Mac has no Rosetta (`arch -x86_64 /usr/bin/true` → *Bad CPU type in executable*), so
+   the x86_64 slice is link-checked only.
 
 ### Core test results, 2026-10-22 (Metal, `metrics/macos-xcode11-release-style.json`)
 

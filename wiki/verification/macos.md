@@ -137,7 +137,9 @@ fork code.
    sky/terrain/globe shading is only exercised by the app and upstream PR branches.
 3. `Map.*` coverage needs the [#4822](https://github.com/maplibre/maplibre-native/issues/4822) fix
    (headless command-buffer reuse) either upstream or as a fork patch.
-4. Universal (`x86_64;arm64`) build not tested; all figures are arm64.
+4. Universal (`x86_64;arm64`) build: the library install and the app are universal as of 2026-10-22
+   (`lipo -archs` → `x86_64 arm64`, `ctest` 3/3, app on Metal). The x86_64 slice is link-checked only —
+   this Mac has no Rosetta — so all test figures on this page are the arm64 slice.
 
 ## Related
 
