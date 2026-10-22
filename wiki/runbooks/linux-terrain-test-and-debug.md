@@ -9,8 +9,8 @@ status: current
 
 - Ubuntu 26.04, AMD Radeon 780M (RADV, Vulkan), Qt 6.11.2 (`~/Qt`), Ninja at `~/Qt/Tools/Ninja`, Qt Creator `~/Qt/Tools/QtCreator/bin/qtcreator`.
 - Repos (all under `~/dev/projects/`): **`maplibreearth`** (app + this wiki, `johndr/maplibreearth`), **`maplibre-native-qt`** (QMapLibre wrapper + `patches/0001..0056`, `johndr/maplibre-native-qt`; its submodule `vendor/maplibre-native` is pinned at upstream `c7506d6` and its **working tree is intentionally dirty = the patches applied**; never commit it), **`maplibre-native`** (clean fork clone `johndr/maplibre-native`, no local work — our core changes live only as patch files).
-- Canonical build trees (`~/dev/tmp/`): `build-maplibre-native-qt-{Release,Debug}` (library), installs `install/maplibre-native-qt` (Release) and `install-maplibre-native-qt-debug`; `build-maplibre-native-core-tests` (vendored core tests, Release); the app builds in `maplibreearth/build/Desktop_Qt_6_11_2_{Release,Debug}` via **Qt Creator only**.
-- After Qt Creator restarts the MCP can be unreachable (ECONNREFUSED): `~/Qt/Tools/QtCreator/bin/qtcreator -client ~/dev/projects/maplibreearth/CMakeLists.txt`, reconnect the MCP, then `switch_build_config` / `build` / `run_project`.
+- Canonical build trees (`~/dev/tmp/`): `build-maplibre-native-qt-{Release,Debug}` (library), installs `install/maplibre-native-qt` (Release) and `install-maplibre-native-qt-debug`; `build-maplibre-native-core-tests` (vendored core tests, Release); the app builds in `maplibreearth/build/Desktop_Qt_6_11_2_{Release,Debug}` from the command line (the Qt Creator MCP rule is **Windows-only**).
+- Qt Creator is optional on Linux. If you do use it and its MCP: after a restart the MCP can be unreachable (ECONNREFUSED) — `~/Qt/Tools/QtCreator/bin/qtcreator -client ~/dev/projects/maplibreearth/CMakeLists.txt`, then reconnect.
 - **`/tmp` is wiped on reboot** (kernel crash included). Keep anything you need under `~/dev/tmp`.
 
 ## Build the library (both configs, then install) — always both
@@ -21,7 +21,7 @@ for c in Release Debug; do cmake --build build-maplibre-native-qt-$c 2>&1 | grep
 cmake --install build-maplibre-native-qt-Release; cmake --install build-maplibre-native-qt-Debug
 ```
 
-**Filter compile output with `error:`**, not ` error ` — the latter hides real failures (a stale library then looks like a behaviour bug). Then build the app in each config through the Qt Creator MCP so POST_BUILD copies the matching runtime.
+**Filter compile output with `error:`**, not ` error ` — the latter hides real failures (a stale library then looks like a behaviour bug). Then build the app in each config (command line on Linux — the Qt Creator MCP rule is Windows-only) so POST_BUILD copies the matching runtime.
 
 ## Tests
 

@@ -19,10 +19,10 @@ Ordered to-do list. Update it at the end of each session and record results in [
 
 **Decisions taken (do not re-litigate):** keep the 192-tile drape cap (no byte memory budget); keep drape mipmaps; keep GL JS hillshade zoom dependence; accept the remaining ~5-15 % hillshade sharpness gap vs GL JS (John, 2026-10-18); edge stitching from the coarser DEM is an agreed departure.
 
-**First thing after a reboot:** open Qt Creator (`~/Qt/Tools/QtCreator/bin/qtcreator -client ~/dev/projects/maplibreearth/CMakeLists.txt`), reconnect the MCP, check `git status` in the three repos, `/tmp` is wiped (use `~/dev/tmp`), restart the harness server (`python3 tools/gljs-harness/serve.py`, port 8765) and `tools/memguard.sh` before stress tests. Build/run policy unchanged: app only via the Qt Creator MCP (Debug cannot be switched via the MCP: ask John), libraries from the command line for **both** configs and installs.
+**First thing after a reboot:** open Qt Creator (`~/Qt/Tools/QtCreator/bin/qtcreator -client ~/dev/projects/maplibreearth/CMakeLists.txt`), reconnect the MCP, check `git status` in the three repos, `/tmp` is wiped (use `~/dev/tmp`), restart the harness server (`python3 tools/gljs-harness/serve.py`, port 8765) and `tools/memguard.sh` before stress tests. Build/run policy: the **Qt Creator MCP requirement is Windows-only**; on Linux build/run the app from the command line (Qt Creator itself is optional), libraries from the command line for **both** configs and installs.
 
 **Open / next**
-1. **Debug app build** has not been rebuilt or run since the sky/drape work (MCP cannot switch to Debug); the Debug libraries are rebuilt and `test_mln_quick` passes only with `QSG_RENDER_LOOP=basic` (pre-existing threaded-loop assertion in `MapRenderer::updateRenderer`).
+1. **Debug app build** has not been rebuilt or run since the sky/drape work (build it from the command line on Linux); the Debug libraries are rebuilt and `test_mln_quick` passes only with `QSG_RENDER_LOOP=basic` (pre-existing threaded-loop assertion in `MapRenderer::updateRenderer`).
 2. **Pointer gestures** aligned with GL JS 2026-10-18 (patch 0053 + `main.qml`, see [gesture page](./references/gesture-gljs-alignment.md), log part 11). Open: keyboard handlers and shift-drag box zoom; globe-drawing pan/zoom still the old centre-offset code; wheel zoom, rotate/pitch and double-click not yet numerically checked on terrain (the render-check method on the gesture page can be reused); Debug app built but only Release verified by John.
 2. **Globe terrain** fixed 2026-10-18 (patches 0050/0051, see log part 10). Open: sky colour above the horizon at z11 pitch 70 on the globe (pale vs GL JS blue); the `main.qml` auto-switch of the globe off for terrain styles was removed (John, 2026-10-18); Debug app not run.
 3. **Zoom 14.5 / pitch 81 comparisons** are by eye or against older captures; re-capture when touching terrain again.
@@ -49,7 +49,7 @@ Ordered to-do list. Update it at the end of each session and record results in [
 - World z is **metres** (camera matrix scales z by pixels-per-metre); `TransformState::z` is pixels; use `getCenterAltitude()` for metres.
 - Terrain tile cover: DFS with per-node DEM min/max boxes, variable zoom via `calculateTileZoom`; a flat sea-level cover or one fixed zoom to the horizon is wrong (culling / 16,679 tiles -> kernel hang).
 - The PC crash of 2026-10-17 was the app (amdgpu GEM allocation storm); always run stress tests under `memguard.sh`. `/tmp` is wiped on reboot.
-- Build/run policy: app only through Qt Creator MCP; library by command line, **both configs + both installs**; filter compile output by `error:`.
+- Build/run policy (Linux): the Qt Creator MCP requirement is Windows-only, so build/run the app from the command line here; library by command line, **both configs + both installs**; filter compile output by `error:`.
 
 ## Where things stand (2026-10-11)
 

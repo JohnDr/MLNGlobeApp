@@ -10,10 +10,11 @@ status: draft
 ---
 ## Summary
 
-Two stages, same split as on Windows and Linux: the [`QMapLibre`](../concepts/maplibre-native-qt.md)
-library is built and installed from the command line, and the
-[MapLibreEarth app](../modules/mapplibrerearth-app.md) is built and run through **Qt Creator only**
-(repo policy, see `AGENTS.md`).
+Two stages: the [`QMapLibre`](../concepts/maplibre-native-qt.md) library is built and installed from
+the command line, then the [MapLibreEarth app](../modules/mapplibrerearth-app.md) is built and run
+from the command line too. The **Qt Creator MCP requirement is Windows-only**, so on macOS no IDE
+round-trip is needed (`AGENTS.md`; policy in
+[Qt Creator Debug/Release](./qt-creator-debug-release.md#agent-policy)).
 
 macOS is **Metal-only**: OpenGL and Vulkan are not available on Apple platforms, so this is the one
 build that exercises the fork's patches against the Metal backend.
@@ -39,7 +40,8 @@ rest are shared code, Vulkan or OpenGL. Treat the first build as bring-up work.
   CMake ≥ 3.25 is required by the presets (CI uses 4.4.x); Ninja is the preset generator; ccache is
   optional (only the `macOS-ccache` preset uses it).
 - **Qt 6.12.0 (macOS)** from the Qt online installer, at `~/Qt/6.12.0/macos`, with:
-  Qt Quick / Qt Quick Controls 2, **Qt Positioning**, **Qt Location**, and Qt Creator.
+  Qt Quick / Qt Quick Controls 2, **Qt Positioning**, **Qt Location**. Qt Creator is optional on
+  macOS (the app is built from the command line), but useful for editing and debugging.
   Qt ≥ 6.5 is required; CI validates 6.11.2. QMapLibre's defaults build its Location and Widgets
   components, which is why Positioning/Location are needed. If you would rather not install them,
   configure with `-DMLN_QT_WITH_LOCATION=OFF -DMLN_QT_WITH_WIDGETS=OFF` — the app only needs Core +
@@ -105,27 +107,32 @@ qml/MapLibre/                        MapLibre QML module (plugin dylib + qmldir 
 include/                             headers
 ```
 
-## 3. Build the app (Qt Creator)
+## 3. Build the app (command line)
 
-Per the build policy the app is **built and run through Qt Creator**, not from a shell.
+The **Qt Creator MCP policy is Windows-only**, so on macOS the app is built and run from a shell.
+The app's `default` preset takes the Qt and QMapLibre locations from the environment:
 
-- **Kit**: Qt 6.12.0 macOS (Desktop), Ninja, Release.
-- **Build directory**: `~/dev/tmp/build-MapLibreEarth-Desktop_Qt_6_12_0_macOS-Release`.
-- **CMake configuration** (Projects → Build → CMake):
+```bash
+export QT_ROOT_DIR="$HOME/Qt/6.12.0/macos"
+export QMapLibre_DIR="$HOME/dev/tmp/install-maplibre-native-qt-macos"   # prefix, not lib/cmake
 
-  ```
-  -DQMapLibre_DIR=$HOME/dev/tmp/install-maplibre-native-qt-macos/lib/cmake/QMapLibre
-  ```
+cmake --preset default \
+  -B "$HOME/dev/tmp/build-MapLibreEarth-macos" \
+  -DCMAKE_OSX_ARCHITECTURES=arm64          # Apple Silicon; drop it for universal
+cmake --build "$HOME/dev/tmp/build-MapLibreEarth-macos"
+open "$HOME/dev/tmp/build-MapLibreEarth-macos/MapLibreEarth.app"
+```
 
-  (`CMAKE_PREFIX_PATH=<Qt root>` comes from the kit; `QMapLibre_DIR` must point at the
-  `lib/cmake/QMapLibre` directory, not the prefix root.)
-- Build, then Run. The app calls `qmaplibre_quick_setup_plugins(MapLibreEarth)`, which publishes the
-  install's `qml/` directory as `QML_IMPORT_PATH` for Qt Creator, so `import MapLibre 4.0`
-  resolves without extra setup. `qt_generate_deploy_qml_app_script(... MACOS_BUNDLE_POST_BUILD)`
-  deploys Qt into the `.app` after each build, so the bundle in the build dir is directly runnable.
+- `QMapLibre_DIR` is the **prefix** here — the preset appends `/lib/cmake/QMapLibre` itself. A
+  hand-written configure (`-DQMapLibre_DIR=...`) must point at the `lib/cmake/QMapLibre`
+  directory instead.
+- `CMAKE_PREFIX_PATH` comes from the Qt toolchain file that the preset loads via `QT_ROOT_DIR`.
+- The app calls `qmaplibre_quick_setup_plugins(MapLibreEarth)`, which publishes the install's `qml/`
+  directory as `QML_IMPORT_PATH`, so `import MapLibre 4.0` resolves without extra setup.
+  `qt_generate_deploy_qml_app_script(... MACOS_BUNDLE_POST_BUILD)` deploys Qt into the `.app` after
+  each build, so the bundle in the build dir is directly runnable.
 
-Launching **outside** Qt Creator (`open <build>/MapLibreEarth.app`): if the MapLibre QML module is not
-found, export
+If the MapLibre QML module is not found at run time, export
 
 ```bash
 export QML_IMPORT_PATH="$HOME/dev/tmp/install-maplibre-native-qt-macos/qml"
@@ -136,8 +143,9 @@ been moved after the app was built (CMake records the absolute framework path).
 
 **Debug vs Release**: unlike Windows/MSVC, one `RelWithDebInfo` install serves both app
 configurations — the frameworks and QML plugin are not split by config, so there is no
-Debug-install counterpart of the Windows setup. If you need to step into the library, build a second
-tree with `-DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=...-debug` and point the Debug kit at it.
+Debug-install counterpart of the Windows setup. If you need to step into the library, build and
+install a second tree with `-DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=...-debug`, then
+configure a Debug app build dir against it.
 
 ## 4. First-run checks (unvalidated)
 
@@ -156,10 +164,10 @@ tree with `-DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=...-debug` and point 
 | Symptom | Cause / fix |
 |---|---|
 | `Could not find toolchain file .../Qt6/qt.toolchain.cmake` | `QT_ROOT_DIR` unset or pointing at a non-Qt dir. |
-| `QMapLibre ... not found` | `QMapLibre_DIR` must be `<prefix>/lib/cmake/QMapLibre`. |
+| `QMapLibre ... not found` | `QMapLibre_DIR` must be the prefix for the preset, or `<prefix>/lib/cmake/QMapLibre` for a hand-written configure. |
 | `error: patch failed` / `does not apply` | Submodule not at `c7506d6`, or patches already applied (`git -C vendor/maplibre-native checkout .` then re-apply). |
 | Build fails in `src/mln/mtl/*` or `include/mln/shaders/mtl/*` | Fork-specific Metal breakage from patches 0003/0004/0006/0007 — capture the file/line, this is new information. |
-| `module "MapLibre" is not installed` at run | Set `QML_IMPORT_PATH=<prefix>/qml` (Qt Creator normally does this for you). |
+| `module "MapLibre" is not installed` at run | Set `QML_IMPORT_PATH=<prefix>/qml`. |
 | Builds are slow | Universal arch; add `-DCMAKE_OSX_ARCHITECTURES=arm64`. |
 | Qt Location not found (Qt ≥ 6.9 also wants private headers) | Install the Qt Positioning/Location modules, or disable Location/Widgets as above. |
 

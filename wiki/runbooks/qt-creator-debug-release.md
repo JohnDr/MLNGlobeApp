@@ -34,11 +34,12 @@ The app's POST_BUILD step copies the correct QMapLibre runtime next to the execu
 
 ## Agent policy
 
-- The **app** is built and run **through Qt Creator** (MCP tools: `switch_build_config` / `build` / `run_project` / `debug`) — never ad-hoc command-line app builds.
-- The **QMapLibre library** (and other dependencies) are built **from the command line** into the canonical trees, not through the MCP.
+- **Windows only:** the **app** must be built and run **through Qt Creator** (MCP tools: `switch_build_config` / `build` / `run_project` / `debug`) — never ad-hoc command-line app builds.
+- **macOS and Linux:** the Qt Creator MCP is **not** required; the app is built and run from the command line (see [Build (macOS)](./build-macos.md) and [Linux terrain test and debug](./linux-terrain-test-and-debug.md)).
+- The **QMapLibre library** (and other dependencies) are built **from the command line** into the canonical trees, not through the MCP, on every platform.
 - **Handoff guarantee:** before returning, refresh **both** QMapLibre installs when the library changed — `%LOCALAPPDATA%\Temp\opencode\build-libs-both.bat` — then rebuild the app in the config(s) being handed back so the POST_BUILD copy is current. A stale install is why the app aborts with `Cannot assign to non-existent property "terrainExaggeration"`.
 
-This is mirrored in `MapLibreEarth/AGENTS.md` and `maplibre-native-qt/AGENTS.md`, which are loaded every agent session.
+The Windows-only scope is mirrored in `MapLibreEarth/AGENTS.md` and `maplibre-native-qt/AGENTS.md`, which are loaded every agent session.
 
 ## Related
 

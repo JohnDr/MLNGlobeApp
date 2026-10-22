@@ -2,12 +2,18 @@
 
 ## Build & run policy (agreed with John)
 
-- **This app is built and run through Qt Creator, always** — never ad-hoc
-  command-line app builds. Use the Qt Creator MCP tools:
+- **Windows only: this app is built and run through Qt Creator, always** — never
+  ad-hoc command-line app builds. Use the Qt Creator MCP tools:
   `qt-creator_switch_build_config` (Debug | Release), `qt-creator_build`,
   `qt-creator_run_project` / `qt-creator_debug`.
-- **Dependencies (QMapLibre and others) are built from the command line**, not
-  through the Qt Creator MCP — see `../maplibre-native-qt/AGENTS.md`.
+- **macOS and Linux: the Qt Creator MCP is not required.** Build and run the app
+  from the command line into that platform's canonical tree — macOS:
+  `wiki/runbooks/build-macos.md`, Linux:
+  `wiki/runbooks/linux-terrain-test-and-debug.md`. Qt Creator stays optional
+  there.
+- **Dependencies (QMapLibre and others) are built from the command line** on
+  every platform, not through the Qt Creator MCP — see
+  `../maplibre-native-qt/AGENTS.md`.
 
 ## If you cannot follow an instruction — ask John
 
@@ -16,13 +22,14 @@ QMapLibre `AGENTS.md`), **stop and come back to John for a decision**. Do not
 silently deviate, and do not substitute a workaround on your own initiative. State
 plainly what you could not do and why, and wait.
 
-This applies in particular to the build & run policy above — e.g. a Qt Creator MCP
-tool that blocks or fails (such as `qt-creator_run_project` never returning for a
-long-running GUI app), a build-tree / install-prefix mismatch, or any urge to
-build or run the app outside Qt Creator (ad-hoc command-line app builds, launching
-the exe directly, hand-copying runtime DLLs). In all such cases: ask first.
+On **Windows** this applies in particular to the build & run policy above — e.g. a
+Qt Creator MCP tool that blocks or fails (such as `qt-creator_run_project` never
+returning for a long-running GUI app), a build-tree / install-prefix mismatch, or
+any urge to build or run the app outside Qt Creator (ad-hoc command-line app
+builds, launching the exe directly, hand-copying runtime DLLs). In all such
+cases: ask first.
 
-## Handoff guarantee (what John relies on)
+## Handoff guarantee — Windows (what John relies on)
 
 John may **Run** this app in Debug **or** Release and expects to be on the latest
 code. Both must hold, because each config loads its own QMapLibre runtime + QML
@@ -42,6 +49,10 @@ Before handing back, after any library change:
 A stale install shows up as `Cannot assign to non-existent property
 "terrainExaggeration"` at startup (old `MapLibre` QML plugin).
 
+On **macOS** one `RelWithDebInfo` install serves both app configurations:
+`~/dev/tmp/install-maplibre-native-qt-macos` (there is no Debug counterpart), so
+refresh that prefix and rebuild the app; see `wiki/runbooks/build-macos.md`.
+
 ## Rules
 
 - Do not create alternate build dirs (ninja/`build/`, MinGW, `build-pr1-opengl`,
@@ -51,7 +62,7 @@ A stale install shows up as `Cannot assign to non-existent property
   substitute another install.
 - `.qtcreator/CMakeLists.txt.user` is rewritten by Qt Creator on save — edit it
   only via the runbook procedure (unload → edit → reopen).
-- Wiki is authoritative: `wiki/runbooks/{build-windows,qt-creator-debug-release}.md`,
+- Wiki is authoritative: `wiki/runbooks/{build-windows,build-macos,qt-creator-debug-release}.md`,
   `wiki/architecture/environment.md`, `wiki/decisions/d5-debug-release-libraries.md`.
 
 ## GL JS alignment rule (agreed with John, 2026-10-17)
