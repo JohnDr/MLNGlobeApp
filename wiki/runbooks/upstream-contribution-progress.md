@@ -109,7 +109,7 @@ build/run path in [Build (macOS)](./build-macos.md)).
 | Core render tests, all 175 groups | **175/175 pass** (`metrics/macos-xcode11-release-style.json`, one process per group) |
 | Expression tests | **332 pass, 18 ignored, 0 fail** |
 | Core unit tests, `-Map.*` and the 4 server suites | **991 pass, 0 fail** (991 tests / 130 suites; patch 0058 fixed the last test) |
-| `Map.*` | **cannot complete** — 34 tests pass, then the upstream Metal deadlock (`OffscreenTextureResource::bind()` → `dispatch_semaphore_wait`) stops `Map.ContinuousRendering` / `Map.Issue15342`; reproduces on pristine `c7506d6` |
+| `Map.*` | **hangs** — headless command buffers are allocated per pass and never committed, so the Metal queue's in-flight slots run out after ~32 frames and `-[MTLCommandQueue commandBuffer]` blocks. Root-caused and filed as [#4822](https://github.com/maplibre/maplibre-native/issues/4822); the local `if (!commandBuffer)` guard makes `Map.*` 55/55, not shipped as a fork patch |
 | Server suites (60 tests: `HTTPFileSource`, `OnlineFileSource`, `MainResourceLoader`, `MapSnapshotter`) | **60 pass, 0 fail** — suite-per-process with a local `USE_CPP_TEST_SERVER` build (upstream defines it only for Windows/Linux/WebGPU); not a fork patch. A single combined process trips `OnlineFileSource.TemporaryError` (keep-alive/4-thread server pool) |
 
 **Fork regression found and fixed — patch 0057** (`maplibre-native-0057-globe-symbols-metal.patch`).

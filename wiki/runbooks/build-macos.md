@@ -195,11 +195,14 @@ human visual checks (item 2) are still open.
   `-Map.*:HTTPFileSource.*:OnlineFileSource.*:MainResourceLoader.*:MapSnapshotter.*:LocalGlyphRasterizer.PingFang*`.
   The last failure, `TerrainCamera.RaycastSlopeHitLiesOnTerrainAndOnTheRay`, was a test-data boundary
   fixed by patch 0058 (below).
-- **`Map.*` cannot complete** — 34 tests pass, then the upstream Metal backend deadlocks in
-  `OffscreenTextureResource::bind()` → `_MTLCommandBuffer initWithQueue:` →
-  `dispatch_semaphore_wait`; the observed stops are `Map.ContinuousRendering` (this run, after
-  `-Map.StyleNetworkErrorRetry:Map.Offline`) and `Map.Issue15342`. It reproduces on pristine
-  `c7506d6`, so it is upstream, not fork-specific.
+- **`Map.*` hangs** — root cause found and filed upstream as
+  [#4822](https://github.com/maplibre/maplibre-native/issues/4822): `mtl::OffscreenTextureResource::bind()`
+  allocates a new `MTLCommandBuffer` per pass, but a frame binds the headless default renderable three
+  times (two `UploadPass`es + main pass) and commits once, so two buffers per frame are abandoned and
+  hold the queue's in-flight slots; after ~32 frames `-[MTLCommandQueue commandBuffer]` blocks in
+  `dispatch_semaphore_wait`. Reproduces on pristine `c7506d6`. Adding the `if (!commandBuffer)` guard
+  used by the iOS/macOS `MTKView` renderables makes `Map.ContinuousRendering` pass (1.35 s) and the
+  `Map.*` CI filter 55/55 (7.5 s); the guard is not shipped as a fork patch yet.
 - **Server-dependent tests: 60 pass, 0 fail** — `HTTPFileSource` (11), `MainResourceLoader` (20),
   `MapSnapshotter` (6), `OnlineFileSource` (23), each suite in its own process. They need the
   in-process `HttpServer`, which `test/src/mln/test/test.cpp` starts only for
