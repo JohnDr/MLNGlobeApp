@@ -194,4 +194,4 @@ Metal and WebGPU are not exercisable from Windows or Linux, so the Mac is the on
 ## Related
 
 - [Contribution plan](upstream-contribution-plan.md) · [Upstream PRs](../references/upstream-prs.md) · [Upstream issues](../references/upstream-issues.md) · [D6](../decisions/d6-draft-upstream-prs.md)
-- [Linux tests](../verification/linux-tests.md) · [Windows](../verification/windows.md) · [Android](../verification/android.md)
+- [Linux tests](../verification/linux-tests.md) · [macOS tests](../verification/macos.md) · [Windows](../verification/windows.md) · [Android](../verification/android.md)

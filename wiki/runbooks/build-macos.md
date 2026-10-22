@@ -227,4 +227,4 @@ patch (0058) agreed with John before it is applied.
 ## Related
 
 - [Build (Windows)](./build-windows.md) · [Qt Creator Debug/Release](./qt-creator-debug-release.md) · [Upstream contribution progress](./upstream-contribution-progress.md)
-- [QMapLibre](../concepts/maplibre-native-qt.md) · [MapLibreEarth app](../modules/mapplibrerearth-app.md) · [Verification](../verification/index.md)
+- [QMapLibre](../concepts/maplibre-native-qt.md) · [MapLibreEarth app](../modules/mapplibrerearth-app.md) · [macOS tests](../verification/macos.md) · [Verification](../verification/index.md)
