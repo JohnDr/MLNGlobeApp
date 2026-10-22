@@ -109,7 +109,7 @@ build/run path in [Build (macOS)](./build-macos.md)).
 | Core render tests, all 175 groups | **175/175 pass** (`metrics/macos-xcode11-release-style.json`, one process per group) |
 | Expression tests | **332 pass, 18 ignored, 0 fail** |
 | Core unit tests, `-Map.*` and the 4 server suites | **990 pass, 1 fail** (991 tests / 130 suites) |
-| `Map.*` (58 tests) | **cannot complete** — upstream Metal deadlock (`OffscreenTextureResource::bind()` → `dispatch_semaphore_wait`), reproduces on pristine `c7506d6` |
+| `Map.*` | **cannot complete** — 34 tests pass, then the upstream Metal deadlock (`OffscreenTextureResource::bind()` → `dispatch_semaphore_wait`) stops `Map.ContinuousRendering` / `Map.Issue15342`; reproduces on pristine `c7506d6` |
 | Server suites (60 tests: `HTTPFileSource`, `OnlineFileSource`, `MainResourceLoader`, `MapSnapshotter`) | **cannot run** — upstream builds `USE_CPP_TEST_SERVER` only for Windows/Linux/WebGPU, so no `HttpServer` on macOS Metal |
 
 **Fork regression found and fixed — patch 0057** (`maplibre-native-0057-globe-symbols-metal.patch`).
@@ -123,9 +123,10 @@ along-line/variable-anchor and `pitch_with_map` label-plane handling, the Vulkan
 globe-projection symbol render test also rendered correctly.
 
 **Known fork test issue on macOS:** `TerrainCamera.RaycastSlopeHitLiesOnTerrainAndOnTheRay`
-(`test/map/terrain_camera.test.cpp:204`) asserts `hit->elevation > 0.0` and gets `-3.31e-07` — the hit
-lands exactly on the slope's zero crossing, so it is a floating-point boundary in the test, not a
-render/projection defect. Tolerance fix proposed, not yet applied.
+(`test/map/terrain_camera.test.cpp:204`) asserts `hit->elevation > 0.0` and gets `-3.31e-07`. The
+pixel `{400, 300}` is exactly the slope's sea-level crossing (`y=350 → +122.9 m`, `y=400 → +261.7 m`),
+so it is a test-data boundary, not a render/projection defect. A local run with `pixel{400, 350}`
+passes all 22 `TerrainCamera` tests; the fix (patch 0058) needs John's agreement.
 
 ## Pickup after restart / OS switch
 

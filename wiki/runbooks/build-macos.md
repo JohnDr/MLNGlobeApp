@@ -191,10 +191,11 @@ human visual checks (item 2) are still open.
 - **Unit tests (everything except `Map.*`): 990 pass, 1 fail** — `991` tests / `130` suites, filter
   `-Map.*:HTTPFileSource.*:OnlineFileSource.*:MainResourceLoader.*:MapSnapshotter.*:LocalGlyphRasterizer.PingFang*`.
   The one failure is a fork-test boundary case, not Metal: see below.
-- **`Map.*` (58 tests) cannot complete** — the upstream Metal backend deadlocks in
+- **`Map.*` cannot complete** — 34 tests pass, then the upstream Metal backend deadlocks in
   `OffscreenTextureResource::bind()` → `_MTLCommandBuffer initWithQueue:` →
-  `dispatch_semaphore_wait`, at a random `Map.*` test. It reproduces on pristine `c7506d6`, so it is
-  upstream, not fork-specific.
+  `dispatch_semaphore_wait`; the observed stops are `Map.ContinuousRendering` (this run, after
+  `-Map.StyleNetworkErrorRetry:Map.Offline`) and `Map.Issue15342`. It reproduces on pristine
+  `c7506d6`, so it is upstream, not fork-specific.
 - **Server-dependent tests (60) cannot run on macOS Metal** — `HTTPFileSource`, `OnlineFileSource`,
   `MainResourceLoader`, `MapSnapshotter`. `test/src/mln/test/test.cpp` only starts the in-process
   `HttpServer` for `(TEST_HAS_SERVER && __QT__) || USE_CPP_TEST_SERVER`, and `test/CMakeLists.txt`
@@ -205,8 +206,11 @@ human visual checks (item 2) are still open.
 
 `test/map/terrain_camera.test.cpp:204` asserts `EXPECT_GT(hit->elevation, 0.0)`; on this Mac the hit
 lands exactly on the slope's zero crossing and the elevation is `-3.31e-07` (the rest of the test —
-hit on the slope surface, hit on the pixel ray — passes). It is a floating-point boundary in the
-test, not a projection/render problem; a tolerance fix needs agreeing before it is patched.
+hit on the slope surface, hit on the pixel ray — passes). The pixel is the knife edge: raycasting
+`{400, y}` gives `y=300 → 0.000000` m (the sea-level point), `y=350 → +122.9 m`, `y=400 → +261.7 m`,
+so only `y=300` can fall either side of zero. It is a test-data boundary, not a projection/render
+problem. Verified local fix: `pixel{400.0, 350.0}` passes all 22 `TerrainCamera` tests; it needs a
+patch (0058) agreed with John before it is applied.
 
 ## Troubleshooting
 
