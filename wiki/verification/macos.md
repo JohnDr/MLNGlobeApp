@@ -212,6 +212,54 @@ Related, for the record: QMapLibre **does** support iOS upstream (`maplibre-nati
 **not set up yet** (no Apple ID signing as of 2026-10-23); see next-actions item 10 in the
 [contribution runbook](../runbooks/upstream-contribution-progress.md#next-actions-ordered).
 
+### What the iOS build revealed (2026-10-23)
+
+With bazel in place, the CI target set builds locally for the simulator
+(`cmake --build … --target mbgl-core ios-sdk-static app`, worktree `mln-pr4190`):
+
+| Config | Result |
+|---|---|
+| `ios-metal` | **builds** — `libmbgl-core.a` + `ios-sdk-static.framework` (fat: x86_64 + arm64) + the ObjC demo `app` |
+| `ios-webgpu-dawn` | builds **after one upstream fix** (below) |
+
+Bazel is needed by two phase scripts (`mbgl-ios-umbrella-header` → `bazel build //platform/ios:umbrella_hdr
+//platform/ios:mln_defines`, `mbgl-darwin-style-code` → `bazel build //platform/darwin:generated_code`);
+installed 2026-10-23 as `brew install bazelisk` (bazelisk 1.30.0; the repo's `.bazelversion` pins bazel
+**8.6.0**, which bazelisk fetched on first use).
+
+Three upstream gaps, all **pre-existing on `main`** and each hidden by a different blocker:
+
+1. **`platform/ios/src/MLNMapView+WebGPU.mm` cannot compile** (any WebGPU config). Its destructor calls
+   `context.reset()` on the `std::unique_ptr<mln::gfx::Context>` member of `gfx::RendererBackend`
+   (`include/mln/gfx/renderer_backend.hpp:75`), but `Context` is only forward-declared there — the file
+   never includes `mln/gfx/context.hpp`. The Metal and OpenGL siblings never call `context.reset()`, so
+   only WebGPU hits it. One-line fix (`#import <mln/gfx/context.hpp>`), applied **locally, uncommitted**
+   in the `#4190` worktree; with it the whole `ios-webgpu-dawn` set builds. CI cannot see it because
+   `ios-build-webgpu-dawn` dies earlier, in configure (next-actions 3).
+2. **The iOS `app` target cannot build with `MLN_WITH_WEBGPU`**: `platform/ios/app/CMakeLists.txt`
+   includes `"CustomStyleLayerExample.h"` from the shared `platform/darwin/app` directory and only gets
+   that include directory by linking `custom-layer-examples` — which `platform/darwin/darwin.cmake`
+   creates inside `if(NOT MLN_WITH_WEBGPU)` ("Custom layer examples use OpenGL ES / Metal APIs directly
+   and are not available for WebGPU builds"). Result: `MBXViewController.mm:19: fatal error:
+   'CustomStyleLayerExample.h' file not found`.
+3. **The ObjC demo app no longer launches on the current SDK**: built against the iPhoneSimulator 27.1
+   SDK it dies at scene creation with `EXC_BREAKPOINT`/`SIGTRAP` in
+   `_UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` — *"Application failed to launch:
+   UIScene life cycle is required for apps built with this SDK"*. The app is legacy
+   (`application:didFinishLaunchingWithOptions:`, no `UIApplicationSceneManifest`, no scene delegate);
+   injecting a minimal manifest into the built bundle alone does not satisfy the check. Upstream's current
+   iOS app is Swift, built with bazel (`//platform/ios/app-swift:MapLibreApp`); this CMake `app` target is
+   what `ios-build-cmake` still builds but nobody launches.
+
+**No visual simulator capture on this Mac yet**: this Xcode 27.1 install has **no `Simulator.app`** —
+`/Applications/Xcode.app/Contents/Developer/Applications` does not exist at all, and
+`Contents/Applications` holds only Accessibility Inspector, Create ML, DeviceHub (`com.apple.dt.Devices`,
+the devices hub), FileMerge, Icon Composer and Instruments. The simulator boots via `simctl` and
+SpringBoard runs, but with no UI host the framebuffer stays blank: the home-screen and app screenshots
+are byte-identical 106 KB all-black PNGs. `Simulator.app` belongs to the Xcode bundle, not to
+`xcodebuild -downloadPlatform iOS`, so inspectable simulator runs need a repaired/reinstalled Xcode. A
+test-only simulator run (textual output) is unaffected.
+
 ## Known issues on macOS
 
 1. **`Map.*` Metal deadlock — root-caused, upstream issue
