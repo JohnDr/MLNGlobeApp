@@ -24,8 +24,8 @@ status: current
 | Effort | Owner | Branch / base | State | Notes |
 |---|---|---|---|---|
 | Globe #4533 | johncarmack1984 | `phased/12h` → `main` | open, not draft, `BLOCKED`, CI green (2026-10-20) | Issue #3161; design proposal #4525 closed; 673 files. |
-| Sky #4534 | ClayWarren | `codex/sky-style-spec-4414`, stacked on globe | open, not draft, `DIRTY` | Issue #4414; CI fails Android OpenGL instrumentation/render, iOS, macOS WebGPU; Metal/Vulkan render pass. Two WebGPU WGSL bugs found + fixed locally 2026-10-22 (below). |
-| Terrain #4190 | NathanMOlson | `feature/terrain-3d` → `main` | **draft**, `DIRTY` | Maintainer `louwers` coordinating; follow-ups #4558, #4790, #4791, #4801, #4809, #4810 target `feature/terrain-3d`; issue #252. Three WebGPU bugs found + fixed locally 2026-10-22 (below). |
+| Sky #4534 | ClayWarren | `codex/sky-style-spec-4414`, stacked on globe | open, not draft, `DIRTY` | Issue #4414; CI fails Android OpenGL instrumentation/render, iOS, macOS WebGPU; Metal/Vulkan render pass. Two WebGPU WGSL bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). |
+| Terrain #4190 | NathanMOlson | `feature/terrain-3d` → `main` | **draft**, `DIRTY` | Maintainer `louwers` coordinating; follow-ups #4558, #4790, #4791, #4801, #4809, #4810 target `feature/terrain-3d`; issue #252. Three WebGPU bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). |
 | Overlap #4752 | JohnDr | `mln-icon-text-overlap` → `main` | **draft**, `BLOCKED`, pre-commit green | Our icon/text-overlap implementation; build workflows await approval; refs #251. |
 | Qt #323–#326 | JohnDr | fork branches → `maplibre-native-qt` `main` | #323 draft; #324/#325/#326 ready | #323 Metal fix at `91297dd`, CI approval pending; #326 has empty-style fallback + `styleChanged` NOTIFY at `5d1077a`. |
 
@@ -97,7 +97,7 @@ A Mac was not available here, but the failing CI jobs were mined for exact signa
 
 Both aborts are WGSL compile failures inside wgpu-native, and both are already confirmed in these checkouts: `shaders/atmosphere.vertex.glsl:12` declares `vec4 target`, which the generator emits verbatim to WebGPU (`include/mln/shaders/webgpu/sky.hpp:99` — `let target = …`), and several generated WebGPU headers carry repeated `struct GlobalPaintParamsUBO` definitions (`background.hpp` ×3, `fill.hpp` ×6, `circle.hpp` ×2), which collide when two such sources are concatenated into one module. `main`'s (run `39495626975`, 2026-10-20) and #4533's macOS WebGPU jobs are green, so both failures are branch-introduced. Also failing for the same PRs: `#4534` `ios-build` and Android OpenGL instrumentation/render tests; `#4190` `ios-build-webgpu-dawn`, `android-build-webgpu-wgpu` and the Windows tests.
 
-All of the above were **reproduced and fixed locally on 2026-10-22** — see [macOS WebGPU](#macos-webgpu--reproduced-and-fixed-2026-10-22) below: #4534's wgpu abort is a second WGSL error after `target` (duplicate `PI`), and #4190 needed three fixes (the `GlobalPaintParamsUBO` duplicate in `circle.hpp`, stray `drape_tile` fields bloating the WebGPU line shader's drawable/props structs, and missing texture-upload stats in `src/mln/webgpu/texture2d.cpp`). With those, both unit and render suites are green on wgpu.
+All of the above were **reproduced and fixed locally on 2026-10-22** — see [macOS WebGPU](#macos-webgpu--reproduced-and-fixed-2026-10-22) below: #4534's wgpu abort is a second WGSL error after `target` (duplicate `PI`), and #4190 needed three fixes (the `GlobalPaintParamsUBO` duplicate in `circle.hpp`, stray `drape_tile` fields bloating the WebGPU line shader's drawable/props structs, and missing texture-upload stats in `src/mln/webgpu/texture2d.cpp`). With those, both unit and render suites are green on wgpu **and** on Dawn: the Dawn jobs were then built and re-run locally on the same worktrees, where the 14 unit tests and `sky/atmosphere-globe` pass and the suite totals equal the wgpu ones.
 
 ### macOS fork build (native Metal) — 2026-10-22
 
@@ -171,7 +171,7 @@ mirroring `.github/workflows/macos-ci.yml`:
 - Metal baseline for the Linux checkerboard question: `cmake --preset macos-metal`, then `-f render-tests/projection/globe/` and compare against the RADV frame (`~/dev/tmp/…/fill-seams/checkerboard/actual.png` here, or `/tmp/opencode/checkerboard-radv-actual.png`).
 - Hypotheses to test, in order: (a) the terrain shader concatenation emits `GlobalPaintParamsUBO` twice (`wgsl:209`/`234`) — the wgpu abort; (b) the sky vertex shader's `target` identifier is a reserved WGSL keyword — rename and re-run; (c) whether Dawn's `sky/atmosphere-globe` failure and the 14 terrain unit-test diffs are real rendering differences (read `actual.png`/`diff.png`, the unit tests print `getImageDiff … <= imageThreshold`).
 - CI logs already mined: `/tmp/opencode/ci-logs/api-{117211053553,117211053314,118198908406,118198908267}.log` (Dawn+wgpu for #4534 and #4190).
-- Local build notes: `-DCMAKE_OSX_ARCHITECTURES=arm64` (preset defaults are Debug, deployment target 14.3); brew deps `glfw icu4c libuv jpeg-turbo webp libpng`, `PKG_CONFIG_PATH` must include icu4c, libuv and glfw. Dawn was **not** rebuilt locally — its CI job (118198908406) fails at the same *Run unit tests* step with the same 14 tests that the wgpu run reproduces (plus 4 pitch-circle variants that only fail on wgpu).
+- Local build notes: `-DCMAKE_OSX_ARCHITECTURES=arm64` (preset defaults are Debug, deployment target 14.3); brew deps `glfw icu4c libuv jpeg-turbo webp libpng`, `PKG_CONFIG_PATH` must include icu4c, libuv and glfw. Dawn **was** rebuilt locally too (see the Dawn subsection below) — `cmake --preset macos-webgpu-dawn`; its CI job (118198908406) fails at the same *Run unit tests* step with the same 14 tests that the wgpu run reproduces (plus 4 pitch-circle variants that only fail on wgpu), and both jobs are green after the fixes.
 
 #### #4534 (sky) — two WGSL errors, abort fixed
 
@@ -197,12 +197,37 @@ repo's expectation for that test is satisfied on Metal. This matches the earlier
 the RADV failure was a tolerance/threshold issue (10 mismatched pixels vs 9.83 allowed), not a
 visible seam.
 
+#### Dawn — both PRs re-run locally (2026-10-22)
+
+The Dawn jobs were only mined from CI before; they are now built and run here. `vendor/dawn.cmake`
+`FetchContent`s Dawn `v20260210.203301` into `vendor/dawn` (≈1.8 GB, `DAWN_FETCH_DEPENDENCIES=ON`)
+and adds it to the same tree, so:
+
+- `cmake --preset macos-webgpu-dawn -DCMAKE_OSX_ARCHITECTURES=arm64` — first configure fetched Dawn
+  in ≈80 s; later worktrees reuse the fetched tree (and ccache, `CCACHE_NOHASHDIR=1`
+  `CCACHE_BASEDIR=~/dev/tmp`) so configure is ≈10 s and the Dawn build ≈3 min.
+- No `go` was needed, unlike the CI workflow (which installs `python@3.11 go`): brew `python@3.15`
+  ran `fetch_dawn_dependencies.py` unaided.
+- Render tests need the metrics directory to exist: `mkdir -p metrics/macos-webgpu-dawn` before
+  `mbgl-render-test-runner --manifestPath metrics/macos-webgpu-dawn.json`.
+
+| PR | Dawn before (CI) | Dawn after the local fixes |
+|---|---|---|
+| #4534 sky | Run WebGPU render tests: 1484 passed, 84 ignored, **1 failed** — `render-tests/sky/atmosphere-globe` | `-f render-tests/sky/` **3/3** (incl. `atmosphere-globe`); unit **1257 pass / 0 fail**; render **1485 pass / 0 fail** (5 passed-but-ignored, 84 ignored) |
+| #4190 terrain | Run unit tests: the **14 image-diff failures** listed above | the same 14-test filter **14/14 pass**; unit **1157 pass / 0 fail**; render **1368 pass / 0 fail** (4 passed-but-ignored, 94 ignored) |
+
+No abort, panic or failure line in any of the four logs, and the totals match the wgpu runs exactly —
+so the bugs were backend-agnostic WGSL/generated-header mistakes, not Dawn/wgpu divergence, and
+`sky/atmosphere-globe` is fixed by the same two `sky.hpp` edits. Evidence:
+`/tmp/pr4190-{unit,render}-dawn-full.log`, `/tmp/pr4534-{unit,render}-dawn-full.log`, render HTML in
+`metrics/macos-webgpu-dawn.html`.
+
 **Local only**: the three worktrees are experiments; the fixes are uncommitted and nothing was pushed. The diffs are saved as `~/dev/tmp/webgpu-pr-fixes/pr4534-webgpu-wgsl.patch` and `~/dev/tmp/webgpu-pr-fixes/pr4190-webgpu.patch` (`git diff` in `~/dev/tmp/mln-pr4534` / `~/dev/tmp/mln-pr4190`).
 
 ## Next actions (ordered)
 
 1. ~~**Linux**: build/test #4533/#4534/#4190; run `fill-seams` and `raster-warped`~~ **Done 2026-10-21**: all three build, unit tests all pass; `raster-warped` is Windows-only; `fill-seams/checkerboard` fails on both Windows and Linux/RADV but by one pixel (10 mismatched vs 9.83 allowed) against the Metal expectation, and passes on lavapipe. Diffs saved. Full render suites also finished: #4534 matches #4533's two failures; #4190 has only the pre-existing `fill-extrusion-pattern/tile-buffer`.
-2. ~~**macOS WebGPU**~~ **Done 2026-10-22**: rebuilt all three PR branches locally (wgpu; Dawn left to its CI log, same 14 tests). Five bugs fixed in the PR worktrees — #4534: `target` reserved keyword + duplicate `PI` (abort → full render suite 1485/0); #4190: duplicate `GlobalPaintParamsUBO` in `circle.hpp` (abort), stray `drape_tile` fields bloating the WebGPU `line.hpp` drawable/props structs (17 of 18 image diffs), and missing texture-upload stats in `src/mln/webgpu/texture2d.cpp` (last unit failure) → unit 1157/0, render 1368/0. #4533 on Metal: globe group 71 passed + 1 ignored, `fill-seams/checkerboard` passes. Uncommitted, nothing pushed; see [macOS WebGPU](#macos-webgpu--reproduced-and-fixed-2026-10-22).
+2. ~~**macOS WebGPU**~~ **Done 2026-10-22**: rebuilt all three PR branches locally (wgpu **and** Dawn). Five bugs fixed in the PR worktrees — #4534: `target` reserved keyword + duplicate `PI` (abort → full render suite 1485/0); #4190: duplicate `GlobalPaintParamsUBO` in `circle.hpp` (abort), stray `drape_tile` fields bloating the WebGPU `line.hpp` drawable/props structs (17 of 18 image diffs), and missing texture-upload stats in `src/mln/webgpu/texture2d.cpp` (last unit failure) → unit 1157/0, render 1368/0. Both also built against Dawn (`macos-webgpu-dawn`): CI's 14 unit failures and `sky/atmosphere-globe` pass, totals identical to wgpu. #4533 on Metal: globe group 71 passed + 1 ignored, `fill-seams/checkerboard` passes. Uncommitted, nothing pushed; see [macOS WebGPU](#macos-webgpu--reproduced-and-fixed-2026-10-22).
 3. **Post one consolidated test report** after macOS: #4533 (seams + platform), #4534 (Windows Vulkan render pass, CI failures incl. the WGSL ones), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests).
 4. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
 5. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
@@ -219,7 +244,7 @@ visible seam.
 
 - ~~Are the two Windows/Vulkan seam failures platform-specific or a stale globe snapshot?~~ **Answered 2026-10-21**: `raster-warped` is Windows-only (passes on Linux/RADV); `fill-seams/checkerboard` reproduces on Windows **and** Linux/RADV but is a one-pixel threshold miss (10 mismatched vs 9.83 allowed) against the Metal-rendered expectation, and passes under lavapipe — an expectation-coverage gap, not a stale snapshot.
 - Does #4190 already cover the terrain-camera ray scan (it has `TerrainCamera` tests and #4711)?
-- Is the sky shader's `target` identifier the cause of #4534's wgpu abort, and is `GlobalPaintParamsUBO` really emitted twice in #4190's terrain WGSL (or is it Dawn/wgpu divergence)?
+- ~~Is the sky shader's `target` identifier the cause of #4534's wgpu abort, and is `GlobalPaintParamsUBO` really emitted twice in #4190's terrain WGSL (or is it Dawn/wgpu divergence)?~~ **Answered 2026-10-22**: yes to both, and it is not Dawn/wgpu divergence — the same fixes make the Dawn builds green with totals identical to wgpu (Dawn subsection above).
 - Which Qt API shape should the upstream core expose?
 - ~~Which Linux build/deps path is fastest for the PR branches?~~ **Answered 2026-10-21**: worktrees of the existing clone + hard-linked submodules (no download, no junctions), Release Vulkan Ninja build ≈2.5 min per branch — see Linux pickup above.
 

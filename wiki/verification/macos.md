@@ -105,19 +105,38 @@ The macOS WebGPU jobs exist only in `.github/workflows/macos-ci.yml` (Metal is n
 three upstream PR branches were rebuilt here from worktrees of the vendor clone:
 
 ```bash
+# both implementations; each has its own build tree and metrics directory
 cmake --preset macos-webgpu-wgpu -DCMAKE_OSX_ARCHITECTURES=arm64     # Debug, deployment target 14.3
+cmake --preset macos-webgpu-dawn -DCMAKE_OSX_ARCHITECTURES=arm64
 # brew: glfw icu4c libuv jpeg-turbo webp libpng; PKG_CONFIG_PATH needs icu4c, libuv, glfw
 cmake --build build-macos-webgpu-wgpu --target mbgl-test-runner mbgl-render-test-runner
+cmake --build build-macos-webgpu-dawn --target mbgl-test-runner mbgl-render-test-runner
+mkdir -p metrics/macos-webgpu-dawn   # metrics/macos-webgpu-wgpu already exists; else "Invalid path inside the manifest file"
 ```
-
-Dawn was left to its CI log (job `118198908406`), which fails at the same *Run unit tests* step with
-the same 14 tests that the wgpu run reproduces.
 
 | PR | Before | After the local fixes |
 |----|--------|----------------------|
 | #4534 sky | `-f render-tests/sky/` aborts, exit 134: `name 'target' is a reserved keyword` (`wgsl:222`) | sky **3/3**, render suite **1485 pass / 0 fail**, unit **1257 pass / 0 fail** |
 | #4190 terrain | `Map.RenderingStatisticsTrackDrawsAcrossFrames` aborts, exit 134: `redefinition of 'GlobalPaintParamsUBO'` (`wgsl:209`); once cleared, **18 unit image-diff failures** (CI reported 14 on Dawn — the wgpu extras are the four pitched-circle variants) | unit **1157 pass / 0 fail**, render suite **1368 pass / 0 fail** |
 | #4533 globe | green in CI | Metal `render-tests/projection/globe/` **71 pass + 1 ignored, 0 fail**, including `fill-seams/checkerboard` |
+
+**Dawn (same worktrees, 2026-10-22).** Dawn is `FetchContent`-ed by `vendor/dawn.cmake` at tag
+`v20260210.203301` into `vendor/dawn` (≈1.8 GB with `DAWN_FETCH_DEPENDENCIES=ON`) and built as a
+subdirectory of the same build tree: the first configure fetched it in ≈80 s, and the build was a
+plain Ninja build (≈2.5 min for Dawn and both runners on 12 cores). Contrary to the CI workflow no
+`go` was needed by `fetch_dawn_dependencies.py` — brew `python@3.15` alone sufficed (CI installs
+`python@3.11 go`). The second worktree reused the fetched Dawn tree and
+`CCACHE_NOHASHDIR=1 CCACHE_BASEDIR=~/dev/tmp` let ccache serve its Dawn objects from the first.
+
+| PR | Dawn before (CI) | Dawn after the local fixes |
+|----|------------------|----------------------------|
+| #4534 sky | Run WebGPU render tests: 1484 passed, 84 ignored, **1 failed** — `render-tests/sky/atmosphere-globe` | sky **3/3** (incl. `sky/atmosphere-globe`), unit **1257 pass / 0 fail**, render **1485 pass / 0 fail** (5 passed-but-ignored, 84 ignored) |
+| #4190 terrain | Run unit tests: **14 image-diff failures** (list in [progress](../runbooks/upstream-contribution-progress.md#macos-from-the-pr-ci-logs-2026-10-21)) | all 14 pass; unit **1157 pass / 0 fail**, render **1368 pass / 0 fail** (4 passed-but-ignored, 94 ignored) |
+
+The Dawn totals are identical to the wgpu ones for both PRs, no run aborted or panicked, and the
+render HTML reports land in `metrics/macos-webgpu-dawn.html`. That confirms the bugs were
+backend-agnostic WGSL/generated-header mistakes (`target`, duplicate `PI`, `GlobalPaintParamsUBO`,
+`drape_tile` struct offsets) rather than Dawn/wgpu divergence.
 
 Five bugs across four files, all uncommitted experiments in the PR worktrees (nothing pushed; diffs
 saved as `~/dev/tmp/webgpu-pr-fixes/*.patch`):
