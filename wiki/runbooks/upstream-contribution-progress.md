@@ -110,7 +110,7 @@ build/run path in [Build (macOS)](./build-macos.md)).
 | Expression tests | **332 pass, 18 ignored, 0 fail** |
 | Core unit tests, `-Map.*` and the 4 server suites | **991 pass, 0 fail** (991 tests / 130 suites; patch 0058 fixed the last test) |
 | `Map.*` | **cannot complete** — 34 tests pass, then the upstream Metal deadlock (`OffscreenTextureResource::bind()` → `dispatch_semaphore_wait`) stops `Map.ContinuousRendering` / `Map.Issue15342`; reproduces on pristine `c7506d6` |
-| Server suites (60 tests: `HTTPFileSource`, `OnlineFileSource`, `MainResourceLoader`, `MapSnapshotter`) | **cannot run** — upstream builds `USE_CPP_TEST_SERVER` only for Windows/Linux/WebGPU, so no `HttpServer` on macOS Metal |
+| Server suites (60 tests: `HTTPFileSource`, `OnlineFileSource`, `MainResourceLoader`, `MapSnapshotter`) | **60 pass, 0 fail** — suite-per-process with a local `USE_CPP_TEST_SERVER` build (upstream defines it only for Windows/Linux/WebGPU); not a fork patch. A single combined process trips `OnlineFileSource.TemporaryError` (keep-alive/4-thread server pool) |
 
 **Fork regression found and fixed — patch 0057** (`maplibre-native-0057-globe-symbols-metal.patch`).
 Patches 0003/0004/0014 give every backend a per-tile `ProjectionUBO` (globe + terrain elevation) but

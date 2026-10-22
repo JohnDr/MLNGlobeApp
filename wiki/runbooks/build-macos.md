@@ -200,11 +200,16 @@ human visual checks (item 2) are still open.
   `dispatch_semaphore_wait`; the observed stops are `Map.ContinuousRendering` (this run, after
   `-Map.StyleNetworkErrorRetry:Map.Offline`) and `Map.Issue15342`. It reproduces on pristine
   `c7506d6`, so it is upstream, not fork-specific.
-- **Server-dependent tests (60) cannot run on macOS Metal** — `HTTPFileSource`, `OnlineFileSource`,
-  `MainResourceLoader`, `MapSnapshotter`. `test/src/mln/test/test.cpp` only starts the in-process
-  `HttpServer` for `(TEST_HAS_SERVER && __QT__) || USE_CPP_TEST_SERVER`, and `test/CMakeLists.txt`
-  defines `USE_CPP_TEST_SERVER` only for Windows/Linux/WebGPU, so `Test::HasServer` stays true while
-  no server is listening.
+- **Server-dependent tests: 60 pass, 0 fail** — `HTTPFileSource` (11), `MainResourceLoader` (20),
+  `MapSnapshotter` (6), `OnlineFileSource` (23), each suite in its own process. They need the
+  in-process `HttpServer`, which `test/src/mln/test/test.cpp` starts only for
+  `(TEST_HAS_SERVER && __QT__) || USE_CPP_TEST_SERVER`, while `test/CMakeLists.txt` defines
+  `USE_CPP_TEST_SERVER` only for Windows/Linux/WebGPU. A local `if (APPLE)` per-file
+  `COMPILE_DEFINITIONS` on `test.cpp` (recompiles one file) was enough; it is **not** a fork patch and
+  was reverted after the run. Running all four suites in one process instead trips a timing flake in
+  `OnlineFileSource.TemporaryError` (keep-alive connections saturate the server's 4-thread pool, so
+  the first response takes 1–4 s instead of < 0.2 s). Details:
+  [macOS tests](../verification/macos.md).
 
 ### `TerrainCamera` boundary — fixed by patch 0058 (test-only)
 
