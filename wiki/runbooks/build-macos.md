@@ -36,7 +36,9 @@ sea-level crossing (test-only).
 
 Still open: the human visual Metal feature checks in §4. The macOS WebGPU / PR-branch work is done
 (2026-10-22) and recorded in [upstream contribution progress](./upstream-contribution-progress.md#macos-webgpu--reproduced-and-fixed-2026-10-22)
-and [macOS verification](../verification/macos.md#webgpu-pr-branches-2026-10-22).
+and [macOS verification](../verification/macos.md#webgpu-pr-branches-2026-10-22). iOS is a **separate
+platform** and cannot be built on this Mac as configured — see
+[macOS verification → Not available on this Mac: iOS](../verification/macos.md#not-available-on-this-mac-ios).
 
 ## Prerequisites
 

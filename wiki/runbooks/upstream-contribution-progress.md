@@ -24,8 +24,8 @@ status: current
 | Effort | Owner | Branch / base | State | Notes |
 |---|---|---|---|---|
 | Globe #4533 | johncarmack1984 | `phased/12h` → `main` | open, not draft, `BLOCKED`, CI green (2026-10-20) | Issue #3161; design proposal #4525 closed; 673 files. |
-| Sky #4534 | ClayWarren | `codex/sky-style-spec-4414`, stacked on globe | open, not draft, `DIRTY` | Issue #4414; CI fails Android OpenGL instrumentation/render, iOS, macOS WebGPU; Metal/Vulkan render pass. Two WebGPU WGSL bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). |
-| Terrain #4190 | NathanMOlson | `feature/terrain-3d` → `main` | **draft**, `DIRTY` | Maintainer `louwers` coordinating; follow-ups #4558, #4790, #4791, #4801, #4809, #4810 target `feature/terrain-3d`; issue #252. Three WebGPU bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). |
+| Sky #4534 | ClayWarren | `codex/sky-style-spec-4414`, stacked on globe | open, not draft, `DIRTY`; CI stuck since 2026-10-21 (`action_required`) | Issue #4414; Metal/Vulkan render pass. Two WebGPU WGSL bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Last *executed* head (2026-10-16): only `ios-build` failed, because the new `MLNSkyTest.mm.ejs` imports `<Mapbox.h>` (`ios_test` failed to build) — one-line PR bug, below; Android CI passed. |
+| Terrain #4190 | NathanMOlson | `feature/terrain-3d` → `main` | **draft**, `DIRTY` | Maintainer `louwers` coordinating; follow-ups #4558, #4790, #4791, #4801, #4809, #4810 target `feature/terrain-3d`; issue #252. Three WebGPU bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Its iOS Dawn CI failure is pre-existing on `main` (below). |
 | Overlap #4752 | JohnDr | `mln-icon-text-overlap` → `main` | **draft**, `BLOCKED`, pre-commit green | Our icon/text-overlap implementation; build workflows await approval; refs #251. |
 | Qt #323–#326 | JohnDr | fork branches → `maplibre-native-qt` `main` | #323 draft; #324/#325/#326 ready | #323 Metal fix at `91297dd`, CI approval pending; #326 has empty-style fallback + `styleChanged` NOTIFY at `5d1077a`. |
 
@@ -98,6 +98,58 @@ A Mac was not available here, but the failing CI jobs were mined for exact signa
 Both aborts are WGSL compile failures inside wgpu-native, and both are already confirmed in these checkouts: `shaders/atmosphere.vertex.glsl:12` declares `vec4 target`, which the generator emits verbatim to WebGPU (`include/mln/shaders/webgpu/sky.hpp:99` — `let target = …`), and several generated WebGPU headers carry repeated `struct GlobalPaintParamsUBO` definitions (`background.hpp` ×3, `fill.hpp` ×6, `circle.hpp` ×2), which collide when two such sources are concatenated into one module. `main`'s (run `39495626975`, 2026-10-20) and #4533's macOS WebGPU jobs are green, so both failures are branch-introduced. Also failing for the same PRs: `#4534` `ios-build` and Android OpenGL instrumentation/render tests; `#4190` `ios-build-webgpu-dawn`, `android-build-webgpu-wgpu` and the Windows tests.
 
 All of the above were **reproduced and fixed locally on 2026-10-22** — see [macOS WebGPU](#macos-webgpu--reproduced-and-fixed-2026-10-22) below: #4534's wgpu abort is a second WGSL error after `target` (duplicate `PI`), and #4190 needed three fixes (the `GlobalPaintParamsUBO` duplicate in `circle.hpp`, stray `drape_tile` fields bloating the WebGPU line shader's drawable/props structs, and missing texture-upload stats in `src/mln/webgpu/texture2d.cpp`). With those, both unit and render suites are green on wgpu **and** on Dawn: the Dawn jobs were then built and re-run locally on the same worktrees, where the 14 unit tests and `sky/atmosphere-globe` pass and the suite totals equal the wgpu ones.
+
+### CI state re-checked with `gh` (2026-10-22)
+
+Re-read straight from GitHub with `gh` on 2026-10-22 (`gh` is authenticated as `JohnDr`), which
+shifts two of the claims above:
+
+- **`main` is itself red on `ios-build-webgpu-dawn`.** `main`'s newest `ios-ci` run
+  [`39637551740`](https://github.com/maplibre/maplibre-native/actions/runs/39637551740)
+  (2026-10-21, `fix(core): Fix dynamic texture cleanup race condition (#4817)`) fails **only** that
+  job — `ios-build`, `ios-build-cmake`, `ios-build-webgpu-wgpu` and `ios-ci-result` all pass. It dies
+  in *configure*, not in a build:
+
+  ```text
+  CMake Error at vendor/dawn/third_party/CMakeLists.txt:91 (add_subdirectory):
+    /Users/runner/…/vendor/dawn/third_party/googletest does not contain a CMakeLists.txt file.
+  ```
+
+  Line 91 is `if ((DAWN_BUILD_TESTS OR TINT_BUILD_TESTS) AND NOT TARGET gmock) →
+  add_subdirectory(${DAWN_GOOGLETEST_DIR})`. `vendor/dawn.cmake` forces `DAWN_BUILD_TESTS=OFF` but
+  leaves Dawn's `TINT_BUILD_TESTS` default **ON** (confirmed locally: the macOS Dawn configure prints
+  `-- Tint build tests: ON`), which is what pulls googletest in; on this Mac it works only because the
+  dependency fetch happened to populate `third_party/googletest` (it is there, with a
+  `CMakeLists.txt`), while the CI runner's tree did not have it at configure time. So `#4190`'s red
+  `ios-build-webgpu-dawn` is **pre-existing on `main`, not branch-introduced**. Candidate one-line fix,
+  **not yet applied or verified**: `set(TINT_BUILD_TESTS OFF … FORCE)` in `vendor/dawn.cmake` (also
+  trims the Dawn build). See next-actions 3.
+- **`#4534`'s CI has not executed anything since 2026-10-16.** Its last executed `ios-ci`
+  ([`38968591824`](https://github.com/maplibre/maplibre-native/actions/runs/38968591824)) and
+  `macos-ci` ([`38968591814`](https://github.com/maplibre/maplibre-native/actions/runs/38968591814))
+  runs are from 2026-10-16T21:19, both failing; every run from the 2026-10-21T16:48 push (ios, macOS,
+  Linux, Android, qt, node, rust, ohos) is `action_required` — the workflow runs need **maintainer
+  approval** before they execute. Consequences: every “#4534 CI …” statement in this file describes
+  the **2026-10-16** runs (the mined job logs `117211053553`/`117211053314` are from that macOS run),
+  and the wgpu/Dawn fixes cannot show up green in CI until the runs are approved *and* the fixes are
+  pushed to the branch — neither of which is ours to do.
+- **`#4534`'s Android CI passed on 2026-10-16**, so the “CI fails Android OpenGL
+  instrumentation/render” line above is stale or from the 2026-09-17 run, not the current head
+  (`android-ci` run `38968592220`, conclusion *success*). On the last executed head the only iOS/CI
+  failures were `ios-build` (below) and the two macOS WebGPU jobs (the WGSL ones fixed locally).
+- **`#4534`'s `ios-build` failure is a one-line PR bug, not sky rendering.** The failing step is
+  *Running iOS tests*: `//platform/ios/test:ios_test` **FAILED TO BUILD**, with
+  `bazel-out/ios_sim_arm64-fastbuild…/bin/platform/darwin/test/MLNSkyTest.mm:5:9: fatal error:
+  'Mapbox.h' file not found`. The template `platform/darwin/test/MLNSkyTest.mm.ejs:6` (new in this PR)
+  says `#import <Mapbox.h>` while its sibling `MLNLightTest.mm.ejs:8` — and the generated
+  `MLNMapViewCompassViewTests.mm` — say `#import <MapLibre.h>`, which is this SDK's umbrella header.
+  Fix is `Mapbox.h` → `MapLibre.h` in the template; worth passing to the author.
+- **`#4190`'s executed run (2026-10-19)** for the record: fails `ios-build-webgpu-dawn` (above),
+  `android-build-webgpu-wgpu`, `macOS WebGPU (Dawn)` (job `118198908406`) and `(wgpu)`
+  (job `118198908267`), and both Windows `test` jobs; passes `ios-build`, `ios-build-cmake`,
+  `ios-build-webgpu-wgpu`, `MacOS Metal CI Tests`, `OpenGL`, `Vulkan`, all Linux jobs and
+  codecov. The two macOS WebGPU failures are the ones fixed locally (above) and are **not pushed**,
+  so CI will stay red until the branch carries the fixes.
 
 ### macOS fork build (native Metal) — 2026-10-22
 
@@ -228,11 +280,22 @@ so the bugs were backend-agnostic WGSL/generated-header mistakes, not Dawn/wgpu 
 
 1. ~~**Linux**: build/test #4533/#4534/#4190; run `fill-seams` and `raster-warped`~~ **Done 2026-10-21**: all three build, unit tests all pass; `raster-warped` is Windows-only; `fill-seams/checkerboard` fails on both Windows and Linux/RADV but by one pixel (10 mismatched vs 9.83 allowed) against the Metal expectation, and passes on lavapipe. Diffs saved. Full render suites also finished: #4534 matches #4533's two failures; #4190 has only the pre-existing `fill-extrusion-pattern/tile-buffer`.
 2. ~~**macOS WebGPU**~~ **Done 2026-10-22**: rebuilt all three PR branches locally (wgpu **and** Dawn). Five bugs fixed in the PR worktrees — #4534: `target` reserved keyword + duplicate `PI` (abort → full render suite 1485/0); #4190: duplicate `GlobalPaintParamsUBO` in `circle.hpp` (abort), stray `drape_tile` fields bloating the WebGPU `line.hpp` drawable/props structs (17 of 18 image diffs), and missing texture-upload stats in `src/mln/webgpu/texture2d.cpp` (last unit failure) → unit 1157/0, render 1368/0. Both also built against Dawn (`macos-webgpu-dawn`): CI's 14 unit failures and `sky/atmosphere-globe` pass, totals identical to wgpu. #4533 on Metal: globe group 71 passed + 1 ignored, `fill-seams/checkerboard` passes. Uncommitted, nothing pushed; see [macOS WebGPU](#macos-webgpu--reproduced-and-fixed-2026-10-22).
-3. **Post one consolidated test report** after macOS: #4533 (seams + platform), #4534 (Windows Vulkan render pass, CI failures incl. the WGSL ones), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests).
-4. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
-5. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
-6. **Existing PRs**: #4752 review/CI, #323 CI approval, #326.
-7. **Design proposal only** if `TerrainPass`/`terrain_stitch` is materially better than `RenderTerrain`; write a comparison for the TSC first.
+3. **Unblock `main`'s red `ios-build-webgpu-dawn`** (found 2026-10-22): candidate one-line fix is
+   `set(TINT_BUILD_TESTS OFF … FORCE)` in `vendor/dawn.cmake`, since Dawn's `TINT_BUILD_TESTS` ON is
+   what makes `vendor/dawn/third_party/CMakeLists.txt:91` require `third_party/googletest`. Verify
+   locally (macOS now; the iOS path needs the missing Xcode iOS platform, see
+   [macOS verification](../verification/macos.md#not-available-on-this-mac-ios)) and — if it holds —
+   raise it separately, since it affects `main` and every WebGPU-Dawn job, not just our PRs.
+4. **Hand `#4534`'s iOS fix to the author**: `platform/darwin/test/MLNSkyTest.mm.ejs:6` imports
+   `<Mapbox.h>`; it must be `<MapLibre.h>` like `MLNLightTest.mm.ejs:8`, otherwise
+   `//platform/ios/test:ios_test` fails to build. Also worth asking a maintainer to approve that PR's
+   pending runs (all `action_required` since 2026-10-21).
+5. **Post one consolidated test report**: #4533 (seams + platform), #4534 (Windows Vulkan render pass; the two WGSL bugs; the `Mapbox.h` iOS build failure), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests; iOS Dawn failure is pre-existing on `main`).
+6. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
+7. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
+8. **Existing PRs**: #4752 review/CI, #323 CI approval, #326.
+9. **Design proposal only** if `TerrainPass`/`terrain_stitch` is materially better than `RenderTerrain`; write a comparison for the TSC first.
+10. **iPhone (deferred 2026-10-22)**: QMapLibre *does* have upstream iOS support (`cmake/presets/iOS.json`, Qt6 toolchain, `MLN_WITH_METAL=ON`, deployment target 17.0) and the Mac has Qt's `ios_device` kit, so MapLibreEarth-on-device (real device Metal for the fork) and upstream's bazel-built `RenderTest`/`CppUnitTests` iOS schemes are both plausible. Prerequisites: the missing Xcode iOS platform (below), bazel for the iOS test schemes, and Apple ID signing (not set up as of 2026-10-22 — free personal team would do).
 
 ## Guardrails
 

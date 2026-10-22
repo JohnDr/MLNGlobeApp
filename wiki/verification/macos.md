@@ -158,6 +158,34 @@ saved as `~/dev/tmp/webgpu-pr-fixes/*.patch`):
 Details and commands:
 [upstream contribution progress](../runbooks/upstream-contribution-progress.md#macos-webgpu--reproduced-and-fixed-2026-10-22).
 
+## Not available on this Mac: iOS
+
+Found 2026-10-22 while checking whether the CI iOS jobs can be reproduced here. Xcode 27.1
+(`/Applications/Xcode.app`, `xcodebuild -version` → 27.1/27A9275, iPhoneOS SDK 27.1) is installed,
+but the **iOS platform stack is incomplete**: `/Library/Developer/PrivateFrameworks/CoreSimulator.framework`
+does not exist, so `xcrun simctl`, `xcrun devicectl` and any iOS build fail. Every CMake iOS preset
+dies during compiler detection:
+
+```text
+$ cmake --preset ios-webgpu-dawn          # in ~/dev/tmp/mln-pr4190
+-- The CXX compiler identification is unknown
+CMake Error at CMakeLists.txt:48 (enable_language):
+  No CMAKE_CXX_COMPILER could be found.
+```
+
+`build-ios-webgpu-dawn/CMakeFiles/CMakeConfigureLog.yaml` shows the cause: CMake's compiler probe runs
+`xcodebuild`, and Xcode's `IDESimulatorFoundation` plug-in cannot load
+(`Library not loaded: /Library/Developer/PrivateFrameworks/CoreSimulator.framework/…`). So the
+`ios-metal`, `ios-webgpu-dawn` and `ios-webgpu-wgpu` paths cannot be built or tested on this machine
+until the iOS platform is installed (`xcodebuild -downloadPlatform iOS`, a multi-GB download, or an
+Xcode reinstall) — that is setup, not a code problem.
+
+Related, for the record: QMapLibre **does** support iOS upstream (`maplibre-native-qt`'s
+`cmake/presets/iOS.json` — Qt6 toolchain, `MLN_WITH_METAL=ON`, deployment target 17.0), Qt 6.12.0's
+`ios_device` and `ios_simulator_arm64` kits are installed under `~/Qt`, and the core's iOS CI jobs run
+on every PR. iPhone device testing is **not set up yet** (no Apple ID signing as of 2026-10-22); see
+next-actions item 10 in the [contribution runbook](../runbooks/upstream-contribution-progress.md#next-actions-ordered).
+
 ## Known issues on macOS
 
 1. **`Map.*` Metal deadlock — root-caused, upstream issue
