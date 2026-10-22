@@ -158,33 +158,59 @@ saved as `~/dev/tmp/webgpu-pr-fixes/*.patch`):
 Details and commands:
 [upstream contribution progress](../runbooks/upstream-contribution-progress.md#macos-webgpu--reproduced-and-fixed-2026-10-22).
 
-## Not available on this Mac: iOS
+## iOS on this Mac (toolchain fixed 2026-10-23)
 
-Found 2026-10-22 while checking whether the CI iOS jobs can be reproduced here. Xcode 27.1
-(`/Applications/Xcode.app`, `xcodebuild -version` → 27.1/27A9275, iPhoneOS SDK 27.1) is installed,
-but the **iOS platform stack is incomplete**: `/Library/Developer/PrivateFrameworks/CoreSimulator.framework`
-does not exist, so `xcrun simctl`, `xcrun devicectl` and any iOS build fail. Every CMake iOS preset
-dies during compiler detection:
+Xcode 27.1 (`/Applications/Xcode.app`, 27A9275, iPhoneOS SDK 27.1) was installed all along, but
+**Xcode's additional components had never been installed**, so
+`/Library/Developer/PrivateFrameworks/CoreSimulator.framework` was missing: `xcrun simctl` and
+`xcrun devicectl` failed, and every CMake iOS preset died in compiler detection because CMake's probe
+calls `xcodebuild`, whose `IDESimulatorFoundation` plug-in could not load.
 
 ```text
-$ cmake --preset ios-webgpu-dawn          # in ~/dev/tmp/mln-pr4190
--- The CXX compiler identification is unknown
+$ xcodebuild -checkFirstLaunchStatus   # → rc 69 (components pending)
+$ cmake --preset ios-webgpu-dawn       # in ~/dev/tmp/mln-pr4190
 CMake Error at CMakeLists.txt:48 (enable_language):
   No CMAKE_CXX_COMPILER could be found.
 ```
 
-`build-ios-webgpu-dawn/CMakeFiles/CMakeConfigureLog.yaml` shows the cause: CMake's compiler probe runs
-`xcodebuild`, and Xcode's `IDESimulatorFoundation` plug-in cannot load
-(`Library not loaded: /Library/Developer/PrivateFrameworks/CoreSimulator.framework/…`). So the
-`ios-metal`, `ios-webgpu-dawn` and `ios-webgpu-wgpu` paths cannot be built or tested on this machine
-until the iOS platform is installed (`xcodebuild -downloadPlatform iOS`, a multi-GB download, or an
-Xcode reinstall) — that is setup, not a code problem.
+**Fixed 2026-10-23 — neither command needed `sudo`:**
+
+```bash
+xcodebuild -runFirstLaunch        # installed the components; -checkFirstLaunchStatus now returns 0
+xcodebuild -downloadPlatform iOS  # iOS 27.1 (24A94425, 7.85 GB) + iOS 27.0 (24A434, 8.05 GB), ~16 min
+```
+
+`/Library/Developer` now holds `CoreSimulator`, `CoreDevice`, `DeviceKit`, `DeveloperDiskImages` and
+`PrivateFrameworks`; both simulator runtimes install as cryptexes and are `isAvailable: True`;
+`xcrun simctl list runtimes` lists **iOS 27.0 and 27.1**, `simctl list devices available` lists 12
+iPhone/iPad simulators, and `xcrun devicectl list devices` now answers "No devices found" instead of
+hanging. Disk went 88 GB → 71 GB free.
+
+**What works now:** `cmake --preset ios-webgpu-dawn` configures here in **77.7 s** (Swift compiler
+detected, Dawn configured — note `-- Tint build tests: ON`, see next-actions 3). The iOS presets
+default to the **simulator** (Xcode generator, `Debug-iphonesimulator`, arm64 + x86_64 with
+`ONLY_ACTIVE_ARCH` warnings), matching CI's `ios_sim_arm64` bazel path.
+
+**Remaining local prerequisite: `bazel`.** `cmake --build build-ios-webgpu-dawn --target mbgl-core
+ios-sdk-static` now compiles Dawn/Tint/absl and ~1000 objects, then stops at the
+`mbgl-ios-umbrella-header` phase script:
+
+```text
+Script-0BECA5A2AD596AB922139ABA.sh: line 5: bazel: command not found
+** BUILD FAILED **
+```
+
+That script runs `bazel build //platform/ios:umbrella_hdr //platform/ios:mln_defines` to generate
+`MapLibre.h`/`MLNDefines.h`. Bazel is **not installed** on this Mac (`brew info bazelisk` → 1.30.0,
+bottled); CI's `ios-build` job installs it via `bazel-contrib/setup-bazel`, and `ios-build-cmake`
+relies on the runner image already having it. The two `Libtool … libabsl_hash.a` failures in the same
+run are collateral from the aborted build — that libtool command re-run by hand exits 0.
 
 Related, for the record: QMapLibre **does** support iOS upstream (`maplibre-native-qt`'s
-`cmake/presets/iOS.json` — Qt6 toolchain, `MLN_WITH_METAL=ON`, deployment target 17.0), Qt 6.12.0's
-`ios_device` and `ios_simulator_arm64` kits are installed under `~/Qt`, and the core's iOS CI jobs run
-on every PR. iPhone device testing is **not set up yet** (no Apple ID signing as of 2026-10-22); see
-next-actions item 10 in the [contribution runbook](../runbooks/upstream-contribution-progress.md#next-actions-ordered).
+`cmake/presets/iOS.json` — Qt6 toolchain, `MLN_WITH_METAL=ON`, deployment target 17.0) and Qt 6.12.0's
+`ios_device` and `ios_simulator_arm64` kits are installed under `~/Qt`. iPhone device testing is
+**not set up yet** (no Apple ID signing as of 2026-10-23); see next-actions item 10 in the
+[contribution runbook](../runbooks/upstream-contribution-progress.md#next-actions-ordered).
 
 ## Known issues on macOS
 

@@ -283,9 +283,11 @@ so the bugs were backend-agnostic WGSL/generated-header mistakes, not Dawn/wgpu 
 3. **Unblock `main`'s red `ios-build-webgpu-dawn`** (found 2026-10-22): candidate one-line fix is
    `set(TINT_BUILD_TESTS OFF … FORCE)` in `vendor/dawn.cmake`, since Dawn's `TINT_BUILD_TESTS` ON is
    what makes `vendor/dawn/third_party/CMakeLists.txt:91` require `third_party/googletest`. Verify
-   locally (macOS now; the iOS path needs the missing Xcode iOS platform, see
-   [macOS verification](../verification/macos.md#not-available-on-this-mac-ios)) and — if it holds —
-   raise it separately, since it affects `main` and every WebGPU-Dawn job, not just our PRs.
+   locally — the iOS toolchain on this Mac was fixed 2026-10-23, so `cmake --preset ios-webgpu-dawn`
+   now configures (it still shows `-- Tint build tests: ON` and fetches googletest); see
+   [macOS verification](../verification/macos.md#ios-on-this-mac-toolchain-fixed-2026-10-23) — and —
+   if it holds — raise it separately, since it affects `main` and every WebGPU-Dawn job, not just our
+   PRs.
 4. **Hand `#4534`'s iOS fix to the author**: `platform/darwin/test/MLNSkyTest.mm.ejs:6` imports
    `<Mapbox.h>`; it must be `<MapLibre.h>` like `MLNLightTest.mm.ejs:8`, otherwise
    `//platform/ios/test:ios_test` fails to build. Also worth asking a maintainer to approve that PR's
@@ -295,7 +297,7 @@ so the bugs were backend-agnostic WGSL/generated-header mistakes, not Dawn/wgpu 
 7. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
 8. **Existing PRs**: #4752 review/CI, #323 CI approval, #326.
 9. **Design proposal only** if `TerrainPass`/`terrain_stitch` is materially better than `RenderTerrain`; write a comparison for the TSC first.
-10. **iPhone (deferred 2026-10-22)**: QMapLibre *does* have upstream iOS support (`cmake/presets/iOS.json`, Qt6 toolchain, `MLN_WITH_METAL=ON`, deployment target 17.0) and the Mac has Qt's `ios_device` kit, so MapLibreEarth-on-device (real device Metal for the fork) and upstream's bazel-built `RenderTest`/`CppUnitTests` iOS schemes are both plausible. Prerequisites: the missing Xcode iOS platform (below), bazel for the iOS test schemes, and Apple ID signing (not set up as of 2026-10-22 — free personal team would do).
+10. **iPhone (deferred; iOS toolchain fixed 2026-10-23)**: QMapLibre *does* have upstream iOS support (`cmake/presets/iOS.json`, Qt6 toolchain, `MLN_WITH_METAL=ON`, deployment target 17.0) and the Mac has Qt's `ios_device` kit, so MapLibreEarth-on-device (real device Metal for the fork) and upstream's bazel-built `RenderTest`/`CppUnitTests` iOS schemes are both plausible. The Xcode gap is **fixed** (`xcodebuild -runFirstLaunch` + `-downloadPlatform iOS` → iOS 27.0/27.1 simulator runtimes, `ios-*` presets configure in ~78 s). Remaining prerequisites: `bazel` for the core's CMake iOS build (`mbgl-ios-umbrella-header` shells out to it) and for the iOS test schemes, plus Apple ID signing (not set up as of 2026-10-23 — a free personal team would do). Details: [macOS verification](../verification/macos.md#ios-on-this-mac-toolchain-fixed-2026-10-23).
 
 ## Guardrails
 
