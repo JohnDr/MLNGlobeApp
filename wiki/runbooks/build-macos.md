@@ -24,11 +24,13 @@ Qt 6.12.0 and `-DCMAKE_OSX_ARCHITECTURES=arm64`: the library compiles and instal
 **3/3 green** (`test_mln_quick`, `test_mln_location`, `test_mln_widgets`), and the app starts on
 **Metal** (`Graphics API: 6`) with `Root objects loaded successfully`.
 
-The 57 patches needed **no core changes** on Metal, but 0057 was needed to make **symbols** render
-(icons/text) — see §4. Two **wrapper** fixes were needed because `MetalRendererBackend` was written
-against a different `gfx` API than the pinned core `c7506d6`: it overrode `updateAssumedState()`
-(declared only by `gl::RendererBackend`) and assigned the private `Renderable::size` directly (now the
-protected `setRenderableSize()`). Both are committed in `maplibre-native-qt` (`e15fa52`).
+The series needs one **core** fix on Metal — patch 0057, which makes **symbols** (icons/text) render
+through the globe `ProjectionUBO` (see §4) — plus two **wrapper** fixes, because `MetalRendererBackend`
+was written against a different `gfx` API than the pinned core `c7506d6`: it overrode
+`updateAssumedState()` (declared only by `gl::RendererBackend`) and assigned the private
+`Renderable::size` directly (now the protected `setRenderableSize()`). The wrapper fixes are
+committed in `maplibre-native-qt` (`e15fa52`). Patch 0058 moves one terrain-camera test pixel off a
+sea-level crossing (test-only).
 
 Still open: universal (`x86_64;arm64`) build, the human visual Metal feature checks in §4, and the
 macOS WebGPU / PR-branch work in
@@ -80,10 +82,11 @@ done
 git -C vendor/maplibre-native status --short | wc -l   # expect a few dozen modified files
 ```
 
-A failed `--check` means the submodule is not at the pin, or is already patched. Patches 0001–0057
+A failed `--check` means the submodule is not at the pin, or is already patched. Patches 0001–0058
 must apply in `ls` order (the four-digit prefixes make that the patch order). Patch 0057 ports the
 projection UBO to the Metal symbol shaders (`include/mln/shaders/mtl/symbol.hpp`); without it icons
 and text render nothing on Metal because the shaders still read the pre-globe `drawable.matrix`.
+Patch 0058 is test-only (one `TerrainCamera` pixel off a sea-level crossing).
 
 ## 2. Build + install the library (Metal)
 
@@ -188,9 +191,10 @@ human visual checks (item 2) are still open.
   (`~/dev/tmp/render-suite-macos.sh` → `~/dev/tmp/render-macos/summary.txt`). Before 0057 only 104
   groups passed.
 - **Expression tests: 332 pass, 18 ignored, 0 fail.**
-- **Unit tests (everything except `Map.*`): 990 pass, 1 fail** — `991` tests / `130` suites, filter
+- **Unit tests (everything except `Map.*`): 991 pass, 0 fail** — `991` tests / `130` suites, filter
   `-Map.*:HTTPFileSource.*:OnlineFileSource.*:MainResourceLoader.*:MapSnapshotter.*:LocalGlyphRasterizer.PingFang*`.
-  The one failure is a fork-test boundary case, not Metal: see below.
+  The last failure, `TerrainCamera.RaycastSlopeHitLiesOnTerrainAndOnTheRay`, was a test-data boundary
+  fixed by patch 0058 (below).
 - **`Map.*` cannot complete** — 34 tests pass, then the upstream Metal backend deadlocks in
   `OffscreenTextureResource::bind()` → `_MTLCommandBuffer initWithQueue:` →
   `dispatch_semaphore_wait`; the observed stops are `Map.ContinuousRendering` (this run, after
@@ -202,15 +206,14 @@ human visual checks (item 2) are still open.
   defines `USE_CPP_TEST_SERVER` only for Windows/Linux/WebGPU, so `Test::HasServer` stays true while
   no server is listening.
 
-### Known fork issue on macOS: `TerrainCamera.RaycastSlopeHitLiesOnTerrainAndOnTheRay`
+### `TerrainCamera` boundary — fixed by patch 0058 (test-only)
 
-`test/map/terrain_camera.test.cpp:204` asserts `EXPECT_GT(hit->elevation, 0.0)`; on this Mac the hit
-lands exactly on the slope's zero crossing and the elevation is `-3.31e-07` (the rest of the test —
-hit on the slope surface, hit on the pixel ray — passes). The pixel is the knife edge: raycasting
-`{400, y}` gives `y=300 → 0.000000` m (the sea-level point), `y=350 → +122.9 m`, `y=400 → +261.7 m`,
-so only `y=300` can fall either side of zero. It is a test-data boundary, not a projection/render
-problem. Verified local fix: `pixel{400.0, 350.0}` passes all 22 `TerrainCamera` tests; it needs a
-patch (0058) agreed with John before it is applied.
+`test/map/terrain_camera.test.cpp:204` asserts `EXPECT_GT(hit->elevation, 0.0)`; its pixel `{400, 300}`
+sits exactly on the slope's sea-level crossing, so the hit elevation was `-3.31e-07` on this Mac (the
+rest of the test — hit on the slope surface, hit on the pixel ray — passed). Raycasting `{400, y}` gives
+`y=300 → 0.000000` m, `y=350 → +122.9 m`, `y=400 → +261.7 m`, so only `y=300` can fall either side of
+zero. Patch 0058 moves the pixel to `{400, 350}`; all 22 `TerrainCamera` tests pass and the macOS unit
+suite is now 991/991.
 
 ## Troubleshooting
 

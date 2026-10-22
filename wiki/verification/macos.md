@@ -8,7 +8,7 @@ status: current
 ## Summary
 
 macOS 27.0.1, Xcode 27.1, Qt 6.12.0, arm64 (`-DCMAKE_OSX_ARCHITECTURES=arm64`), **Metal** backend and
-the patched vendored core (upstream `c7506d6` + patches 0001–0057). Build paths are in
+the patched vendored core (upstream `c7506d6` + patches 0001–0058). Build paths are in
 [Build (macOS)](../runbooks/build-macos.md).
 
 | Suite | Result |
@@ -16,7 +16,7 @@ the patched vendored core (upstream `c7506d6` + patches 0001–0057). Build path
 | Library + `ctest` (Quick, Location, Widgets) | **3/3 pass** |
 | Core render tests (Metal, per group) | **175/175 groups pass** (`metrics/macos-xcode11-release-style.json`) |
 | Expression tests `mbgl-expression-test` | **332 pass, 18 ignored, 0 fail** |
-| Core `mbgl-test-runner`, everything except `Map.*` and the server suites | **990 pass, 1 fail** (991 tests / 130 suites) |
+| Core `mbgl-test-runner`, everything except `Map.*` and the server suites | **991 pass, 0 fail** (991 tests / 130 suites; patch 0058 fixed the last test) |
 | Core `mbgl-test-runner`, `Map.*` | **cannot complete** — 34 pass, then an upstream Metal deadlock (see below) |
 | Core `mbgl-test-runner`, server suites (60 tests) | **cannot run** — upstream does not build the test HTTP server on macOS Metal |
 | Gesture logic `tests/gesture/run.sh` | **35/35** QtQuickTest cases pass |
@@ -71,11 +71,10 @@ correctly as well. The patch is recorded in
    are still enabled, so `HTTPFileSource`, `OnlineFileSource`, `MainResourceLoader` and
    `MapSnapshotter` fail/hang on connection errors. A local build with `-DUSE_CPP_TEST_SERVER` (or
    `CI_BUILD=1`, which disables them) would be needed to run them.
-3. **`TerrainCamera.RaycastSlopeHitLiesOnTerrainAndOnTheRay`** (`test/map/terrain_camera.test.cpp:204`)
-   asserts `hit->elevation > 0.0` and gets `-3.31e-07`. Pixel `{400, 300}` is exactly the slope's
-   sea-level crossing; nearby pixels give `+122.9 m` (y=350) and `+261.7 m` (y=400). Test-data
-   boundary, not a rendering defect — a verified fix with `pixel{400, 350}` passes all 22
-   `TerrainCamera` tests, pending a patch (0058) agreed with John.
+3. ~~`TerrainCamera.RaycastSlopeHitLiesOnTerrainAndOnTheRay`~~ **fixed by patch 0058** (test-only):
+   pixel `{400, 300}` was exactly the slope's sea-level crossing and gave `-3.31e-07` instead of
+   `> 0`; nearby pixels give `+122.9 m` (y=350) and `+261.7 m` (y=400). The test now uses `{400, 350}`
+   and all 22 `TerrainCamera` tests pass.
 
 ## Coverage gaps
 

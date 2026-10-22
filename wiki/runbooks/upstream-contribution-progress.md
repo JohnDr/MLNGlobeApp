@@ -11,7 +11,7 @@ status: current
 ---
 # Upstream contribution progress
 
-> Live tracker, updated 2026-10-21. Strategy: join the existing upstream feature branches, report test results, and contribute focused gaps (Qt/QMapLibre wrapper first). **Do not** submit the 57-patch fork stack or a competing globe/terrain/sky implementation.
+> Live tracker, updated 2026-10-21. Strategy: join the existing upstream feature branches, report test results, and contribute focused gaps (Qt/QMapLibre wrapper first). **Do not** submit the 58-patch fork stack or a competing globe/terrain/sky implementation.
 
 ## Strategy (agreed 2026-10-20)
 
@@ -31,7 +31,7 @@ status: current
 
 ## Gap analysis (summary)
 
-- Fork work: 57 core patches on 13.6.1 (patch 0057 is the 2026-10-22 macOS/Metal symbol fix), all authored by JohnD (audit on 2026-10-20).
+- Fork work: 58 core patches on 13.6.1 (patch 0057 is the 2026-10-22 macOS/Metal symbol fix, 0058 a test-only terrain-camera pixel fix), all authored by JohnD (audit on 2026-10-20).
 - Upstream branches touch 233 of those 258 files; only 25 are untouched by all three (#4533/#4534/#4190).
 - Architectures differ: upstream `RenderTerrain` / `style::Terrain` / `TerrainLayerTweaker` / `TerrainLoadMode` / `TerrainSkirtLength`; ours `TerrainTileManager` / `TerrainPass` / `terrain_stitch` / per-tile RTT pool. File overlap is infrastructure, not mergeable code.
 - **Likely unique candidates**: Qt/QMapLibre wrapper (terrain/sky/globe API, `liveCoordinate`/`liveZoom`, metrics, gestures), terrain-camera ray-scan centre (verify against #4190's `TerrainCamera` tests and #4711), RTT drape pool/fingerprint, globe-terrain pole caps, flat draped wrapped tiles.
@@ -108,7 +108,7 @@ build/run path in [Build (macOS)](./build-macos.md)).
 | App | starts on Metal (`Graphics API: 6`), QML root loads |
 | Core render tests, all 175 groups | **175/175 pass** (`metrics/macos-xcode11-release-style.json`, one process per group) |
 | Expression tests | **332 pass, 18 ignored, 0 fail** |
-| Core unit tests, `-Map.*` and the 4 server suites | **990 pass, 1 fail** (991 tests / 130 suites) |
+| Core unit tests, `-Map.*` and the 4 server suites | **991 pass, 0 fail** (991 tests / 130 suites; patch 0058 fixed the last test) |
 | `Map.*` | **cannot complete** — 34 tests pass, then the upstream Metal deadlock (`OffscreenTextureResource::bind()` → `dispatch_semaphore_wait`) stops `Map.ContinuousRendering` / `Map.Issue15342`; reproduces on pristine `c7506d6` |
 | Server suites (60 tests: `HTTPFileSource`, `OnlineFileSource`, `MainResourceLoader`, `MapSnapshotter`) | **cannot run** — upstream builds `USE_CPP_TEST_SERVER` only for Windows/Linux/WebGPU, so no `HttpServer` on macOS Metal |
 
@@ -122,11 +122,10 @@ along-line/variable-anchor and `pitch_with_map` label-plane handling, the Vulkan
 `c7506d6` passes `icon-size` on Metal, so this was a fork regression, not upstream. A temporary
 globe-projection symbol render test also rendered correctly.
 
-**Known fork test issue on macOS:** `TerrainCamera.RaycastSlopeHitLiesOnTerrainAndOnTheRay`
-(`test/map/terrain_camera.test.cpp:204`) asserts `hit->elevation > 0.0` and gets `-3.31e-07`. The
-pixel `{400, 300}` is exactly the slope's sea-level crossing (`y=350 → +122.9 m`, `y=400 → +261.7 m`),
-so it is a test-data boundary, not a render/projection defect. A local run with `pixel{400, 350}`
-passes all 22 `TerrainCamera` tests; the fix (patch 0058) needs John's agreement.
+**Fork test fix — patch 0058:** `TerrainCamera.RaycastSlopeHitLiesOnTerrainAndOnTheRay`
+(`test/map/terrain_camera.test.cpp:204`) asserted `hit->elevation > 0.0` with its pixel exactly on the
+slope's sea-level crossing, which is `-3.31e-07` on macOS (`y=350 → +122.9 m`, `y=400 → +261.7 m`);
+the test now uses `{400, 350}`. Test-only, no render/projection change.
 
 ## Pickup after restart / OS switch
 
@@ -179,7 +178,7 @@ Metal and WebGPU are not exercisable from Windows or Linux, so the Mac is the on
 
 ## Guardrails
 
-- No competing full implementation; no 57-patch dump.
+- No competing full implementation; no 58-patch dump.
 - Keep MapLibreEarth on 13.6.1 until upstream features land.
 - GL JS is the reference; disclose AI use; each PR needs tests and a platform statement.
 
