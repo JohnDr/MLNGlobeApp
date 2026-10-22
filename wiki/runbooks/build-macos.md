@@ -6,7 +6,7 @@ tags:
   - runbook
   - macos
   - build
-status: draft
+status: current
 ---
 ## Summary
 
@@ -19,12 +19,20 @@ round-trip is needed (`AGENTS.md`; policy in
 macOS is **Metal-only**: OpenGL and Vulkan are not available on Apple platforms, so this is the one
 build that exercises the fork's patches against the Metal backend.
 
-**Status 2026-10-22 — first run, not yet validated.** Pristine QMapLibre is green in upstream CI
-(`.github/workflows/macOS.yml`, Qt 6.11.2, `cmake --workflow --preset macOS-sccache`), but this
-fork's 56 patches have never been through a macOS build. Four of them (0003, 0004, 0006, 0007) also
-touch Metal headers/shaders (`include/mln/mtl/`, `include/mln/shaders/mtl/`) and
-`src/mln/mtl/context.cpp` (`Context::getGenericShader` gains a `ProjectionVariant` parameter); the
-rest are shared code, Vulkan or OpenGL. Treat the first build as bring-up work.
+**Status 2026-10-22 — validated (first macOS/Metal build).** Built on macOS 27.0.1 with Xcode 27.1,
+Qt 6.12.0 and `-DCMAKE_OSX_ARCHITECTURES=arm64`: the library compiles and installs, `ctest` is
+**3/3 green** (`test_mln_quick`, `test_mln_location`, `test_mln_widgets`), and the app starts on
+**Metal** (`Graphics API: 6`) with `Root objects loaded successfully`.
+
+The 56 patches needed **no core changes** on Metal. Two **wrapper** fixes were needed because
+`MetalRendererBackend` was written against a different `gfx` API than the pinned core `c7506d6`:
+it overrode `updateAssumedState()` (declared only by `gl::RendererBackend`) and assigned the private
+`Renderable::size` directly (now the protected `setRenderableSize()`). Both are committed in
+`maplibre-native-qt` (`e15fa52`).
+
+Still open: universal (`x86_64;arm64`) build, the visual Metal feature checks in §4, and the
+macOS WebGPU / PR-branch work in
+[upstream contribution progress](./upstream-contribution-progress.md).
 
 ## Prerequisites
 
@@ -147,15 +155,18 @@ Debug-install counterpart of the Windows setup. If you need to step into the lib
 install a second tree with `-DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=...-debug`, then
 configure a Debug app build dir against it.
 
-## 4. First-run checks (unvalidated)
+## 4. First-run checks
 
-1. App starts and draws the base map — watch for `Failed to create graphics backend` or
-   `Cannot assign to non-existent property "terrainExaggeration"` (the latter means an old/foreign
-   QMapLibre was picked up, i.e. `QMapLibre_DIR` is stale).
-2. Fork features on Metal: globe projection (the app's `gljs-terrain-style.json`), terrain +
-   `terrainExaggeration`, and the custom style layers.
-3. `ctest` green in the library tree (pristine upstream is green on macOS, so failures here are
-   fork-specific and worth recording).
+Library build, `ctest` and app startup are verified (2026-10-22). The visual checks are still open.
+
+1. **Startup — verified.** Metal backend starts, QML loads; watch for
+   `Failed to create graphics backend` or `Cannot assign to non-existent property
+   "terrainExaggeration"` (the latter means an old/foreign QMapLibre was picked up, i.e.
+   `QMapLibre_DIR` is stale).
+2. **Fork features on Metal — not yet checked visually:** globe projection (the app's
+   `gljs-terrain-style.json`), terrain + `terrainExaggeration`, and the custom style layers.
+3. **`ctest` — verified 3/3** (quick, location, widgets). Pristine upstream is green on macOS, so
+   failures here are fork-specific and worth recording.
 4. Record the outcome in [upstream contribution progress](./upstream-contribution-progress.md) — the
    same Metal build is the baseline for the macOS WebGPU work on the upstream PR branches.
 
@@ -166,7 +177,7 @@ configure a Debug app build dir against it.
 | `Could not find toolchain file .../Qt6/qt.toolchain.cmake` | `QT_ROOT_DIR` unset or pointing at a non-Qt dir. |
 | `QMapLibre ... not found` | `QMapLibre_DIR` must be the prefix for the preset, or `<prefix>/lib/cmake/QMapLibre` for a hand-written configure. |
 | `error: patch failed` / `does not apply` | Submodule not at `c7506d6`, or patches already applied (`git -C vendor/maplibre-native checkout .` then re-apply). |
-| Build fails in `src/mln/mtl/*` or `include/mln/shaders/mtl/*` | Fork-specific Metal breakage from patches 0003/0004/0006/0007 — capture the file/line, this is new information. |
+| Build fails in `src/mln/mtl/*` or `include/mln/shaders/mtl/*` | Known first-build breakage is fixed (`maplibre-native-qt` `e15fa52`: `updateAssumedState` override, `Renderable::size`); capture file/line for anything new — fork-specific Metal breakage from patches 0003/0004/0006/0007. |
 | `module "MapLibre" is not installed` at run | Set `QML_IMPORT_PATH=<prefix>/qml`. |
 | Builds are slow | Universal arch; add `-DCMAKE_OSX_ARCHITECTURES=arm64`. |
 | Qt Location not found (Qt ≥ 6.9 also wants private headers) | Install the Qt Positioning/Location modules, or disable Location/Widgets as above. |
