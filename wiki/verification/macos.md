@@ -1,7 +1,7 @@
 ---
 type: Verification
 title: macOS tests (Metal: core, render, expression, Qt, gestures)
-description: What the macOS/Metal test suites cover and their results as of 2026-10-22, with the commands, the upstream gaps and the known fork failure.
+description: What the macOS/Metal test suites cover and their results as of 2026-10-23, with the commands, the upstream gaps (incl. the Dawn Tint-tests configure bug and the iOS build gaps) and the known fork failure.
 tags: [ verification, macos, metal, tests ]
 status: current
 ---
@@ -187,7 +187,9 @@ iPhone/iPad simulators, and `xcrun devicectl list devices` now answers "No devic
 hanging. Disk went 88 GB → 71 GB free.
 
 **What works now:** `cmake --preset ios-webgpu-dawn` configures here in **77.7 s** (Swift compiler
-detected, Dawn configured — note `-- Tint build tests: ON`, see next-actions 3). The iOS presets
+detected, Dawn configured). The `-- Tint build tests: ON` line that configure used to print was the same
+Dawn misconfiguration that reds `main`'s `ios-build-webgpu-dawn` job — fixed and verified 2026-10-23, see
+[Dawn's TINT_BUILD_TESTS](#dawns-tint_build_tests--mains-red-ios-dawn-job-2026-10-23). The iOS presets
 default to the **simulator** (Xcode generator, `Debug-iphonesimulator`, arm64 + x86_64 with
 `ONLY_ACTIVE_ARCH` warnings), matching CI's `ios_sim_arm64` bazel path.
 
@@ -259,6 +261,50 @@ SpringBoard runs, but with no UI host the framebuffer stays blank: the home-scre
 are byte-identical 106 KB all-black PNGs. `Simulator.app` belongs to the Xcode bundle, not to
 `xcodebuild -downloadPlatform iOS`, so inspectable simulator runs need a repaired/reinstalled Xcode. A
 test-only simulator run (textual output) is unaffected.
+
+### Dawn's TINT_BUILD_TESTS — main's red iOS Dawn job (2026-10-23)
+
+`main`'s `ios-build-webgpu-dawn` job fails in **configure**, before any compilation:
+
+```text
+CMake Error at vendor/dawn/third_party/CMakeLists.txt:91 (add_subdirectory):
+  /Users/runner/…/vendor/dawn/third_party/googletest does not contain a CMakeLists.txt file.
+```
+
+Reason: Dawn defaults `TINT_BUILD_TESTS` to **ON** (`vendor/dawn/CMakeLists.txt:249`; only Emscripten
+turns it off), and `vendor/dawn/third_party/CMakeLists.txt:90` reads
+`if ((DAWN_BUILD_TESTS OR TINT_BUILD_TESTS) AND NOT TARGET gmock)`, so line 91 adds googletest even
+though the fork's `vendor/dawn.cmake` already sets `DAWN_BUILD_TESTS OFF`. On this Mac the dependency
+fetch happens to populate `third_party/googletest`, so the same configure succeeds and prints
+`-- Tint build tests: ON`; the CI runner's directory was empty at configure time, which is the only
+reason the job is red.
+
+Fix, one line in `vendor/dawn.cmake` beside the existing Dawn test switch:
+
+```cmake
+set(DAWN_BUILD_TESTS OFF CACHE BOOL "Disable Dawn tests" FORCE)
+set(TINT_BUILD_TESTS OFF CACHE BOOL "Disable Tint tests" FORCE)
+```
+
+Verified 2026-10-23 in `~/dev/tmp/mln-pr4190` by emulating the runner's state with
+`-DDAWN_GOOGLETEST_DIR=<empty dir>`:
+
+| Configure | Result |
+|---|---|
+| `ios-webgpu-dawn`, unpatched | fails — `CMake Error at vendor/dawn/third_party/CMakeLists.txt:91 … does not contain a CMakeLists.txt file` (CI reproduced verbatim) |
+| `ios-webgpu-dawn`, patched | **rc 0**, `-- Tint build tests: OFF` |
+| `build-ios-webgpu-dawn` (cache held `TINT_BUILD_TESTS=ON`), patched | reconfigures; `cmake --build … --target mbgl-core ios-sdk-static` → `** BUILD SUCCEEDED **` |
+| `build-macos-webgpu-dawn`, patched | reconfigures with `TINT_BUILD_TESTS:BOOL=OFF`; ninja reports **no work to do** |
+
+That last row is the useful one: the Dawn libraries we link are unchanged, because `DAWN_BUILD_TESTS` was
+already off and the only target we touch in that area, `tint_lang_msl_validate`, is guarded by
+`if(TARGET …)` (`vendor/dawn.cmake:120`). The fix also makes the job immune to whatever left CI's
+googletest empty. Applied **locally, uncommitted**; worth raising on its own, since it reds `main` and
+every WebGPU-Dawn job, not just our PRs (next-actions 3 in the
+[contribution runbook](../runbooks/upstream-contribution-progress.md#next-actions-ordered)).
+
+Evidence logs (ephemeral, under `$TMPDIR/opencode/`): `tintcheck-baseline2.log` (CI failure reproduced),
+`tintcheck-fixed.log`, `tintcheck-canonical-build.log`, `tintcheck-macos-dawn.log`.
 
 ## Known issues on macOS
 

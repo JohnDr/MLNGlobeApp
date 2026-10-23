@@ -121,9 +121,9 @@ shifts two of the claims above:
   `-- Tint build tests: ON`), which is what pulls googletest in; on this Mac it works only because the
   dependency fetch happened to populate `third_party/googletest` (it is there, with a
   `CMakeLists.txt`), while the CI runner's tree did not have it at configure time. So `#4190`'s red
-  `ios-build-webgpu-dawn` is **pre-existing on `main`, not branch-introduced**. Candidate one-line fix,
-  **not yet applied or verified**: `set(TINT_BUILD_TESTS OFF … FORCE)` in `vendor/dawn.cmake` (also
-  trims the Dawn build). See next-actions 3.
+  `ios-build-webgpu-dawn` is **pre-existing on `main`, not branch-introduced**. The one-line fix
+  `set(TINT_BUILD_TESTS OFF … FORCE)` in `vendor/dawn.cmake` was **verified locally on 2026-10-23**
+  (see next-actions 3 and [macOS verification](../verification/macos.md#dawns-tint_build_tests--mains-red-ios-dawn-job-2026-10-23)).
 - **`#4534`'s CI has not executed anything since 2026-10-16.** Its last executed `ios-ci`
   ([`38968591824`](https://github.com/maplibre/maplibre-native/actions/runs/38968591824)) and
   `macos-ci` ([`38968591814`](https://github.com/maplibre/maplibre-native/actions/runs/38968591814))
@@ -222,7 +222,7 @@ mirroring `.github/workflows/macos-ci.yml`:
 - WebGPU render tests: `build-macos-webgpu-<impl>/mbgl-render-test-runner --manifestPath metrics/macos-webgpu-<impl>.json`.
 - Metal baseline for the Linux checkerboard question: `cmake --preset macos-metal`, then `-f render-tests/projection/globe/` and compare against the RADV frame (`~/dev/tmp/…/fill-seams/checkerboard/actual.png` here, or `/tmp/opencode/checkerboard-radv-actual.png`).
 - Hypotheses to test, in order: (a) the terrain shader concatenation emits `GlobalPaintParamsUBO` twice (`wgsl:209`/`234`) — the wgpu abort; (b) the sky vertex shader's `target` identifier is a reserved WGSL keyword — rename and re-run; (c) whether Dawn's `sky/atmosphere-globe` failure and the 14 terrain unit-test diffs are real rendering differences (read `actual.png`/`diff.png`, the unit tests print `getImageDiff … <= imageThreshold`).
-- CI logs already mined: `/tmp/opencode/ci-logs/api-{117211053553,117211053314,118198908406,118198908267}.log` (Dawn+wgpu for #4534 and #4190).
+- CI logs already mined: `/tmp/opencode/ci-logs/api-{117211053553,117211053314,118198908406,118198908267}.log` (Dawn+wgpu for #4534 and #4190); those temp copies have since been cleaned — re-mine with `gh run view <run-id> --log-failed --repo maplibre/maplibre-native`.
 - Local build notes: `-DCMAKE_OSX_ARCHITECTURES=arm64` (preset defaults are Debug, deployment target 14.3); brew deps `glfw icu4c libuv jpeg-turbo webp libpng`, `PKG_CONFIG_PATH` must include icu4c, libuv and glfw. Dawn **was** rebuilt locally too (see the Dawn subsection below) — `cmake --preset macos-webgpu-dawn`; its CI job (118198908406) fails at the same *Run unit tests* step with the same 14 tests that the wgpu run reproduces (plus 4 pitch-circle variants that only fail on wgpu), and both jobs are green after the fixes.
 
 #### #4534 (sky) — two WGSL errors, abort fixed
@@ -274,7 +274,7 @@ so the bugs were backend-agnostic WGSL/generated-header mistakes, not Dawn/wgpu 
 `/tmp/pr4190-{unit,render}-dawn-full.log`, `/tmp/pr4534-{unit,render}-dawn-full.log`, render HTML in
 `metrics/macos-webgpu-dawn.html`.
 
-**Local only**: the three worktrees are experiments; the fixes are uncommitted and nothing was pushed. The diffs are saved as `~/dev/tmp/webgpu-pr-fixes/pr4534-webgpu-wgsl.patch` and `~/dev/tmp/webgpu-pr-fixes/pr4190-webgpu.patch` (`git diff` in `~/dev/tmp/mln-pr4534` / `~/dev/tmp/mln-pr4190`).
+**Local only**: the three worktrees are experiments; the fixes are uncommitted and nothing was pushed. The diffs are saved as `~/dev/tmp/webgpu-pr-fixes/pr4534-webgpu-wgsl.patch` and `~/dev/tmp/webgpu-pr-fixes/pr4190-webgpu.patch` (`git diff` in `~/dev/tmp/mln-pr4534` / `~/dev/tmp/mln-pr4190`). As of 2026-10-23 `~/dev/tmp/mln-pr4190` also carries the uncommitted `vendor/dawn.cmake` one-liner (`TINT_BUILD_TESTS OFF`, next-actions 3) and the `platform/ios/src/MLNMapView+WebGPU.mm` include (next-actions 11a).
 
 ### iOS / Xcode (works — 2026-10-23, simulator only)
 
@@ -291,7 +291,8 @@ pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` 
   `cmake --build build-ios-webgpu-dawn --target mbgl-core ios-sdk-static app`. `ios-metal` builds clean
   (`libmbgl-core.a` + fat `ios-sdk-static.framework` + ObjC demo `app`); `ios-webgpu-dawn` needs the
   local uncommitted one-line `#import <mln/gfx/context.hpp>` in `platform/ios/src/MLNMapView+WebGPU.mm`
-  (next-actions 11a). That include fix is the only iOS-related uncommitted change.
+  (next-actions 11a). Uncommitted in that worktree now: the three WebGPU shader/stat fixes, this include,
+  and the shared `vendor/dawn.cmake` `TINT_BUILD_TESTS OFF` one-liner (next-actions 3).
 - Blocked: this Xcode 27.1 install has **no `Simulator.app`**, so simulator screenshots stay blank
   (needs an Xcode repair) — a text-only simulator test is unaffected
   (`bazel test //platform/ios/test:ios_test --//:renderer=metal`, heavy, builds its own SDK). Device runs
@@ -301,14 +302,24 @@ pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` 
 
 1. ~~**Linux**: build/test #4533/#4534/#4190; run `fill-seams` and `raster-warped`~~ **Done 2026-10-21**: all three build, unit tests all pass; `raster-warped` is Windows-only; `fill-seams/checkerboard` fails on both Windows and Linux/RADV but by one pixel (10 mismatched vs 9.83 allowed) against the Metal expectation, and passes on lavapipe. Diffs saved. Full render suites also finished: #4534 matches #4533's two failures; #4190 has only the pre-existing `fill-extrusion-pattern/tile-buffer`.
 2. ~~**macOS WebGPU**~~ **Done 2026-10-22**: rebuilt all three PR branches locally (wgpu **and** Dawn). Five bugs fixed in the PR worktrees — #4534: `target` reserved keyword + duplicate `PI` (abort → full render suite 1485/0); #4190: duplicate `GlobalPaintParamsUBO` in `circle.hpp` (abort), stray `drape_tile` fields bloating the WebGPU `line.hpp` drawable/props structs (17 of 18 image diffs), and missing texture-upload stats in `src/mln/webgpu/texture2d.cpp` (last unit failure) → unit 1157/0, render 1368/0. Both also built against Dawn (`macos-webgpu-dawn`): CI's 14 unit failures and `sky/atmosphere-globe` pass, totals identical to wgpu. #4533 on Metal: globe group 71 passed + 1 ignored, `fill-seams/checkerboard` passes. Uncommitted, nothing pushed; see [macOS WebGPU](#macos-webgpu--reproduced-and-fixed-2026-10-22).
-3. **Unblock `main`'s red `ios-build-webgpu-dawn`** (found 2026-10-22): candidate one-line fix is
-   `set(TINT_BUILD_TESTS OFF … FORCE)` in `vendor/dawn.cmake`, since Dawn's `TINT_BUILD_TESTS` ON is
-   what makes `vendor/dawn/third_party/CMakeLists.txt:91` require `third_party/googletest`. Verify
-   locally — the iOS toolchain on this Mac was fixed 2026-10-23, so `cmake --preset ios-webgpu-dawn`
-   now configures (it still shows `-- Tint build tests: ON` and fetches googletest); see
-   [macOS verification](../verification/macos.md#ios-on-this-mac-toolchain-fixed-2026-10-23) — and —
-   if it holds — raise it separately, since it affects `main` and every WebGPU-Dawn job, not just our
-   PRs.
+3. **Unblock `main`'s red `ios-build-webgpu-dawn`** (found 2026-10-22, **verified locally 2026-10-23**):
+   add `set(TINT_BUILD_TESTS OFF CACHE BOOL "Disable Tint tests" FORCE)` to `vendor/dawn.cmake` beside the
+   existing `DAWN_BUILD_TESTS OFF`. Dawn defaults `TINT_BUILD_TESTS` to **ON**
+   (`vendor/dawn/CMakeLists.txt:249`; only Emscripten forces it off), so the fork already-disabled
+   `DAWN_BUILD_TESTS` does not stop `vendor/dawn/third_party/CMakeLists.txt:90`
+   (`if ((DAWN_BUILD_TESTS OR TINT_BUILD_TESTS) AND NOT TARGET gmock)`) from pulling in googletest at
+   line 91. Verified by pointing `DAWN_GOOGLETEST_DIR` at an **empty** directory, which reproduces `main`'s
+   failure verbatim — `CMake Error at vendor/dawn/third_party/CMakeLists.txt:91 … does not contain a
+   CMakeLists.txt file` with `-- Tint build tests: ON` — and, with the one-line fix, the same configure
+   returns 0 and prints `-- Tint build tests: OFF`. The canonical `build-ios-webgpu-dawn` (whose cache held
+   `TINT_BUILD_TESTS=ON`) reconfigures and rebuilds `mbgl-core` + `ios-sdk-static` to
+   `** BUILD SUCCEEDED **`; `build-macos-webgpu-dawn` reconfigures with `TINT_BUILD_TESTS:BOOL=OFF` and
+   ninja reports **no work to do**, i.e. the Dawn libraries we link are bit-for-bit unaffected — nothing we
+   build consumes Tint's tests (the one relevant target, `tint_lang_msl_validate`, is guarded by
+   `if(TARGET …)` at `vendor/dawn.cmake:120`). The fix removes the requirement whatever the reason CI's
+   googletest was empty. Applied **locally, uncommitted** in `~/dev/tmp/mln-pr4190`. **Raise it
+   separately**, since it affects `main` and every WebGPU-Dawn job, not just our PRs; details in
+   [macOS verification](../verification/macos.md#dawns-tint_build_tests--mains-red-ios-dawn-job-2026-10-23).
 4. **Hand `#4534`'s iOS fix to the author**: `platform/darwin/test/MLNSkyTest.mm.ejs:6` imports
    `<Mapbox.h>`; it must be `<MapLibre.h>` like `MLNLightTest.mm.ejs:8`, otherwise
    `//platform/ios/test:ios_test` fails to build. Also worth asking a maintainer to approve that PR's
