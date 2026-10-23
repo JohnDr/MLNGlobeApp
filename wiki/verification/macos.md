@@ -262,6 +262,45 @@ are byte-identical 106 KB all-black PNGs. `Simulator.app` belongs to the Xcode b
 `xcodebuild -downloadPlatform iOS`, so inspectable simulator runs need a repaired/reinstalled Xcode. A
 test-only simulator run (textual output) is unaffected.
 
+### #4534's iOS test build: `Mapbox.h` — reproduced and fixed (2026-10-23)
+
+`#4534`'s `ios-build` CI job fails in *Running iOS tests*: `//platform/ios/test:ios_test` **FAILED TO
+BUILD**, with `…/bin/platform/darwin/test/MLNSkyTest.mm:5:9: fatal error: 'Mapbox.h' file not found`.
+Reproduced, fixed and re-run on this Mac with bazelisk **8.6.0** (the repo's pinned `.bazelversion`), using
+CI's exact command:
+
+```bash
+bazel test //platform/ios/test:ios_test --test_output=errors --//:renderer=metal
+```
+
+| Run | Result |
+|---|---|
+| unmodified | `ERROR: platform/darwin/BUILD.bazel:156:13: Compiling platform/darwin/test/MLNSkyTest.mm failed (from target //platform/darwin:shared_tests_objcpp_srcs)` … `bazel-out/ios_sim_arm64-fastbuild-ios-sim_arm64-min15.5-ST-…/bin/platform/darwin/test/MLNSkyTest.mm:5:9: fatal error: 'Mapbox.h' file not found` → **FAILED TO BUILD** (49 s) |
+| one line changed | build completes (62 s) and `//platform/ios/test:ios_test` **PASSED in 39.5 s** — **302 tests, 5 skipped, 0 failures** |
+
+- The fix is `platform/darwin/test/MLNSkyTest.mm.ejs` line 8: `#import <Mapbox.h>` → `#import <MapLibre.h>`
+  (the SDK umbrella header, exactly as its sibling `MLNLightTest.mm.ejs:8` already does). The template is
+  the only source of that import: `scripts/generate-style-code.mjs` (driven by the bazel genrule
+  `//platform/darwin:generated_code`) emits it verbatim as **line 5** of the generated file, which is
+  precisely the line and column the compiler flags. After the edit the generated file reads
+  `#import <MapLibre.h>` at line 5.
+- A repo-wide sweep confirms this is the **only** `Mapbox.h` the PR introduces — the several in
+  `platform/macos/*` are pre-existing on `main`, untouched by the branch, and not built by this job.
+- With the import fixed the whole suite runs on the simulator: 302 tests, 5 skipped, 0 failures — including
+  the three cases the broken import made unreachable (`MLNSkyTest`: `testDefaultInitializationAndReset`,
+  `testProperties`, `testZoomExpressionRoundTrip`). **The compile error is the only defect behind that red
+  job.**
+- **Runner quirk on this machine (Xcode 27.1):** rules_apple's default runner creates a simulator named
+  `BAZEL_TEST_iPhone 15_<sdk>`, and `simctl create` with device type `iPhone 15` — or even `iPhone 17` —
+  against the **27.1** runtime fails with `SimError 403 Incompatible device`; this 27.1 runtime accepts only
+  the `iPhone Duo` type. Reuse matches by device *name* inside the selected runtime, so pre-creating
+  `BAZEL_TEST_iPhone 15_27.1` with type `iPhone Duo` + runtime 27.1 lets the runner reuse it and boot.
+  `--test_env=SIMULATOR_OS_VERSION=27.0` does **not** redirect it: the runner passes its SDK-derived runtime
+  as an argument, which outranks the environment variable. That device has been left in place (shut down) as
+  `BAZEL_TEST_iPhone 15_27.1`, so re-running the target needs no setup.
+- Applied **locally, uncommitted** in `~/dev/tmp/mln-pr4534`. Logs:
+  `$TMPDIR/opencode/bazel-ios4534-{before,after,run2}.log`.
+
 ### QMapLibre (Qt wrapper) for iOS simulator — 2026-10-23
 
 The wrapper's iOS path had never been built on this Mac; it builds. With the `ios_simulator_arm64` Qt

@@ -320,11 +320,18 @@ pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` 
    googletest was empty. Applied **locally, uncommitted** in `~/dev/tmp/mln-pr4190`. **Raise it
    separately**, since it affects `main` and every WebGPU-Dawn job, not just our PRs; details in
    [macOS verification](../verification/macos.md#dawns-tint_build_tests--mains-red-ios-dawn-job-2026-10-23).
-4. **Hand `#4534`'s iOS fix to the author**: `platform/darwin/test/MLNSkyTest.mm.ejs:6` imports
-   `<Mapbox.h>`; it must be `<MapLibre.h>` like `MLNLightTest.mm.ejs:8`, otherwise
-   `//platform/ios/test:ios_test` fails to build. Also worth asking a maintainer to approve that PR's
+4. **`#4534`'s iOS fix — verified locally 2026-10-23** (was: hand it to the author):
+   `platform/darwin/test/MLNSkyTest.mm.ejs:8` imports `<Mapbox.h>`; it must be `<MapLibre.h>` like
+   `MLNLightTest.mm.ejs:8`. Reproduced CI's `ios-build` failure here with bazel 8.6.0
+   (`MLNSkyTest.mm:5:9: fatal error: 'Mapbox.h' file not found` → `FAILED TO BUILD`), applied the one-line
+   fix (generated line 5 becomes `#import <MapLibre.h>`), and the same command then **passes: 302 tests,
+   5 skipped, 0 failures** — including all three `MLNSkyTest` cases — so that import is the *only* defect
+   behind the red job. Fix is applied **locally, uncommitted** in `~/dev/tmp/mln-pr4534`; run details and
+   the Xcode-27.1 simulator-runner quirk are in
+   [macOS verification](../verification/macos.md#4534s-ios-test-build-mapboxh--reproduced-and-fixed-2026-10-23).
+   Still to do when GitHub scope re-opens: hand it to the author and ask a maintainer to approve that PR's
    pending runs (all `action_required` since 2026-10-21).
-5. **Post one consolidated test report**: #4533 (seams + platform), #4534 (Windows Vulkan render pass; the two WGSL bugs; the `Mapbox.h` iOS build failure), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests; iOS Dawn failure is pre-existing on `main`).
+5. **Post one consolidated test report**: #4533 (seams + platform), #4534 (Windows Vulkan render pass; the two WGSL bugs; the `Mapbox.h` iOS build failure — now reproduced and fixed locally, suite green), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests; iOS Dawn failure is pre-existing on `main`).
 6. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
 7. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
 8. **Existing PRs**: #4752 review/CI, #323 CI approval, #326.
