@@ -342,6 +342,7 @@ the test now uses `{400, 350}`. Test-only, no render/projection change.
 ### Windows
 
 - PR clone: `C:\hda\dev\tmp\maplibre-native-pr`; branches `pr4533`, `pr4534`, `pr4190`; currently on **pr4534** — the branch moved from `2a85b5d` (the Windows Vulkan results above) to **`38dac5b8`** (Linux re-ran it at the new head: unit 1245, render unchanged; the WebGPU runs use the same head); build tree `build-windows-vulkan`.
+- To refresh a branch head on Windows: `git fetch https://github.com/maplibre/maplibre-native refs/pull/4534/head:pr4534` (same pattern for 4533/4190) after clearing the vendor/platform reparse points, then `git switch pr4534` and recreate them.
 - **Local fix set** (only needed for the WebGPU backends; Vulkan is unaffected): `git apply wiki/references/patches/pr4534-wgsl-and-ios-test.patch` on `pr4534`, `git apply wiki/references/patches/pr4190-webgpu-dawn-ios.patch` on `pr4190`; `pr4533` needs no patch. The `vendor/dawn.cmake` `TINT_BUILD_TESTS` one-liner (in the #4190 patch) is a `main`-side fix and is required for any Dawn build.
 - **vcpkg is a copy** at `platform/windows/vendor/vcpkg` (not a junction). 34 MSYS package pins were updated to current mirror versions + SHA512; `msys2-runtime` is 3.6.9-2. Do not replace it with the Qt vendor's vcpkg.
 - **ICU**: configure overrides `ICU_I18N_LIBRARY_RELEASE` / `ICU_UC_LIBRARY_RELEASE` to the vcpkg ICU 74 libs; otherwise the Windows SDK ICU is mixed with vcpkg headers and the link fails.
