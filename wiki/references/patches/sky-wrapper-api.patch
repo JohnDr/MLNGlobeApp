@@ -1,0 +1,228 @@
+diff --git a/src/core/map.cpp b/src/core/map.cpp
+index 5b9c227..25de8af 100644
+--- a/src/core/map.cpp
++++ b/src/core/map.cpp
+@@ -44,6 +44,7 @@
+ #include <mln/style/layers/raster_layer.hpp>
+ #include <mln/style/layers/symbol_layer.hpp>
+ #include <mln/style/rapidjson_conversion.hpp>
++#include <mln/style/sky.hpp>
+ #include <mln/style/sources/geojson_source.hpp>
+ #include <mln/style/sources/image_source.hpp>
+ #include <mln/style/style.hpp>
+@@ -955,6 +956,54 @@ void Map::setTerrain(const QString &source, double exaggeration) {
+     d_ptr->mapObj->setTerrain(source.toStdString(), exaggeration);
+ }
+ 
++/*!
++    \brief Set the sky, as MapLibre GL JS \c map.setSky().
++
++    \a properties holds style-spec \c sky properties; an empty map gives the default sky. Returns \c false, leaving
++    the sky unchanged, if a property is invalid.
++*/
++bool Map::setSky(const QVariantMap &properties) {
++    auto sky = std::make_unique<mln::style::Sky>();
++    for (auto it = properties.cbegin(); it != properties.cend(); ++it) {
++        const std::string name = it.key().toStdString();
++        const QVariant &value = it.value();
++        std::optional<mln::style::conversion::Error> result;
++        if (value.typeId() == QMetaType::QString) {
++            // A JSON string (an expression, a transition object, a number) is parsed; any other string is a value.
++            mln::JSDocument document;
++            document.Parse<0>(value.toString().toStdString());
++            if (!document.HasParseError()) {
++                const mln::JSValue *jsonValue = &document;
++                result = sky->setProperty(name, jsonValue);
++            } else {
++                result = sky->setProperty(name, value);
++            }
++        } else {
++            result = sky->setProperty(name, value);
++        }
++        if (result) {
++            qWarning() << "Sky property" << it.key() << "rejected:" << result->message.c_str();
++            return false;
++        }
++    }
++    d_ptr->mapObj->getStyle().setSky(std::move(sky));
++    return true;
++}
++
++/*!
++    \brief Returns \c true if the style has a sky (its own or one set with setSky()).
++*/
++bool Map::hasSky() const {
++    return d_ptr->mapObj->getStyle().getSky() != nullptr;
++}
++
++/*!
++    \brief Remove the sky.
++*/
++void Map::clearSky() {
++    d_ptr->mapObj->getStyle().setSky(nullptr);
++}
++
+ /*!
+     \brief Remove the terrain, returning the map to a flat surface.
+ */
+diff --git a/src/core/map.hpp b/src/core/map.hpp
+index 7e324e4..d65188a 100644
+--- a/src/core/map.hpp
++++ b/src/core/map.hpp
+@@ -140,6 +140,16 @@ public:
+     void setTerrain(const QString &source, double exaggeration = 1.0);
+     void clearTerrain();
+     [[nodiscard]] QVariant terrainElevation(const Coordinate &coordinate) const;
++
++    // Sky (style-spec `sky`, as MapLibre GL JS `map.setSky`): the horizon gradient, the terrain fog and, with the
++    // globe projection, the atmosphere. \a properties holds the style-spec sky properties (`sky-color`,
++    // `horizon-color`, `fog-color`, `fog-ground-blend`, `horizon-fog-blend`, `sky-horizon-blend`,
++    // `atmosphere-blend` and their `-transition` variants); each value is a constant or a (zoom) expression, as a Qt
++    // value or a JSON string. An empty map is the default sky. Returns false (and warns) if a property is invalid.
++    // A style (re)load replaces the sky with the style's own.
++    bool setSky(const QVariantMap &properties = QVariantMap());
++    void clearSky();
++    [[nodiscard]] bool hasSky() const;
+     [[nodiscard]] double elevation() const;
+     [[nodiscard]] double cameraAltitude() const;
+ 
+diff --git a/src/quick/plugins/map_quick_item.cpp b/src/quick/plugins/map_quick_item.cpp
+index d25659f..26644e2 100644
+--- a/src/quick/plugins/map_quick_item.cpp
++++ b/src/quick/plugins/map_quick_item.cpp
+@@ -189,6 +189,43 @@ void MapQuickItem::setTerrainExaggeration(double exaggeration) {
+     emit terrainChanged();
+ }
+ 
++bool MapQuickItem::skyEnabled() const {
++    Q_D(const MapQuickItem);
++
++    return d->m_skyEnabled;
++}
++
++void MapQuickItem::setSkyEnabled(bool enabled) {
++    Q_D(MapQuickItem);
++
++    d->m_skyExplicit = true; // once set, false means no sky (not "leave the style's sky alone")
++    if (d->m_skyEnabled == enabled) {
++        return;
++    }
++
++    d->m_skyEnabled = enabled;
++    d->applySky();
++    emit skyChanged();
++}
++
++QVariantMap MapQuickItem::sky() const {
++    Q_D(const MapQuickItem);
++
++    return d->m_sky;
++}
++
++void MapQuickItem::setSky(const QVariantMap &sky) {
++    Q_D(MapQuickItem);
++
++    if (d->m_sky == sky) {
++        return;
++    }
++
++    d->m_sky = sky;
++    d->applySky();
++    emit skyChanged();
++}
++
+ void MapQuickItem::setZoomLevel(double zoomLevel) {
+     Q_D(MapQuickItem);
+ 
+@@ -544,6 +581,8 @@ void MapQuickItem::onMapChanged(Map::MapChange change) {
+         d->m_map->setProjectionType(projectionFromMapQuickItem(d->m_projectionType));
+         // Terrain also lives on the style, so re-apply it after a (re)load.
+         d->applyTerrain();
++        // The style's own sky replaced any sky this item added.
++        d->applySky();
+     } else if (change == Map::MapChangeWillStartLoadingMap) {
+         if (d->m_styleLoaded) {
+             d->m_styleLoaded = false;
+@@ -582,6 +621,22 @@ void MapQuickItem::onStyleParameterUpdated(StyleParameter *parameter) {
+ MapQuickItemPrivate::MapQuickItemPrivate(MapQuickItem *q)
+     : q_ptr(q) {}
+ 
++void MapQuickItemPrivate::applySky() {
++    if (m_map == nullptr || !m_styleLoaded) {
++        return;
++    }
++
++    if (m_skyEnabled) {
++        if (m_sky.isEmpty() && m_map->hasSky()) {
++            return; // enabled with no properties of our own: the style's own sky already is the sky
++        }
++        m_map->setSky(m_sky);
++    } else if (m_skyExplicit && m_map->hasSky()) {
++        // Explicitly switched off: no sky at all, even if the style defines one.
++        m_map->clearSky();
++    }
++}
++
+ void MapQuickItemPrivate::applyTerrain() {
+     if (m_map == nullptr || !m_styleLoaded) {
+         return;
+diff --git a/src/quick/plugins/map_quick_item.hpp b/src/quick/plugins/map_quick_item.hpp
+index 90c2a5e..2ae70cf 100644
+--- a/src/quick/plugins/map_quick_item.hpp
++++ b/src/quick/plugins/map_quick_item.hpp
+@@ -41,6 +41,12 @@ class MapQuickItem : public QQuickItem {
+     // surface. An empty source disables terrain (flat map).
+     Q_PROPERTY(QString terrainSource READ terrainSource WRITE setTerrainSource NOTIFY terrainChanged)
+     Q_PROPERTY(double terrainExaggeration READ terrainExaggeration WRITE setTerrainExaggeration NOTIFY terrainChanged)
++    // The sky (GL JS `map.setSky`). While \c skyEnabled, \c sky (style-spec `sky` properties, e.g.
++    // `{"sky-color": "#199EF3", "fog-ground-blend": 0.5}`; empty = the style's own sky if it has one, else the
++    // default sky) is applied. Once \c skyEnabled has been set to false there is no sky, even if the style defines
++    // one. Never set: the style's own sky (if any) is left alone.
++    Q_PROPERTY(bool skyEnabled READ skyEnabled WRITE setSkyEnabled NOTIFY skyChanged)
++    Q_PROPERTY(QVariantMap sky READ sky WRITE setSky NOTIFY skyChanged)
+ 
+ public:
+     enum SyncState : int {
+@@ -84,6 +90,12 @@ public:
+     [[nodiscard]] double terrainExaggeration() const;
+     void setTerrainExaggeration(double exaggeration);
+ 
++    [[nodiscard]] bool skyEnabled() const;
++    void setSkyEnabled(bool enabled);
++
++    [[nodiscard]] QVariantMap sky() const;
++    void setSky(const QVariantMap &sky);
++
+     Q_INVOKABLE void pan(const QPointF &offset);
+     Q_INVOKABLE void scale(double scale, const QPointF &center);
+     Q_INVOKABLE void easeTo(const QVariantMap &camera, const QVariantMap &animation = QVariantMap());
+@@ -105,6 +117,7 @@ signals:
+     void projectionTypeChanged();
+     void backgroundColorChanged();
+     void terrainChanged();
++    void skyChanged();
+ 
+ protected:
+     void componentComplete() override;
+diff --git a/src/quick/plugins/map_quick_item_p.hpp b/src/quick/plugins/map_quick_item_p.hpp
+index 93c412b..cfa2d7d 100644
+--- a/src/quick/plugins/map_quick_item_p.hpp
++++ b/src/quick/plugins/map_quick_item_p.hpp
+@@ -34,6 +34,7 @@ public:
+ 
+     // Re-applies the terrain selected through this item to the map (once the style is loaded).
+     void applyTerrain();
++    void applySky();
+ 
+     Settings m_settings;
+     std::shared_ptr<Map> m_map;
+@@ -47,6 +48,9 @@ public:
+         QColor m_backgroundColor;
+         QString m_terrainSource;
+         double m_terrainExaggeration = 1.0;
++        bool m_skyEnabled = false;
++        bool m_skyExplicit = false;
++        QVariantMap m_sky;
+ 
+     QString m_mapItemsBefore; // TODO: make this a property
+     QList<StyleParameter *> m_mapParameters;
