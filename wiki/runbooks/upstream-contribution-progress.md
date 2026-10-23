@@ -52,11 +52,14 @@ done item looking pending) and [Open questions](#open-questions). In [Next steps
 Build setup now works (see [pickup](#pickup-after-restart--os-switch)):
 
 - **#4190 terrain**: unit tests **30/30 pass** (`*Terrain*`). Terrain render tests are **ignored** upstream (native 3D terrain not graded against GL JS yet).
-- **#4534 sky**: render tests **3/3 pass** on Windows/Vulkan — `sky/basic`, `sky/atmosphere-globe`, `sky/zoom-expression`.
-- **#4533 globe** (tested through #4534's globe snapshot `2a85b5d`, 2026-10-17): 53 groups, **2 unique failures**, both tile-edge seams:
+- Windows host: Intel Iris Xe, driver `32.0.101.7088`, Windows 11 `26300`.
+- **#4534 sky** (re-ran at `38dac5b8`, 2026-10-23): render tests **3/3 pass** on Windows/Vulkan — `sky/basic`, `sky/atmosphere-globe`, `sky/zoom-expression`.
+- **#4533 globe** (full 53-group sweep through #4534 `38dac5b8`, 2026-10-23; #4533 itself is `ff96700`): **2 unique failures** at the new head, the head merge added none:
   - `projection/globe/fill-seams/checkerboard`
   - `projection/globe/raster-warped`
-  Ignored: `debug-tile-borders`, `fill-planet-pole`, `fill-planet-pole-top`, `fill-planet-tiles`, 2 in `antimeridian-overdraw`. All other groups pass. Re-run the two failures on the newer #4533 head `ff96700` before reporting.
+  Ignored: `debug-tile-borders`, `fill-planet-pole`, `fill-planet-pole-top`, `fill-planet-tiles`, 2 in `antimeridian-overdraw`. All other groups pass.
+- **Windows `raster-warped` quantified**: 284 mismatched pixels of 262144 (`allowed` 39.32, 7.2×); passes on Linux/RADV. The diff is horizontal edge lines — a Windows/Vulkan (Intel Iris Xe) rasterization difference, not AA-only.
+- **Windows `checkerboard` quantified**: independent mapbox pixelmatch (JS 5.3.0, threshold 0.1285) counts 8–9 of 65536 against `allowed` 9.83; the runner's C++ pixelmatch crosses the threshold (Linux JS counted 10), so this is a one-pixel threshold miss, not a visible seam. Diffs saved in `%LOCALAPPDATA%\Temp\opencode\consolidated-report\windows`.
 - **Full unit suite**: stops on platform tests, not PR-related — `OnlineFileSource.ConnectionError` (backoff timing) and `LocalFileSource.InvalidUTF8Path`.
 
 ### Android (S23, serial `RFCW910087W`)
@@ -341,7 +344,7 @@ the test now uses `{400, 350}`. Test-only, no render/projection change.
 
 ### Windows
 
-- PR clone: `C:\hda\dev\tmp\maplibre-native-pr`; branches `pr4533`, `pr4534`, `pr4190`; currently on **pr4534** — the branch moved from `2a85b5d` (the Windows Vulkan results above) to **`38dac5b8`** (Linux re-ran it at the new head: unit 1245, render unchanged; the WebGPU runs use the same head); build tree `build-windows-vulkan`.
+- PR clone: `C:\hda\dev\tmp\maplibre-native-pr`; branches `pr4533`, `pr4534`, `pr4190`; currently on **pr4534** — the branch moved from `2a85b5d` to **`38dac5b8`**, and the Windows Vulkan results above were re-run there (Linux re-ran it at the new head: unit 1245, render unchanged; the WebGPU runs use the same head); build tree `build-windows-vulkan`.
 - To refresh a branch head on Windows: `git fetch https://github.com/maplibre/maplibre-native refs/pull/4534/head:pr4534` (same pattern for 4533/4190) after clearing the vendor/platform reparse points, then `git switch pr4534` and recreate them.
 - **Local fix set** (only needed for the WebGPU backends; Vulkan is unaffected): `git apply wiki/references/patches/pr4534-wgsl-and-ios-test.patch` on `pr4534`, `git apply wiki/references/patches/pr4190-webgpu-dawn-ios.patch` on `pr4190`; `pr4533` needs no patch. The `vendor/dawn.cmake` `TINT_BUILD_TESTS` one-liner (in the #4190 patch) is a `main`-side fix and is required for any Dawn build.
 - **vcpkg is a copy** at `platform/windows/vendor/vcpkg` (not a junction). 34 MSYS package pins were updated to current mirror versions + SHA512; `msys2-runtime` is 3.6.9-2. Do not replace it with the Qt vendor's vcpkg.
