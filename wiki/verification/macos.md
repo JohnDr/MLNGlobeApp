@@ -283,6 +283,55 @@ packaging difference before calling either an upstream bug.
 
 Canonical tree and commands: [Build (macOS) → iOS simulator library tree](../runbooks/build-macos.md#ios-simulator-library-tree--2026-10-23).
 
+### MapLibreEarth on the iOS simulator — 2026-10-23
+
+The app builds and runs on the simulator (no visible window, see below). Same `default` preset with
+`QT_ROOT_DIR="$HOME/Qt/6.12.0/ios_simulator_arm64"`,
+`QMapLibre_DIR="$HOME/dev/tmp/install-maplibre-native-qt-ios-sim"` and
+`-DCMAKE_OSX_ARCHITECTURES=arm64`: configure 1.6 s, then a **flat** `MapLibreEarth.app`
+(`Info.plist` + `LaunchScreen.storyboard` + a ~54 MB single binary of static Qt, static QMapLibre and the
+fork's core), `platform IOSSIMULATOR, minos 17.0, sdk 27.1`.
+
+`xcrun simctl install` + `launch` on `iPhone Duo` (iOS 27.1): the process starts and **stays alive**
+(`launchctl` lists `UIKitApplication:com.yourcompany.MapLibreEarth[…][rb-legacy]`, status 0). With nothing
+to look at, the evidence that the map really initialises is:
+
+- the container gains `Library/Application Support/MapLibre/MapLibreEarth/` (the core's cache/settings
+  dir) and `Library/Caches/MapLibre/MapLibreEarth/qmlcache/*.qmlc` — the app's QML **and**
+  `import MapLibre 4.0` were compiled and loaded;
+- `QSettings` (`com.maplibre.MapLibreEarth.plist`) holds the map list with the terrain `file://` style URLs
+  rewritten to the container path, i.e. the app's mobile path was taken;
+- the log shows the core compiling its Metal shaders and a scene-graph path
+  `MapQuickItem::updatePaintNode` → `MapQuickItem::updateMapNode` → `QMapLibre::TextureNodeMetal::render`.
+
+App-side portability fix required (uncommitted): `main.cpp`'s `applyAndRestart()` called
+`QProcess::startDetached`, which Qt omits on iOS → compile error; now guarded with
+`#if defined(Q_OS_IOS)` (persist the scale, skip the relaunch). Desktop behaviour unchanged.
+
+**iOS-specific wrapper bug, found on the first run.** `TextureNodeMetal::render()`
+(`~/Documents/maplibre-native-qt/src/quick/texture_node_metal.mm:93`) self-creates a `CAMetalLayer` and calls
+`[view.layer addSublayer:]` on `window->winId()` — and `render()` runs on the Qt Quick **render thread**,
+which iOS forbids:
+
+```text
+E  MapLibreEarth[24253:1fe01] [com.apple.UIKit:Assert] Modifying properties of a view's layer off the main
+   thread is not allowed: view <QUIMetalView: 0x106c61e20> with nearest ancestor view controller
+   <QIOSViewController: 0x107a0c000>; backtrace: … -[CALayer addSublayer:] …
+   QMapLibre::TextureNodeMetal::render(QQuickWindow*) + 312 … MapQuickItem::updatePaintNode …
+```
+
+It fires **once per launch** (the layer is only created on the first render) and does not stop the app, but it
+is a UIKit violation that Apple logs at error level and the Main Thread Checker would flag. Cause: on iOS Qt's
+`QSGRendererInterface` hands out no `"MetalLayer"` resource, so the wrapper takes its fallback path
+(`m_ownsLayer = true`) — a path only safe on macOS, where AppKit tolerates off-main-thread layer edits. Not
+fixed yet: the fix is wrapper-side and must create/attach the layer on the GUI thread (tracker item 12).
+
+Minor, not bugs: the iOS Metal compiler logs `unused variable 'drawable'` for the background/fill/fillOutline
+MSL, and `libCoreFSCache.dylib fopen failed` noise appears on the simulator.
+
+**Still no visual capture**: this Xcode 27.1 has no `Simulator.app`, so `simctl io booted screenshot` returns
+the same blank PNG as before (`md5 56e2786878619e2d2c71a71b567d95d5`) while the app is demonstrably rendering.
+
 ### Dawn's TINT_BUILD_TESTS — main's red iOS Dawn job (2026-10-23)
 
 `main`'s `ios-build-webgpu-dawn` job fails in **configure**, before any compilation:

@@ -205,6 +205,39 @@ Debug-install counterpart of the Windows setup. If you need to step into the lib
 install a second tree with `-DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=...-debug`, then
 configure a Debug app build dir against it.
 
+### iOS simulator app build — 2026-10-23
+
+The same `default` preset targets iOS by pointing `QT_ROOT_DIR` at an iOS kit; the app tree is
+`~/dev/tmp/build-MapLibreEarth-ios-sim`:
+
+```bash
+export QT_ROOT_DIR="$HOME/Qt/6.12.0/ios_simulator_arm64"
+export QMapLibre_DIR="$HOME/dev/tmp/install-maplibre-native-qt-ios-sim"
+
+cmake --preset default -B "$HOME/dev/tmp/build-MapLibreEarth-ios-sim" \
+  -DCMAKE_OSX_ARCHITECTURES=arm64 \      # Qt-installer iOS kits are single-arch
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=18.0     # Qt 6.12's iOS libs are built for 18.0; 17.0 only warns
+cmake --build "$HOME/dev/tmp/build-MapLibreEarth-ios-sim"
+
+# run it (no Simulator.app on this Mac, so there is no visible window — see the verification page)
+xcrun simctl boot 841FAFD2-A2A2-4AB3-886C-BD21CE7D95C3        # "iPhone Duo", iOS 27.1
+xcrun simctl install booted "$HOME/dev/tmp/build-MapLibreEarth-ios-sim/MapLibreEarth.app"
+xcrun simctl launch --stdout=/tmp/o.log --stderr=/tmp/e.log booted com.yourcompany.MapLibreEarth
+```
+
+- Configure 1.6 s; the build produces a **flat iOS bundle** (Ninja handles this correctly):
+  `MapLibreEarth.app/{Info.plist, LaunchScreen.storyboard, MapLibreEarth}`, a ~54 MB single binary
+  (static Qt + static QMapLibre + the fork's core). `Info.plist` comes from Qt's default iOS support
+  (bundle id `com.yourcompany.MapLibreEarth`).
+- The QMapLibre QML plugin is linked statically (`qmaplibre_quick_setup_plugins` links
+  `QMapLibre::PluginQml` when Core is a static library), so `import MapLibre 4.0` resolves with no
+  `QML_IMPORT_PATH` — the app writes a `.qmlc` cache under `Library/Caches/MapLibre/MapLibreEarth/qmlcache`
+  in its container, which is the quickest proof the QML side really loaded.
+- **App-side portability fix required** (2026-10-23, uncommitted): `main.cpp`'s `applyAndRestart()`
+  called `QProcess::startDetached`, which Qt omits on iOS → build error. It is now guarded with
+  `#if defined(Q_OS_IOS)` (persist the scale, skip the relaunch). Desktop behaviour is unchanged.
+- Set `QT_HOST_PATH` only if a moc/uic error appears; the toolchain found `~/Qt/6.12.0/macos` alone.
+
 ## 4. First-run checks
 
 Library build, `ctest`, app startup and the core Metal test suites are verified (2026-10-22). Only the
