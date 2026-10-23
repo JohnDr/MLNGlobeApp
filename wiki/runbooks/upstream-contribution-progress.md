@@ -31,9 +31,9 @@ done item looking pending) and [Open questions](#open-questions). In [Next steps
 
 | Effort | Owner | Branch / base | State | Notes |
 |---|---|---|---|---|
-| Globe #4533 | johncarmack1984 | `phased/12h` → `main` | open, not draft, `BLOCKED`, CI green (2026-10-20) | Issue #3161; design proposal #4525 closed; 673 files. |
-| Sky #4534 | ClayWarren | `codex/sky-style-spec-4414`, stacked on globe | open, not draft, `DIRTY`; CI stuck since 2026-10-21 (`action_required`, as of the 2026-10-22 `gh` read) | Issue #4414; Metal/Vulkan render pass. Two WebGPU WGSL bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Last *executed* head (2026-10-16): only `ios-build` failed, because the new `MLNSkyTest.mm.ejs` imports `<Mapbox.h>` (`ios_test` failed to build) — one-line PR bug, below; Android CI passed. |
-| Terrain #4190 | NathanMOlson | `feature/terrain-3d` → `main` | **draft**, `DIRTY` | Maintainer `louwers` coordinating; follow-ups #4558, #4790, #4791, #4801, #4809, #4810 target `feature/terrain-3d`; issue #252. Three WebGPU bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Its iOS Dawn CI failure is pre-existing on `main` (below). |
+| Globe #4533 | johncarmack1984 | `phased/12h` → `main` | open, not draft, `MERGEABLE`/`BLOCKED` (review required); CI green — 53 pass, 0 fail (`gh` read 2026-10-23) | Issue #3161; design proposal #4525 closed; 673 files. |
+| Sky #4534 | ClayWarren | `codex/sky-style-spec-4414`, stacked on globe | open, not draft, `MERGEABLE`/`BLOCKED` (**no longer `DIRTY`**); CI stuck since 2026-10-21 — all 10 workflows `action_required`, nothing has run on this head (`gh` read 2026-10-23) | Issue #4414; Metal/Vulkan render pass. Two WebGPU WGSL bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Last *executed* head (2026-10-16): only `ios-build` failed, because the new `MLNSkyTest.mm.ejs` imports `<Mapbox.h>` (`ios_test` failed to build) — one-line PR bug, below; Android CI passed. Stacked on an **older globe head** — `phased/12h...codex/sky-style-spec-4414` is `diverged` (5 globe commits behind). |
+| Terrain #4190 | NathanMOlson | `feature/terrain-3d` → `main` | **draft**, `CONFLICTING`/`DIRTY` (`gh` read 2026-10-23: unchanged) | Maintainer `louwers` coordinating; follow-ups #4558, #4790, #4791, #4801, #4809, #4810 target `feature/terrain-3d`; issue #252. Three WebGPU bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Its iOS Dawn CI failure is pre-existing on `main` (below). |
 | Overlap #4752 | JohnDr | `mln-icon-text-overlap` → `main` | **draft**, `BLOCKED`, pre-commit green | Our icon/text-overlap implementation; build workflows await approval; refs #251. |
 | Qt #323–#326 | JohnDr | fork branches → `maplibre-native-qt` `main` | #323 draft; #324/#325/#326 ready | #323 Metal fix at `91297dd`, CI approval pending; #326 has empty-style fallback + `styleChanged` NOTIFY at `5d1077a`. |
 
@@ -158,6 +158,34 @@ shifts two of the claims above:
   `ios-build-webgpu-wgpu`, `MacOS Metal CI Tests`, `OpenGL`, `Vulkan`, all Linux jobs and
   codecov. The two macOS WebGPU failures are the ones fixed locally (above) and are **not pushed**,
   so CI will stay red until the branch carries the fixes.
+
+### CI state re-read with `gh` (2026-10-23)
+
+Read again on **2026-10-23**. **No PR head has moved and no run has executed since the 2026-10-22 check** —
+the three heads are exactly the ones in the local worktrees, so everything reproduced and fixed here still
+corresponds to what upstream CI sees.
+
+| PR | Head | Merge state | Checks on record | Last run |
+|---|---|---|---|---|
+| #4533 | `ff96700517b9` | `MERGEABLE`, `BLOCKED` (review required) | **53 pass, 0 fail**, 1 skipped (`Deploy`), 3 never-report (`codecov/patch`, `codecov/project`, `pre-commit.ci`) | 2026-10-20 |
+| #4534 | `38dac5b8a4ec` | `MERGEABLE`, `BLOCKED` — **no longer `DIRTY`** | only `labeler` (pass) + `pre-commit.ci` (pending): **no CI has run on this head** | 10 workflows `action_required` since 2026-10-21T16:48Z |
+| #4190 | `c6b31b76056a` | **draft**, `CONFLICTING`, `DIRTY` | 39 pass, **7 fail**, 1 pending | 2026-10-19 |
+
+- **#4534's 10 `action_required` workflows** are `android-ci`, `gh-pages-mdbook`, `ios-ci`, `linux-ci`,
+  `macos-ci`, `node-ci`, `ohos-ci`, `qt-ci`, `rust-ci` and `validate-scripts`, all created
+  2026-10-21T16:48:55Z on `38dac5b8a4ec`. **No CI has executed on the current head**; the most recent
+  executed head is 2026-10-16 `2a85b5d66848` (the branch's earlier heads carry 13 successful and 27 failed
+  runs, plus a 2026-09-28 `action_required` set on `5f8dbc2f9f08`). Approval — and pushing the fixes — are
+  not ours to do.
+- **New since the 2026-10-22 read:** #4534 now reports `MERGEABLE`/`BLOCKED` instead of `CONFLICTING`/`DIRTY`,
+  so it merges cleanly against its base and is blocked only on review/approval. It is stacked on an **older
+  globe head**: `phased/12h...codex/sky-style-spec-4414` is `diverged`, 89 ahead / **5 behind**, so the globe
+  branch gained five commits after the sky branch was cut — a rebase onto the current globe head is the
+  author's call.
+- **#4190's 7 failures are unchanged**, and are exactly the ones analysed above: `test (windows-2022)`,
+  `test (windows-11-arm)`, `macOS WebGPU (Dawn)`, `macOS WebGPU (wgpu)`, `ios-build-webgpu-dawn`,
+  `android-build-webgpu-wgpu` and the aggregate `android-ci-result`. The two macOS WebGPU jobs are fixed
+  locally (unpushed); `ios-build-webgpu-dawn` is the pre-existing `main` bug.
 
 ### macOS fork build (native Metal) — 2026-10-22
 
