@@ -59,8 +59,9 @@ refresh that prefix and rebuild the app; see `wiki/runbooks/build-macos.md`.
   examples). The two app dirs above and the two library dirs are canonical.
 - The iOS **simulator** library tree is `~/dev/tmp/build-maplibre-native-qt-ios-sim`
   (Qt kit `ios_simulator_arm64`, needs `-DCMAKE_OSX_ARCHITECTURES=arm64` because the
-  Qt-installer iOS kits are single-arch); see `../maplibre-native-qt/AGENTS.md` and
-  `wiki/runbooks/build-macos.md`.
+  Qt-installer iOS kits are single-arch), and the **device** one is
+  `~/dev/tmp/build-maplibre-native-qt-ios-device` (kit `ios_device`, same arch override);
+  see `../maplibre-native-qt/AGENTS.md` and `wiki/runbooks/build-macos.md`.
 - The app loads the `MapLibre` QML module and QMapLibre runtime from the
   per-config install above (its `qt.conf` `QmlImports` + POST_BUILD copy); do not
   substitute another install.

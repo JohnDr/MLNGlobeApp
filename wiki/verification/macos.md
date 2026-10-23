@@ -332,6 +332,31 @@ MSL, and `libCoreFSCache.dylib fopen failed` noise appears on the simulator.
 **Still no visual capture**: this Xcode 27.1 has no `Simulator.app`, so `simctl io booted screenshot` returns
 the same blank PNG as before (`md5 56e2786878619e2d2c71a71b567d95d5`) while the app is demonstrably rendering.
 
+### iOS device build — 2026-10-23
+
+Both halves compile for a physical iPhone, unsigned:
+
+| Step | Result |
+|---|---|
+| QMapLibre, `ios_device` kit | 551 steps, **0 warnings, 0 errors**; static libs + QML module; objects `platform IOS, minos 17.0, sdk 27.1`; installed to `~/dev/tmp/install-maplibre-native-qt-ios-device` |
+| MapLibreEarth | 22 steps → `~/dev/tmp/build-MapLibreEarth-ios-device/MapLibreEarth.app`, flat, 53.5 MB, `platform IOS, minos 18.0, sdk 27.1`, arm64, unsigned |
+
+**Deployment is blocked, and one blocker is fundamental:**
+
+1. **No signing identity.** `security find-identity -v -p codesigning` → 0 valid identities, and no
+   provisioning profiles on the machine. This needs an Apple ID signed into Xcode (a free Personal Team
+   is enough for your own device) — interactive, and not something to work around.
+2. **No iPhone visible on USB.** `system_profiler SPUSBDataType` and `ioreg -p IOUSB` list only hubs, a
+   mouse, a keyboard and an AX88179A NIC; `xcrun xctrace list devices` lists this Mac and the simulators
+   only. Charge-only cable, untrusted/locked phone and "not actually attached" all look like this.
+3. **The deployment floor is iOS 18.0.** Qt 6.12's prebuilt iOS libraries are built for `minos 18.0`
+   (read from a `QtCore` archive member), and our app binary is `minos 18.0` too. **An iPhone 6 stops at
+   iOS 12.5.7**, so it cannot install or run this app — and Xcode 27's `devicectl` only speaks to iOS 17+
+   devices regardless. Running this app on iOS 12 would require Qt 5.15 plus Xcode ≤ 14, a different
+   toolchain from the one this project builds with.
+
+The device artefacts are therefore ready for any iPhone that runs **iOS 18+**, as soon as signing exists.
+
 ### Dawn's TINT_BUILD_TESTS — main's red iOS Dawn job (2026-10-23)
 
 `main`'s `ios-build-webgpu-dawn` job fails in **configure**, before any compilation:

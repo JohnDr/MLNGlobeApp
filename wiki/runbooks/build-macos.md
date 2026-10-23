@@ -162,8 +162,11 @@ cmake --build "$HOME/dev/tmp/build-maplibre-native-qt-ios-sim" --config Release
 - `MLN_WITH_GLFW` stays **ON** in this configuration. Harmless for the libraries (nothing references
   GLFW and no test target is built), but a GLFW-linked test/benchmark target could not link for iOS —
   add `-DMLN_WITH_GLFW=OFF` if that ever matters.
-- Not done yet: no `cmake --install`, no Debug configuration, no device build (that would use
-  `QT_ROOT_DIR="$HOME/Qt/6.12.0/ios_device"`, also arm64-only).
+- The **device** counterpart is the identical command with `QT_ROOT_DIR="$HOME/Qt/6.12.0/ios_device"`
+  (also arm64-only), tree `~/dev/tmp/build-maplibre-native-qt-ios-device`: same 551 steps, 0 warnings,
+  objects `platform IOS, minos 17.0, sdk 27.1`.
+- `cmake --install` has been run for both kits → `~/dev/tmp/install-maplibre-native-qt-ios-sim` and
+  `~/dev/tmp/install-maplibre-native-qt-ios-device`. No Debug configuration has been built.
 
 ## 3. Build the app (command line)
 
@@ -237,6 +240,30 @@ xcrun simctl launch --stdout=/tmp/o.log --stderr=/tmp/e.log booted com.yourcompa
   called `QProcess::startDetached`, which Qt omits on iOS → build error. It is now guarded with
   `#if defined(Q_OS_IOS)` (persist the scale, skip the relaunch). Desktop behaviour is unchanged.
 - Set `QT_HOST_PATH` only if a moc/uic error appears; the toolchain found `~/Qt/6.12.0/macos` alone.
+
+### iOS device build (unsigned) — 2026-10-23
+
+The same preset with the device kit and device install prefix, tree
+`~/dev/tmp/build-MapLibreEarth-ios-device`:
+
+```bash
+export QT_ROOT_DIR="$HOME/Qt/6.12.0/ios_device"
+export QMapLibre_DIR="$HOME/dev/tmp/install-maplibre-native-qt-ios-device"
+cmake --preset default -B "$HOME/dev/tmp/build-MapLibreEarth-ios-device" \
+  -DCMAKE_OSX_ARCHITECTURES=arm64 \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=18.0
+cmake --build "$HOME/dev/tmp/build-MapLibreEarth-ios-device"
+```
+
+- Same flat bundle, 53.5 MB, `platform IOS, minos 18.0, sdk 27.1`, arm64, and **unsigned**
+  (`codesign -dv` → *code object is not signed at all*). CMake/Ninja never signs; deploying needs a
+  development identity and a provisioning profile, and as of 2026-10-23 this Mac has neither
+  (`security find-identity -v -p codesigning` → 0 identities, no profiles on disk).
+- **The deployment floor is iOS 18.0**, not the 13.0 in the preset: Qt 6.12's prebuilt iOS libraries are
+  built for 18.0 (`vtool` on a `QtCore` archive member gives `platform IOS, minos 18.0`; the simulator
+  kit is identical). An **iPhone 6 cannot run this build** — it stops at iOS 12.5.7 — and Xcode 27's
+  `devicectl` only talks to iOS 17+ devices anyway. Anything that must run on iOS 12 means Qt 5.15 and
+  an Xcode ≤ 14, i.e. a different toolchain than this project uses.
 
 ## 4. First-run checks
 
