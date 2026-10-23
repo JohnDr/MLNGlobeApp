@@ -94,6 +94,123 @@ The Windows-only stops (`OnlineFileSource.ConnectionError`, `LocalFileSource.Inv
 - Full suite, #4534 (184 groups): the **same two failures** as #4533 — `projection/globe/fill-seams/checkerboard` and `fill-extrusion-pattern/tile-buffer`.
 - **#4534 re-run at the current head `38dac5b8` (2026-10-23)**: unit **1245/1245**, full suite **1337 passed / 2 failed / 62 ignored** over 184 groups — still only `fill-extrusion-pattern/tile-buffer` (pre-existing) and `checkerboard`. `actual.png` md5 is again `127999d3…`, i.e. the merge from `main` did not change the rendered frame; `sky/` stays **3/3**. Build tree `~/dev/tmp/build-pr4534-vk`, per-group logs `~/dev/tmp/pr4534-head-render/summary.txt`.
 - Full suite, #4190 (184 groups): **only** `fill-extrusion-pattern/tile-buffer` (the pre-existing baseline failure). This branch is based on `main` and carries no globe (`projection/globe`) or `sky/` fixtures, so those groups do not exist here — its `projection` group is the pre-globe four tests, all passing.
+- **Linux WebGPU (Dawn + wgpu) done 2026-10-23** for all three branches, including the #4533 control: unit
+  **1258/1258** (#4533), **1260/1260** (#4534), **1160/1160** (#4190) on both backends; the render residuals are
+  identical on #4533, i.e. baseline. See [§ Linux WebGPU](#linux-webgpu-dawn--wgpu--2026-10-23).
+- The Linux WebGPU metric profiles reference a **missing** `metrics/ignores/platform-linux-webgpu.json`, so
+  they exit 5 as committed (still 404 on upstream `main`); raise it separately.
+
+### Linux WebGPU (Dawn + wgpu) — 2026-10-23
+
+Linux CI has **no** WebGPU jobs (`linux-ci.yml` matrix is Vulkan, OpenGL, OpenGL+rust), so these were the
+first Linux runs of the WebGPU backends for all three PR branches. They were built with the
+[local fix set](../references/local-fixes.md) applied (uncommitted), on the same machine as the Vulkan runs.
+
+**Build notes (Linux-specific):**
+
+- Dawn: the fork fetches `vendor/dawn` through `FetchContent` from GitHub; the clone aborted three times
+  (`early EOF` / `invalid index-pack`) and codeload tarballs truncated at ~22 MB. A **googlesource archive**
+  of the same tag (`v20260210.203301`, commit `c20ab4b…`) over HTTP/1.1 worked; one checkout is symlinked
+  into both worktrees.
+- Configure needs `-DMLN_WITH_GLFW=OFF -DDAWN_USE_GLFW=OFF -DDAWN_USE_X11=OFF` on this box (no
+  `libxrandr-dev` / `libx11-xcb-dev`; Dawn's own GLFW/samples are unused here).
+- The `TINT_BUILD_TESTS` fix (bug 5) **is real on Linux too**: without it the configure log says
+  `-- Tint build tests: ON` and Dawn's bootstrapper fetches googletest; with it, `-- Tint build tests: OFF`.
+  Here the dependency fetch succeeds, so missing googletest is *not* fatal — the Mac's fatal failure is
+  fetch-dependent — but the fix is still correct and required for the no-fetch path.
+- wgpu: `wgpu-native` builds from source with the toolchain pinned by its `rust-toolchain.toml`
+  (**Rust 1.91.1**), and bindgen needs
+  `BINDGEN_EXTRA_CLANG_ARGS=-I/usr/lib/gcc/x86_64-linux-gnu/15/include -I/usr/include/x86_64-linux-gnu`
+  (libclang-21 is installed here without clang's resource headers).
+- **Upstream defect found:** `metrics/linux-webgpu-dawn.json` and `metrics/linux-webgpu-wgpu.json` both list
+  `ignores/platform-linux-webgpu.json`, which **is not in the repository** (only
+  `platform-macos-webgpu.json`, on `main` and on all three PR heads). Every group exits **5** with
+  `Invalid path is provided inside the manifest file`. The suites were run with an empty, untracked
+  `metrics/ignores/platform-linux-webgpu.json` (`{}`).
+
+**Results** (unit = `mbgl-test-runner`; render = 183 groups on #4533, 184 on #4534/#4190, one process per group):
+
+| Branch | Backend | Unit | Render (passed / failed / errored / ignored) |
+|---|---|---|---|
+| #4533 `ff96700` | Dawn | **1258/1258** | **1334 / 25 / 3 / 56** |
+| #4533 `ff96700` | wgpu | **1258/1258** | **1331 / 28 / 3 / 56** |
+| #4534 `38dac5b8` | Dawn | **1260/1260** | **1336 / 26 / 3 / 56** |
+| #4534 `38dac5b8` | wgpu | **1260/1260** | **1334 / 28 / 3 / 56** |
+| #4190 `c6b31b7` | Dawn | **1160/1160** | **1244 / 27 / 3 / 66** |
+| #4190 `c6b31b7` | wgpu | **1160/1160** | **1243 / 28 / 3 / 66** |
+
+- **#4533 is the control** (no WebGPU changes): its Dawn failure set is a **strict subset** of #4534's —
+  #4534 adds only `feature-state/symbol-paint`, #4190 adds `feature-state/composite-expression` and
+  `global-state/with-feature-state/basic` on top. The **14 "not ignored anywhere" diffs are identical on
+  #4533**, so they are baseline Linux-WebGPU behaviour, not caused by either PR. Those three extras are also
+  **flaky, not branch-specific**: re-running them 3× per branch gave e.g. #4534 `symbol-paint` 3,0,0 and
+  #4190 `composite-expression` 3,3,0 (they flip between runs; all three pass 3/3 on #4533).
+- `projection/globe/fill-seams/checkerboard` **passes on Linux WebGPU** (both backends), where RADV Vulkan
+  fails it by 10 px — the WebGPU output matches the Metal-rendered expectation.
+
+- **Unit suites are fully green on both backends.** With wgpu the suite must be run in per-suite processes:
+  in one process it aborts around test ~90 with `radv/amdgpu: Not enough memory for command submission` →
+  `wgpuQueueSubmit: Validation Error … Parent device is lost` — a wgpu-native/RADV per-process resource
+  leak, not a failing test. Every one of the 145 (#4534) / 140 (#4190) suites passes in a fresh process
+  (`[       OK ]` count equals the full test count). Dawn runs end-to-end in one process.
+- The **3 errors** in all six runs are `text-font/{burmese,khmer,devanagari}` — the same pre-existing Linux
+  glyph-range gap (`Failed to load glyph range 4096-4351 for font stack Noto Sans Regular`) as the
+  Vulkan/OpenGL baseline.
+- The same wgpu leak also hit **render**: #4190's `combinations` group (127 tests in one process) aborted
+  twice with `amdgpu: The CS has been rejected … (-12)` (re-run one test per process: 121 passed / 3 failed /
+  3 ignored, identical to Dawn), and #4533's `combinations` and `projection` groups aborted once each — both
+  completed when run on their own (combinations 124 passed / 3 failed, projection 74 passed + 1 ignored). The
+  counts above include those re-runs.
+- **Failures split in two.** (a) Tests already ignored on another platform, i.e. what the missing
+  `platform-linux-webgpu.json` presumably carries: `fill-extrusion-pattern/*` (8),
+  `fill-outline-color/{property,zoom-and-property}-function`, `fill-extrusion-color/function`,
+  `regressions/mapbox-gl-js#5642` and `#7066`, `icon-text-fit/textFit-grid-long`. (b) **Not ignored on any
+  platform** — the residual Linux-WebGPU image diffs, **identical on the #4533 control**:
+  `fill-extrusion-base/{default,function,literal,negative}`,
+  `fill-extrusion-translate-anchor/{map,viewport}`, `within/{filter-with-inlined-geojson,paint-line}`,
+  `combinations/{heatmap,hillshade,raster}-translucent--*` and the three `text-font` errors; wgpu adds the two
+  flaky `fill-pattern/{uneven-pattern,wrapping-with-interpolation}`.
+- The same tests **pass on Vulkan** on this machine and on macOS WebGPU, so this is a **Linux-WebGPU image
+  mismatch** (alpha/AA compositing of translucent layers and extrusions against the shared
+  `expectations/platform-linux`), not a branch regression. It must be investigated before anyone claims
+  Linux WebGPU parity; macOS hides part of the same class behind `platform-macos-webgpu.json`.
+- Both backends log `maxDynamicUniformBuffersPerPipelineLayout artificially reduced from 500000 to 16`
+  (portability clamp; harmless, but worth knowing).
+
+Per-group summaries and failing-test lists for all six runs:
+`~/dev/tmp/upstream-report-evidence/webgpu/`.
+
+**Reproducing (Linux, verified 2026-10-23):**
+
+```bash
+# Dawn sources: one checkout shared by all worktrees (the FetchContent git clone fails here)
+curl --http1.1 -L -o /tmp/opencode/dawn.tar.gz \
+  https://dawn.googlesource.com/dawn/+archive/c20ab4b1a2ca72eefedae3d831f058a577837df8.tar.gz
+mkdir -p ~/dev/tmp/dawn-src && tar -xzf /tmp/opencode/dawn.tar.gz -C ~/dev/tmp/dawn-src
+
+cd ~/dev/tmp/mln-pr4534                     # ff96700 / 38dac5b8 / c6b31b7
+ln -sfn ~/dev/tmp/dawn-src vendor/dawn
+printf '{}\n' > metrics/ignores/platform-linux-webgpu.json   # missing upstream (see above)
+export PATH=$HOME/Qt/Tools/Ninja:$HOME/.cargo/bin:$PATH
+COMMON="-G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DMLN_WITH_WEBGPU=ON -DMLN_WITH_WAYLAND=OFF \
+  -DMLN_WITH_X11=ON -DMLN_WITH_METAL=OFF -DMLN_WITH_OPENGL=OFF -DMLN_WITH_VULKAN=OFF \
+  -DMLN_WITH_GLFW=OFF -DMLN_TEXT_SHAPING_HARFBUZZ=OFF -DMLN_WITH_WERROR=OFF \
+  -DMLN_WITH_CLANG_TIDY=OFF -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON"
+
+cmake -S . -B ~/dev/tmp/build-pr4534-webgpu-dawn $COMMON -DMLN_WEBGPU_IMPL_DAWN=ON \
+  -DDAWN_USE_GLFW=OFF -DDAWN_USE_X11=OFF
+BINDGEN_EXTRA_CLANG_ARGS="-I/usr/lib/gcc/x86_64-linux-gnu/15/include -I/usr/include/x86_64-linux-gnu" \
+  cmake -S . -B ~/dev/tmp/build-pr4534-webgpu-wgpu $COMMON -DMLN_WEBGPU_IMPL_WGPU=ON
+cmake --build ~/dev/tmp/build-pr4534-webgpu-dawn --target mbgl-test-runner mbgl-render-test-runner -j 8
+cmake --build ~/dev/tmp/build-pr4534-webgpu-wgpu --target mbgl-test-runner mbgl-render-test-runner -j 8
+
+# tests, from the worktree root
+~/dev/tmp/build-pr4534-webgpu-dawn/mbgl-test-runner     # one process is fine
+# wgpu: one gtest suite per process (see the RADV leak above), and the runtime lib:
+export LD_LIBRARY_PATH=$PWD/vendor/wgpu-native/target/x86_64-unknown-linux-gnu/release
+~/dev/tmp/build-pr4534-webgpu-wgpu/mbgl-test-runner --gtest_filter='<Suite>.*'
+# render: one group per process, -p metrics/linux-webgpu-{dawn,wgpu}.json
+```
 
 ### macOS (from the PR CI logs, 2026-10-21)
 
@@ -224,7 +341,8 @@ the test now uses `{400, 350}`. Test-only, no render/projection change.
 
 ### Windows
 
-- PR clone: `C:\hda\dev\tmp\maplibre-native-pr`; branches `pr4533`, `pr4534`, `pr4190`; currently on **pr4534** (`2a85b5d`); build tree `build-windows-vulkan`.
+- PR clone: `C:\hda\dev\tmp\maplibre-native-pr`; branches `pr4533`, `pr4534`, `pr4190`; currently on **pr4534** — the branch moved from `2a85b5d` (the Windows Vulkan results above) to **`38dac5b8`** (Linux re-ran it at the new head: unit 1245, render unchanged; the WebGPU runs use the same head); build tree `build-windows-vulkan`.
+- **Local fix set** (only needed for the WebGPU backends; Vulkan is unaffected): `git apply wiki/references/patches/pr4534-wgsl-and-ios-test.patch` on `pr4534`, `git apply wiki/references/patches/pr4190-webgpu-dawn-ios.patch` on `pr4190`; `pr4533` needs no patch. The `vendor/dawn.cmake` `TINT_BUILD_TESTS` one-liner (in the #4190 patch) is a `main`-side fix and is required for any Dawn build.
 - **vcpkg is a copy** at `platform/windows/vendor/vcpkg` (not a junction). 34 MSYS package pins were updated to current mirror versions + SHA512; `msys2-runtime` is 3.6.9-2. Do not replace it with the Qt vendor's vcpkg.
 - **ICU**: configure overrides `ICU_I18N_LIBRARY_RELEASE` / `ICU_UC_LIBRARY_RELEASE` to the vcpkg ICU 74 libs; otherwise the Windows SDK ICU is mixed with vcpkg headers and the link fails.
 - Scripts (temp): `%LOCALAPPDATA%\Temp\opencode\configure-mln-pr3.bat`, `build-mln-test.bat`, `build-mln-render.bat`. Recreate from this doc if the temp dir is cleaned.
@@ -239,7 +357,7 @@ the test now uses `{400, 350}`. Test-only, no render/projection change.
 - Install `InstrumentationTestAppVulkan.apk` (or `...MultiBackend.apk`); uninstall the package first when switching artifacts (different debug signatures).
 - Activities: `org.maplibre.android.testapp/org.maplibre.android.testapp.activity.style.GlobeActivity` and `...style.TerrainActivity`.
 
-### Linux (works — 2026-10-21)
+### Linux (works — updated 2026-10-23)
 
 - Source trees: `git worktree add ~/dev/tmp/mln-pr<NNNN> pr<NNNN>` inside the existing clone `~/dev/projects/maplibre-native` (PR refs fetched with `git fetch https://github.com/maplibre/maplibre-native refs/pull/<n>/head:refs/heads/pr<n>`; submodule pointers are unchanged by all three, so no re-download). Populate submodules by hard-linking the clone's checkouts and pointing each `.git` file at the shared `…/.git/modules/<name>` (helper `/tmp/opencode/link-submodules.sh`).
 - Configure: `cmake -B ~/dev/tmp/build-pr<NNNN>-vk -S . -G Ninja -DCMAKE_BUILD_TYPE=Release -DMLN_WITH_VULKAN=ON -DMLN_WITH_X11=ON -DMLN_WITH_GLFW=OFF -DMLN_WITH_OPENGL=OFF -DMLN_WITH_PMTILES=ON` — GLFW defaults ON and then demands `glfw3`.
@@ -247,11 +365,13 @@ the test now uses `{400, 350}`. Test-only, no render/projection change.
 - Run: unit tests from the source dir, one runner at a time (port 3000); render tests `-p metrics/linux-vulkan.json -f render-tests/<group>/`; all 184 groups via `/tmp/opencode/render-suite.sh <src> <bin> metrics/linux-vulkan.json <outdir>`.
 - Force software Vulkan (what CI uses) for AA comparisons: `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json`.
 - Qt tests: N/A — none of the three branches touches the Qt wrapper.
-- **What is left here:** nothing report-critical. All three branches build, their unit suites pass, and the
-  render groups that matter are recorded above (`raster-warped` passes, `fill-seams/checkerboard` is a one-pixel
-  threshold miss, `sky/` 3/3, full 184-group sweep). Re-run only if a PR head moves. The fixes found on the Mac
-  do **not** need re-deriving here: they are in the [local fix set](../references/local-fixes.md) — note that
-  `vendor/dawn.cmake`'s `TINT_BUILD_TESTS` one-liner affects Linux Dawn jobs too, and `#4533` needs no patch.
+- **What is left here:** nothing report-critical. Vulkan is green as recorded above; the **Linux WebGPU** runs
+  (all three branches × Dawn/wgpu, with the [local fix set](../references/local-fixes.md) applied) are done and
+  in [§ Linux WebGPU](#linux-webgpu-dawn--wgpu--2026-10-23). The **#4533 control** proves the residual image
+  diffs are baseline Linux-WebGPU behaviour, not PR defects. Re-run only if a PR head moves.
+- Local artifacts in these worktrees that must not be committed: the `vendor/dawn` symlink, the empty
+  `metrics/ignores/platform-linux-webgpu.json`, and the fix-set patches. That ignore file is **missing
+  upstream** (still 404 on `main`), which is itself a report item.
 - Temp helpers (`/tmp/opencode/link-submodules.sh`, `/tmp/opencode/render-suite.sh`) live in that machine's
   temp dir and `/tmp` is wiped on reboot — recreate them from this page if missing.
 
@@ -385,8 +505,10 @@ pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` 
    [macOS verification](../verification/macos.md#4534s-ios-test-build-mapboxh--reproduced-and-fixed-2026-10-23).
    Still to do when GitHub scope re-opens: hand it to the author and ask a maintainer to approve that PR's
    pending runs (all `action_required` since 2026-10-21).
-5. **Post one consolidated test report** (nothing has been posted yet — GitHub activity is on hold until John says
-   go): #4533 (seams + platform), #4534 (Windows Vulkan render pass; the two WGSL bugs; the `Mapbox.h` iOS build failure — now reproduced and fixed locally, suite green), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests; iOS Dawn failure is pre-existing on `main`).
+5. **Post one consolidated test report — ready to draft** (nothing has been posted yet — GitHub activity is on
+   hold until John says go). All platform data is in: Windows, Android, Linux Vulkan, **Linux WebGPU incl. the
+   #4533 control**, macOS (Metal from CI; WebGPU reproduced and fixed). Include the `Mapbox.h` iOS fix, the
+   `TINT_BUILD_TESTS` fix and the missing `platform-linux-webgpu.json` as separate findings. Content: #4533 (seams + platform), #4534 (Windows Vulkan render pass; the two WGSL bugs; the `Mapbox.h` iOS build failure — now reproduced and fixed locally, suite green), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests; iOS Dawn failure is pre-existing on `main`).
 6. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
 7. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
 8. **Existing PRs**: #4752 review/CI, #323 CI approval, #326.
@@ -408,6 +530,7 @@ pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` 
 - ~~Is the sky shader's `target` identifier the cause of #4534's wgpu abort, and is `GlobalPaintParamsUBO` really emitted twice in #4190's terrain WGSL (or is it Dawn/wgpu divergence)?~~ **Answered 2026-10-22**: yes to both, and it is not Dawn/wgpu divergence — the same fixes make the Dawn builds green with totals identical to wgpu (Dawn subsection above).
 - Which Qt API shape should the upstream core expose?
 - ~~Which Linux build/deps path is fastest for the PR branches?~~ **Answered 2026-10-21**: worktrees of the existing clone + hard-linked submodules (no download, no junctions), Release Vulkan Ninja build ≈2.5 min per branch — see Linux pickup above.
+- ~~Are the Linux-WebGPU render diffs caused by #4534/#4190?~~ **Answered 2026-10-23**: no — the #4533 control (which touches no WebGPU code) fails the same 14 tests; the only extras are flaky `feature-state`/`global-state` cases that flip between runs.
 
 ## Related
 

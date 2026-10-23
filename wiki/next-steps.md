@@ -35,6 +35,26 @@ installs are rebuilt, and the suites were re-run: Vulkan **1110/1110**, OpenGL *
 OpenGL 5). Linux is unchanged, as expected — [Linux tests](./verification/linux-tests.md). Procedure
 for next time: [Linux runbook](./runbooks/linux-terrain-test-and-debug.md).
 
+**Linux WebGPU (done 2026-10-23, PR branches only):** all three branches — **#4533 `ff96700` (control)**,
+#4534 `38dac5b8` and #4190 `c6b31b7` — were built and tested with **Dawn and wgpu** using the
+[local fix set](./references/local-fixes.md). Unit suites are green on both backends (1258/1258, 1260/1260,
+1160/1160; wgpu has to be run per suite because of a wgpu-native/RADV resource leak). Render passes
+everything except the pre-existing `text-font` glyph errors, tests already ignored on other platforms, and
+~14 **Linux-WebGPU image diffs** (translucent composites and extrusions). Those diffs reproduce **identically
+on the #4533 control**, so they are baseline Linux-WebGPU behaviour, not caused by #4534/#4190; the
+`feature-state`/`global-state` extras flip between runs (flaky). `checkerboard` passes on WebGPU where RADV
+Vulkan fails it. Details in
+[progress § Linux WebGPU](./runbooks/upstream-contribution-progress.md#linux-webgpu-dawn--wgpu--2026-10-23).
+Also found: the Linux WebGPU metric profiles reference a missing
+`metrics/ignores/platform-linux-webgpu.json`, so they exit 5 as committed (still 404 on upstream `main`).
+
+**Next, on the Windows PC:** the Linux work is finished (fork suites and the upstream PR branches, including
+Linux WebGPU with the #4533 control). The immediate task is to **draft and post the consolidated upstream
+test report** — all platform data is in, and the tracker's Next actions item 5 lists what it must cover
+(Windows, Android, Linux Vulkan + WebGPU, macOS/Metal + WebGPU, plus the `Mapbox.h` iOS fix, the
+`TINT_BUILD_TESTS` fix and the missing `platform-linux-webgpu.json`). GitHub writes are still on hold until
+you say go. After that: Qt wrapper PRs (#323–#326) and the terrain-camera question.
+
 **Decisions taken (do not re-litigate):** keep the 192-tile drape cap (no byte memory budget); keep drape
 mipmaps; keep GL JS hillshade zoom dependence; accept the remaining ~5-15 % hillshade sharpness gap vs GL JS
 (John, 2026-10-18); edge stitching from the coarser DEM is an agreed departure.

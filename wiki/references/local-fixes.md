@@ -70,6 +70,11 @@ byte-for-byte. `#4533` (`ff96700517b9`) needs **no** patch — it passes on ever
 - iOS `Mapbox.h` (bug 7, reproduced and fixed 2026-10-23):
   [macOS verification → #4534's iOS test build](../verification/macos.md#4534s-ios-test-build-mapboxh--reproduced-and-fixed-2026-10-23)
 - iOS WebGPU include (bug 6): [macOS verification → what the iOS build revealed](../verification/macos.md#what-the-ios-build-revealed-2026-10-23)
+- **Linux WebGPU (bugs 1-4, both backends, 2026-10-23):** the same fix set was applied to the PR worktrees on
+  the Linux PC. Unit suites **1260/1260** (#4534) and **1160/1160** (#4190) pass on **Dawn and wgpu** (wgpu in
+  per-suite processes because of a wgpu-native/RADV leak). Bug 5 is reproduced there too: without the one-liner
+  the configure log says `-- Tint build tests: ON`; with it, `OFF`. Render results and the residual
+  Linux-WebGPU image diffs: [progress → Linux WebGPU](../runbooks/upstream-contribution-progress.md#linux-webgpu-dawn--wgpu--2026-10-23).
 
 ## Keeping this current
 
