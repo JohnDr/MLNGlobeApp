@@ -7,9 +7,67 @@ status: draft
 ---
 ## Summary
 
-Ordered to-do list. Update it at the end of each session and record results in [Project history](./history.md) and the [wiki log](./log.md).
+Ordered to-do list. Update it at the end of each session, **together with the [upstream contribution tracker](./runbooks/upstream-contribution-progress.md)** (the two must not contradict each other), and record results in [Project history](./history.md) and the [wiki log](./log.md).
 
-## RESUME HERE — authoritative (2026-10-18)
+## RESUME HERE — authoritative (2026-10-23)
+
+**State:** patches **0001–0058** in `maplibre-native-qt/patches/` (fork branch `maplibreearth-patches` of
+`johndr/maplibre-native`, one commit per patch, applied to the vendored core). Terrain, sky and the GL JS
+alignment from 2026-10-18 still hold. Since that block was written:
+
+- **0057 — Metal symbol shaders** (2026-10-22): ports the per-tile `ProjectionUBO` to the Metal symbol
+  shaders. On macOS Metal, symbols rendered blank/corrupt without it — **104/175 render groups passed
+  before, 175/175 after**. Metal-only, but part of the series and applied with the rest.
+- **0058 — test-only** (2026-10-22): moves one `TerrainCamera` test pixel off a sea-level crossing.
+- **macOS Metal verified**: core render tests **175/175 groups**, server suites **60/60**, app builds and
+  runs with the per-config libraries — [macOS verification](./verification/macos.md),
+  [build-macos runbook](./runbooks/build-macos.md).
+- **iOS**: QMapLibre and MapLibreEarth build for simulator and device (arm64, `minos 18.0`; the device build
+  is **unsigned**); simulator run verified, device run blocked (no signing identity, no iPhone on USB). Not a
+  Linux concern — see [macOS verification](./verification/macos.md#ios-device-build--2026-10-23).
+- **Upstream contribution testing** (#4533/#4534/#4190) is a *separate* effort with its own tracker
+  ([progress](./runbooks/upstream-contribution-progress.md)) and a portable
+  [local fix set](./references/local-fixes.md). Do not mix those patches with the fork series.
+
+**On the Linux PC, first steps:** apply the series to 0058 in `ls` order to the vendored core, rebuild both
+configs and installs, then re-run the Linux suites to confirm parity with 2026-10-18 (unit **1110 Vulkan /
+1145 OpenGL**, render failure lists identical to pristine). 0057 is Metal-only and 0058 test-only, so Linux
+should be unchanged — verify, don't assume. Procedure: [Linux runbook](./runbooks/linux-terrain-test-and-debug.md);
+results and tolerances: [Linux tests](./verification/linux-tests.md).
+
+**Decisions taken (do not re-litigate):** keep the 192-tile drape cap (no byte memory budget); keep drape
+mipmaps; keep GL JS hillshade zoom dependence; accept the remaining ~5-15 % hillshade sharpness gap vs GL JS
+(John, 2026-10-18); edge stitching from the coarser DEM is an agreed departure.
+
+**First thing after a reboot:** open Qt Creator (`~/Qt/Tools/QtCreator/bin/qtcreator -client ~/dev/projects/maplibreearth/CMakeLists.txt`),
+reconnect the MCP, check `git status` in the three repos, `/tmp` is wiped (use `~/dev/tmp`), restart the
+harness server (`python3 tools/gljs-harness/serve.py`, port 8765) and `tools/memguard.sh` before stress
+tests. Build/run policy: the **Qt Creator MCP requirement is Windows-only**; on Linux build/run the app from
+the command line (Qt Creator itself is optional), libraries from the command line for **both** configs and
+installs.
+
+**Open / next**
+1. **Debug app build** has not been rebuilt or run since the sky/drape work (build it from the command line on
+   Linux); the Debug libraries are rebuilt and `test_mln_quick` passes only with `QSG_RENDER_LOOP=basic`
+   (pre-existing threaded-loop assertion in `MapRenderer::updateRenderer`).
+2. **Pointer gestures** (patch 0053 + `main.qml`, see [gesture page](./references/gesture-gljs-alignment.md)):
+   open are keyboard handlers and shift-drag box zoom; globe-drawing pan/zoom still uses the old
+   centre-offset code; wheel zoom, rotate/pitch and double-click are not yet numerically checked on terrain
+   (the gesture page's render-check method can be reused).
+3. **Globe terrain** (patches 0050/0051): open is the sky colour above the horizon at z11 pitch 70 on the
+   globe (pale vs GL JS blue).
+4. **Zoom 14.5 / pitch 81 comparisons** are by eye or against older captures; re-capture when touching
+   terrain again.
+5. Not exercised: location indicator and custom drawable layers with the new near/far planes; benchmarks have
+   no pre-change baseline.
+6. **Tests:** Linux Vulkan and OpenGL are green and equal to pristine upstream (2026-10-18). Still open:
+   Windows 11 and Android runs, Qt location/widgets tests, WebGPU consumers of the changed shared shaders
+   (tracked separately), render-test fixtures for terrain/sky/globe, the `getMinMaxElevation` test seam. Rule:
+   shared-shader/UBO changes must pass OpenGL as well as Vulkan.
+7. **Upstreaming:** the fork's own series stays on hold ([D6](./decisions/d6-draft-upstream-prs.md)); the
+   #4533/#4534/#4190 testing work is tracked in [progress](./runbooks/upstream-contribution-progress.md).
+
+## Earlier "RESUME HERE" (2026-10-18) — historical
 
 **State:** terrain, sky and the GL JS comparison tooling are in place and aligned with GL JS (the reference; deviations need John's agreement, see [alignment audit](./references/gljs-alignment.md) and the standing rule in both `AGENTS.md`). Core patches **0001–0056** (0054 tests, 0055 OpenGL/custom-layer fix, 0056 centre-back-on-terrain ray scan; fork branch `maplibreearth-patches` of `johndr/maplibre-native`, one commit per patch; files in `maplibre-native-qt/patches/`). What exists now:
 - 3D terrain with GL JS tile covers/DEM zoom (0040, 0045), per-target drape UBOs for all draped layer types (0043), hillshade coverage and no baked mesh shade (0044), RTT pool + GL JS fingerprint/one-stale-tile-per-frame/follow-up frames (0046), drape mipmaps/anisotropy, fog far plane, DEM backfill redraw (0047), LOD edge stitching (agreed departure), GL JS near/far planes, skirts, `roundZoom` for raster tiles (0048), DEM cell-centre (-0.5 px) sampling (0049).

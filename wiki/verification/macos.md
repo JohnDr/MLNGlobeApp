@@ -138,8 +138,8 @@ render HTML reports land in `metrics/macos-webgpu-dawn.html`. That confirms the 
 backend-agnostic WGSL/generated-header mistakes (`target`, duplicate `PI`, `GlobalPaintParamsUBO`,
 `drape_tile` struct offsets) rather than Dawn/wgpu divergence.
 
-Five bugs across four files, all uncommitted experiments in the PR worktrees (nothing pushed; diffs
-saved as `~/dev/tmp/webgpu-pr-fixes/*.patch`):
+Five bugs across four files, all uncommitted experiments in the PR worktrees (nothing pushed; the portable
+patch set lives in the wiki — [local fix set](../references/local-fixes.md)):
 
 1. `include/mln/shaders/webgpu/sky.hpp` (#4534) — `target` → `view_pos` (reserved keyword), and the
    fragment redeclared `const PI`, which the shared prelude already defines.
@@ -203,15 +203,19 @@ Script-0BECA5A2AD596AB922139ABA.sh: line 5: bazel: command not found
 ```
 
 That script runs `bazel build //platform/ios:umbrella_hdr //platform/ios:mln_defines` to generate
-`MapLibre.h`/`MLNDefines.h`. Bazel is **not installed** on this Mac (`brew info bazelisk` → 1.30.0,
-bottled); CI's `ios-build` job installs it via `bazel-contrib/setup-bazel`, and `ios-build-cmake`
-relies on the runner image already having it. The two `Libtool … libabsl_hash.a` failures in the same
-run are collateral from the aborted build — that libtool command re-run by hand exits 0.
+`MapLibre.h`/`MLNDefines.h`. Bazel was **not installed** when this was first written; it is now
+(`brew install bazelisk`, 1.30.0, serving bazel **8.6.0** as the repo's `.bazelversion` pins), and the
+`ios-*` bazel targets run here — see
+[#4534's iOS test build](#4534s-ios-test-build-mapboxh--reproduced-and-fixed-2026-10-23). The two
+`Libtool … libabsl_hash.a` failures in the same run were collateral from the aborted build — that libtool
+command re-run by hand exits 0.
 
 Related, for the record: QMapLibre **does** support iOS upstream (`maplibre-native-qt`'s
 `cmake/presets/iOS.json` — Qt6 toolchain, `MLN_WITH_METAL=ON`, deployment target 17.0) and Qt 6.12.0's
-`ios_device` and `ios_simulator_arm64` kits are installed under `~/Qt`. iPhone device testing is
-**not set up yet** (no Apple ID signing as of 2026-10-23); see next-actions item 10 in the
+`ios_device` and `ios_simulator_arm64` kits are installed under `~/Qt`. Device **builds** now work (both
+halves, unsigned) but a device **run** is still blocked — no Apple ID signing identity, no iPhone visible on
+USB, and an iOS 18 runtime floor — see
+[iOS device build](#ios-device-build--2026-10-23) and next-actions item 10 in the
 [contribution runbook](../runbooks/upstream-contribution-progress.md#next-actions-ordered).
 
 ### What the iOS build revealed (2026-10-23)

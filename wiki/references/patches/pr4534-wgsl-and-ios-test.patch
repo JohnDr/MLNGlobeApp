@@ -1,0 +1,40 @@
+diff --git a/include/mln/shaders/webgpu/sky.hpp b/include/mln/shaders/webgpu/sky.hpp
+index b3d7823293e2..9f69c2c551ce 100644
+--- a/include/mln/shaders/webgpu/sky.hpp
++++ b/include/mln/shaders/webgpu/sky.hpp
+@@ -96,12 +96,12 @@ struct AtmospherePropsUBO {
+ @vertex
+ fn main(in: VertexInput) -> VertexOutput {
+     let pos = vec2<f32>(f32(in.position.x), f32(in.position.y));
+-    let target = atmosphere.inv_view_projection * vec4<f32>(pos, 0.0, 1.0);
++    let view_pos = atmosphere.inv_view_projection * vec4<f32>(pos, 0.0, 1.0);
+     var out: VertexOutput;
+     // WebGPU uses a zero-to-one NDC depth range, so 0.5 matches WebGL's
+     // framebuffer depth for clip-space z=0.
+     out.position = vec4<f32>(pos, 0.5, 1.0);
+-    out.view_direction = target.xyz / target.w - atmosphere.camera_position.xyz;
++    out.view_direction = view_pos.xyz / view_pos.w - atmosphere.camera_position.xyz;
+     return out;
+ }
+ )";
+@@ -119,7 +119,6 @@ struct AtmospherePropsUBO {
+ 
+ @group(0) @binding(5) var<uniform> atmosphere: AtmospherePropsUBO;
+ 
+-const PI: f32 = 3.141592653589793;
+ const PRIMARY_STEPS: i32 = 5;
+ const LIGHT_STEPS: i32 = 3;
+ const EARTH_RADIUS: f32 = 6371000.0;
+diff --git a/platform/darwin/test/MLNSkyTest.mm.ejs b/platform/darwin/test/MLNSkyTest.mm.ejs
+index fe884bb376ca..674bffc0d059 100644
+--- a/platform/darwin/test/MLNSkyTest.mm.ejs
++++ b/platform/darwin/test/MLNSkyTest.mm.ejs
+@@ -5,7 +5,7 @@
+ // Edit platform/darwin/scripts/generate-style-code.mjs, then run `make darwin-style-code`.
+ 
+ #import <XCTest/XCTest.h>
+-#import <Mapbox.h>
++#import <MapLibre.h>
+ 
+ #import "MLNSky_Private.h"
+ #import "../../darwin/src/NSDate+MLNAdditions.h"

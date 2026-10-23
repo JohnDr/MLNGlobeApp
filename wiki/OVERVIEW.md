@@ -18,7 +18,7 @@ MapLibreEarth is one QML app ([`main.qml`](./entry-points/main-qml.md), `main.cp
 - **The MapLibre work** → [MapLibre Native](./concepts/maplibre-native.md), [MapLibre Native Qt](./concepts/maplibre-native-qt.md), [Style-spec properties](./concepts/style-spec-properties.md).
 - **Decisions** → [Decisions index](./decisions/index.md).
 - **Upstream** → [Pull requests](./references/upstream-prs.md).
-- **Picking up the work** → [Next steps](./next-steps.md).
+- **Picking up the work** → [Next steps](./next-steps.md) for the fork/app, and [Upstream contribution progress](./runbooks/upstream-contribution-progress.md) for the #4533/#4534/#4190 testing effort. Both are **live** documents: update them at the end of every session, before switching machines.
 
 ## Navigation
 
@@ -64,4 +64,6 @@ MapLibreEarth is one QML app ([`main.qml`](./entry-points/main-qml.md), `main.cp
 - [Upstream issues](./references/upstream-issues.md) — the MapLibre Native gaps.
 - [Project history](./history.md) — dated milestones.
 - [Wiki log](./log.md) — append-only record of changes to this wiki.
-- [Next steps](./next-steps.md) — the ordered to-do list.
+- [Next steps](./next-steps.md) — the ordered to-do list (live; "RESUME HERE" is authoritative).
+- [Upstream contribution progress](./runbooks/upstream-contribution-progress.md) — live tracker for the upstream PR testing (branch status, per-platform results, next actions).
+- [Local fix set](./references/local-fixes.md) — portable patches for the uncommitted #4534/#4190 fixes.

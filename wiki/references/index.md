@@ -10,6 +10,7 @@ status: draft
 Background and preserved sources.
 
 - [Handover (JDReadme)](./handover-jdreadme.md) — the original build handover, preserved.
+- [Local fix set](./local-fixes.md) — the portable patches for the uncommitted #4534/#4190 WebGPU/Dawn/iOS fixes (apply with `git apply` on any machine).
 - [Downstream patches](./fork-patches.md) — the two patches applied to the vendored core.
 - [Upstream pull requests](./upstream-prs.md) — the five draft PRs.
 - [Upstream issues](./upstream-issues.md) — the MapLibre Native style-spec gaps.

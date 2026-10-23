@@ -675,14 +675,14 @@ All diagnostics reverted; both installs rebuilt clean.
 
 ### Session summary — 3D terrain drape (2026-10-14)
 
-Fixed three real bugs, then localised a fourth. **Resume point is the "RESUME HERE" section of [Next steps](../next-steps.md).**
+Fixed three real bugs, then localised a fourth. **Resume point is the "RESUME HERE" section of [Next steps](./next-steps.md).**
 
 **Fixed + verified:**
 1. Drape drew nothing (per-tile ortho `z` at the near plane → Vulkan clipped every draw) — patch **0036**.
 2. Drape rotated 180° (spurious `1.0 - v_uv.y` in the terrain sampler) — patch **0037**.
 3. App camera reset on style load (`applyCamera` eased pitch/bearing without zoom → map transform stuck at ~1.3 → raster cover collapsed to z2) — app `e367b01`.
 
-**Open:** drape empty at zoom >= 15. The z16 raster cover overlaps the z14 DEM targets (verified), the transform states agree, but the offscreen target renders black — the overlapping tiles are present but not drawn. Next: log the raster drawable's clip range inside one target, or read back the target pixels. See [Next steps](../next-steps.md).
+**Open:** drape empty at zoom >= 15. The z16 raster cover overlaps the z14 DEM targets (verified), the transform states agree, but the offscreen target renders black — the overlapping tiles are present but not drawn. Next: log the raster drawable's clip range inside one target, or read back the target pixels. See [Next steps](./next-steps.md).
 
 All library diagnostics reverted; both installs rebuilt clean. Fork patches pushed: `maplibre-native-0036-terrain-drape-ortho-z.patch`, `maplibre-native-0037-terrain-drape-uv-orientation.patch`.
 
@@ -1012,3 +1012,9 @@ Fix (recommended, not a departure): apply the -0.5 cell-centre offset once, in t
 ### 2026-10-19 - full re-run with patch 0056
 
 - Rebuilt the Vulkan and OpenGL test trees and the Qt library with 0056: unit tests Vulkan 1110/1110, OpenGL 1145/1145 (incl. the 26 `TerrainCamera.*`); Qt `test_mln_quick` passes; render failures Vulkan 4 and OpenGL 5, both identical to the pristine lists. No change from the post-0055 results.
+
+## 2026-10-22/23 — macOS Metal verified, iOS builds, upstream WebGPU PRs reproduced
+
+- **Metal (macOS):** the app and the vendored core build and run here. **Patch 0057** ports the per-tile `ProjectionUBO` to the Metal symbol shaders — symbols were blank/corrupt without it (**104/175 → 175/175** render groups); **0058** is test-only. Core render tests 175/175 groups, server suites 60/60. The `Map.*` hang is an upstream Metal deadlock, not the fork.
+- **iOS:** Xcode's components had never been installed (`xcodebuild -runFirstLaunch` → 69), so `CoreSimulator.framework` was missing and every iOS CMake preset died in compiler detection; after the repair the `ios-*` presets build. QMapLibre builds for simulator and device (static libs + `MapLibre` QML module, `minos 17.0`); MapLibreEarth builds for both (device `minos 18.0`, **unsigned**) and **runs on the simulator** (Metal shaders compile, `import MapLibre` resolves). A device run is blocked three ways: no signing identity, no iPhone ever enumerated on USB (`xcrun xcdevice list` lists only the Mac, `ioreg` only dock infrastructure; note `system_profiler SPUSBDataType` returns empty output with rc 0 on this Mac, so it cannot be trusted), and an **iOS 18 floor** — an iPhone 6 (iOS 12.5.7) cannot run it.
+- **Upstream PRs:** #4534's two WGSL bugs and #4190's three reproduced and fixed on macOS with both wgpu **and** Dawn; #4533 passes. `main`'s red `ios-build-webgpu-dawn` is Dawn's `TINT_BUILD_TESTS` defaulting ON — one-line fix, verified, and it does not change the Dawn libraries we link. #4534's iOS `<Mapbox.h>` import reproduced with bazel 8.6.0 and, once fixed, `//platform/ios/test:ios_test` passes **302 tests / 0 failures**. Portable patches: [local fix set](./references/local-fixes.md).

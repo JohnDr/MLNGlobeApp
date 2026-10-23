@@ -11,7 +11,15 @@ status: current
 ---
 # Upstream contribution progress
 
-> Live tracker, updated 2026-10-21. Strategy: join the existing upstream feature branches, report test results, and contribute focused gaps (Qt/QMapLibre wrapper first). **Do not** submit the 58-patch fork stack or a competing globe/terrain/sky implementation.
+> Live tracker, **updated 2026-10-23**. Strategy: join the existing upstream feature branches, report test results, and contribute focused gaps (Qt/QMapLibre wrapper first). **Do not** submit the 58-patch fork stack or a competing globe/terrain/sky implementation.
+
+**Maintenance rule — keep this current.** This file and [Next steps](../next-steps.md) are the two live
+hand-off documents; update **both** at the end of every session, before switching machines or ending a
+session, even when the session only verified something. In this file: the branch/CI table, the per-platform
+result sections, [Next actions](#next-actions-ordered) (tick off, renumber, or replace rather than leaving a
+done item looking pending) and [Open questions](#open-questions). In [Next steps](../next-steps.md): its
+"RESUME HERE — authoritative" block. Then record the session in [Project history](../history.md) and the
+[wiki log](../log.md). A fact that is only in a chat does not exist for the next session.
 
 ## Strategy (agreed 2026-10-20)
 
@@ -24,7 +32,7 @@ status: current
 | Effort | Owner | Branch / base | State | Notes |
 |---|---|---|---|---|
 | Globe #4533 | johncarmack1984 | `phased/12h` → `main` | open, not draft, `BLOCKED`, CI green (2026-10-20) | Issue #3161; design proposal #4525 closed; 673 files. |
-| Sky #4534 | ClayWarren | `codex/sky-style-spec-4414`, stacked on globe | open, not draft, `DIRTY`; CI stuck since 2026-10-21 (`action_required`) | Issue #4414; Metal/Vulkan render pass. Two WebGPU WGSL bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Last *executed* head (2026-10-16): only `ios-build` failed, because the new `MLNSkyTest.mm.ejs` imports `<Mapbox.h>` (`ios_test` failed to build) — one-line PR bug, below; Android CI passed. |
+| Sky #4534 | ClayWarren | `codex/sky-style-spec-4414`, stacked on globe | open, not draft, `DIRTY`; CI stuck since 2026-10-21 (`action_required`, as of the 2026-10-22 `gh` read) | Issue #4414; Metal/Vulkan render pass. Two WebGPU WGSL bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Last *executed* head (2026-10-16): only `ios-build` failed, because the new `MLNSkyTest.mm.ejs` imports `<Mapbox.h>` (`ios_test` failed to build) — one-line PR bug, below; Android CI passed. |
 | Terrain #4190 | NathanMOlson | `feature/terrain-3d` → `main` | **draft**, `DIRTY` | Maintainer `louwers` coordinating; follow-ups #4558, #4790, #4791, #4801, #4809, #4810 target `feature/terrain-3d`; issue #252. Three WebGPU bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Its iOS Dawn CI failure is pre-existing on `main` (below). |
 | Overlap #4752 | JohnDr | `mln-icon-text-overlap` → `main` | **draft**, `BLOCKED`, pre-commit green | Our icon/text-overlap implementation; build workflows await approval; refs #251. |
 | Qt #323–#326 | JohnDr | fork branches → `maplibre-native-qt` `main` | #323 draft; #324/#325/#326 ready | #323 Metal fix at `91297dd`, CI approval pending; #326 has empty-style fallback + `styleChanged` NOTIFY at `5d1077a`. |
@@ -208,6 +216,13 @@ the test now uses `{400, 350}`. Test-only, no render/projection change.
 - Run: unit tests from the source dir, one runner at a time (port 3000); render tests `-p metrics/linux-vulkan.json -f render-tests/<group>/`; all 184 groups via `/tmp/opencode/render-suite.sh <src> <bin> metrics/linux-vulkan.json <outdir>`.
 - Force software Vulkan (what CI uses) for AA comparisons: `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json`.
 - Qt tests: N/A — none of the three branches touches the Qt wrapper.
+- **What is left here:** nothing report-critical. All three branches build, their unit suites pass, and the
+  render groups that matter are recorded above (`raster-warped` passes, `fill-seams/checkerboard` is a one-pixel
+  threshold miss, `sky/` 3/3, full 184-group sweep). Re-run only if a PR head moves. The fixes found on the Mac
+  do **not** need re-deriving here: they are in the [local fix set](../references/local-fixes.md) — note that
+  `vendor/dawn.cmake`'s `TINT_BUILD_TESTS` one-liner affects Linux Dawn jobs too, and `#4533` needs no patch.
+- Temp helpers (`/tmp/opencode/link-submodules.sh`, `/tmp/opencode/render-suite.sh`) live in that machine's
+  temp dir and `/tmp` is wiped on reboot — recreate them from this page if missing.
 
 ### macOS WebGPU — reproduced and fixed (2026-10-22)
 
@@ -274,9 +289,14 @@ so the bugs were backend-agnostic WGSL/generated-header mistakes, not Dawn/wgpu 
 `/tmp/pr4190-{unit,render}-dawn-full.log`, `/tmp/pr4534-{unit,render}-dawn-full.log`, render HTML in
 `metrics/macos-webgpu-dawn.html`.
 
-**Local only**: the three worktrees are experiments; the fixes are uncommitted and nothing was pushed. The diffs are saved as `~/dev/tmp/webgpu-pr-fixes/pr4534-webgpu-wgsl.patch` and `~/dev/tmp/webgpu-pr-fixes/pr4190-webgpu.patch` (`git diff` in `~/dev/tmp/mln-pr4534` / `~/dev/tmp/mln-pr4190`). As of 2026-10-23 `~/dev/tmp/mln-pr4190` also carries the uncommitted `vendor/dawn.cmake` one-liner (`TINT_BUILD_TESTS OFF`, next-actions 3) and the `platform/ios/src/MLNMapView+WebGPU.mm` include (next-actions 11a).
+**Local only**: the three worktrees are experiments; the fixes are uncommitted and nothing was pushed. The
+portable copy of the whole fix set is now **in the wiki** —
+[local fix set](../references/local-fixes.md) + `wiki/references/patches/*.patch` — covering all seven files
+(the two WGSL files, `texture2d.cpp`, `vendor/dawn.cmake`'s `TINT_BUILD_TESTS` one-liner, the
+`MLNMapView+WebGPU.mm` include and `MLNSkyTest.mm.ejs`). Apply with `git apply` in the matching worktree;
+`#4533` needs none. The older Mac-local copies (`~/dev/tmp/webgpu-pr-fixes/`) are superseded.
 
-### iOS / Xcode (works — 2026-10-23, simulator only)
+### iOS / Xcode (works — 2026-10-23: builds for simulator **and** device, runs on the simulator)
 
 Machine changes on the Mac mini (one-off; repeat if this Mac is reimaged):
 `xcodebuild -runFirstLaunch` — it had been returning **69**, Xcode's components were never installed, so
@@ -293,10 +313,13 @@ pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` 
   local uncommitted one-line `#import <mln/gfx/context.hpp>` in `platform/ios/src/MLNMapView+WebGPU.mm`
   (next-actions 11a). Uncommitted in that worktree now: the three WebGPU shader/stat fixes, this include,
   and the shared `vendor/dawn.cmake` `TINT_BUILD_TESTS OFF` one-liner (next-actions 3).
-- Blocked: this Xcode 27.1 install has **no `Simulator.app`**, so simulator screenshots stay blank
-  (needs an Xcode repair) — a text-only simulator test is unaffected
-  (`bazel test //platform/ios/test:ios_test --//:renderer=metal`, heavy, builds its own SDK). Device runs
-  need Apple ID signing, not set up. Detail: [macOS verification → iOS on this Mac](../verification/macos.md#ios-on-this-mac-toolchain-fixed-2026-10-23).
+- Blocked: this Xcode 27.1 install has **no `Simulator.app`**, so simulator *screenshots* stay blank
+  (needs an Xcode repair) — textual simulator runs are unaffected. The upstream iOS test suite now runs here:
+  `bazel test //platform/ios/test:ios_test --//:renderer=metal` → **302 tests, 5 skipped, 0 failures** after
+  the `Mapbox.h` fix (next-actions 4). Device **builds** work, device **runs** need Apple ID signing (not set
+  up) — and an iOS 18 runtime floor makes an iPhone 6 unusable. Detail:
+  [macOS verification → iOS on this Mac](../verification/macos.md#ios-on-this-mac-toolchain-fixed-2026-10-23),
+  [device build](../verification/macos.md#ios-device-build--2026-10-23).
 
 ## Next actions (ordered)
 
@@ -331,7 +354,8 @@ pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` 
    [macOS verification](../verification/macos.md#4534s-ios-test-build-mapboxh--reproduced-and-fixed-2026-10-23).
    Still to do when GitHub scope re-opens: hand it to the author and ask a maintainer to approve that PR's
    pending runs (all `action_required` since 2026-10-21).
-5. **Post one consolidated test report**: #4533 (seams + platform), #4534 (Windows Vulkan render pass; the two WGSL bugs; the `Mapbox.h` iOS build failure — now reproduced and fixed locally, suite green), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests; iOS Dawn failure is pre-existing on `main`).
+5. **Post one consolidated test report** (nothing has been posted yet — GitHub activity is on hold until John says
+   go): #4533 (seams + platform), #4534 (Windows Vulkan render pass; the two WGSL bugs; the `Mapbox.h` iOS build failure — now reproduced and fixed locally, suite green), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests; iOS Dawn failure is pre-existing on `main`).
 6. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
 7. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
 8. **Existing PRs**: #4752 review/CI, #323 CI approval, #326.
