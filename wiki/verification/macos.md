@@ -346,9 +346,22 @@ Both halves compile for a physical iPhone, unsigned:
 1. **No signing identity.** `security find-identity -v -p codesigning` → 0 valid identities, and no
    provisioning profiles on the machine. This needs an Apple ID signed into Xcode (a free Personal Team
    is enough for your own device) — interactive, and not something to work around.
-2. **No iPhone visible on USB.** `system_profiler SPUSBDataType` and `ioreg -p IOUSB` list only hubs, a
-   mouse, a keyboard and an AX88179A NIC; `xcrun xctrace list devices` lists this Mac and the simulators
-   only. Charge-only cable, untrusted/locked phone and "not actually attached" all look like this.
+2. **No iPhone visible on USB — diagnosed 2026-10-23.** `xcrun xcdevice list` reports only the Mac itself
+   (`Mac18,5`, `interface: usb`) and the simulators: no phone, not even as ignored/unavailable.
+   `ioreg -r -c IOUSBHostDevice` enumerates 20 devices and every one is infrastructure — GenesysLogic
+   hubs, a Fresco Logic "Generic Billboard Device" and mouse, a HAULUCK keyboard, an ASIX AX88179A NIC
+   (so this Mac's USB all hangs off a USB-C dock) — with **no Apple mobile device** of any kind; a locked
+   iPhone, or one in recovery/DFU, would still show as an Apple-vendor product. `usbmuxd` itself is
+   healthy (`/System/Library/PrivateFrameworks/MobileDevice.framework/…/usbmuxd -launchd`), and three
+   hours of `log show` contain no attach or usbmux activity, so nothing was seen and then dropped. There
+   is also no `~/Library/Application Support/MobileSync/Backup/`, i.e. no prior pairing on this Mac. The
+   signature — charging but never enumerating — points to a **charge-only cable**, a flat or powered-off
+   phone, or a dirty Lightning port on an old handset. Try a known-good *data* cable in the Mac's own port
+   rather than the dock, with the phone awake and unlocked, and accept the **Trust This Computer** prompt.
+   **Probe caveat:** on this Mac `system_profiler SPUSBDataType` returns **rc 0 with completely empty
+   output**, so empty output there must never be read as "no devices attached" — use `ioreg -p IOUSB` or
+   `xcrun xcdevice list`. Even a healthy link would not let this app run on the iPhone 6 (blocker 3), and
+   `devicectl` needs iOS 17+ devices regardless.
 3. **The deployment floor is iOS 18.0.** Qt 6.12's prebuilt iOS libraries are built for `minos 18.0`
    (read from a `QtCore` archive member), and our app binary is `minos 18.0` too. **An iPhone 6 stops at
    iOS 12.5.7**, so it cannot install or run this app — and Xcode 27's `devicectl` only speaks to iOS 17+
