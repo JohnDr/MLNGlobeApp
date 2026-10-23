@@ -29,11 +29,11 @@ alignment from 2026-10-18 still hold. Since that block was written:
   ([progress](./runbooks/upstream-contribution-progress.md)) and a portable
   [local fix set](./references/local-fixes.md). Do not mix those patches with the fork series.
 
-**On the Linux PC, first steps:** apply the series to 0058 in `ls` order to the vendored core, rebuild both
-configs and installs, then re-run the Linux suites to confirm parity with 2026-10-18 (unit **1110 Vulkan /
-1145 OpenGL**, render failure lists identical to pristine). 0057 is Metal-only and 0058 test-only, so Linux
-should be unchanged — verify, don't assume. Procedure: [Linux runbook](./runbooks/linux-terrain-test-and-debug.md);
-results and tolerances: [Linux tests](./verification/linux-tests.md).
+**On the Linux PC — done 2026-10-23:** the series is applied through **0058**, both library configs and
+installs are rebuilt, and the suites were re-run: Vulkan **1110/1110**, OpenGL **1145/1145**, expression
+**332/0**, Qt `ctest` pass in both configs, render failure lists identical to pristine (Vulkan 4,
+OpenGL 5). Linux is unchanged, as expected — [Linux tests](./verification/linux-tests.md). Procedure
+for next time: [Linux runbook](./runbooks/linux-terrain-test-and-debug.md).
 
 **Decisions taken (do not re-litigate):** keep the 192-tile drape cap (no byte memory budget); keep drape
 mipmaps; keep GL JS hillshade zoom dependence; accept the remaining ~5-15 % hillshade sharpness gap vs GL JS

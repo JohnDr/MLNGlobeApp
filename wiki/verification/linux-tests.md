@@ -7,7 +7,7 @@ status: current
 ---
 ## Summary
 
-Linux (Ubuntu 26.04, Vulkan) is the only platform where the test suites have been run so far. All figures are from 2026-10-18/19 on the patched vendored core (upstream `c7506d6` + patches 0001-0056; re-run after 0056 on 2026-10-19 with identical results).
+Linux (Ubuntu 26.04, Vulkan) is where the core suites are maintained. All figures are from 2026-10-18/19 on the patched vendored core (upstream `c7506d6` + patches 0001-0056; re-run after 0056 on 2026-10-19 with identical results) and were reproduced after patches 0057/0058 on 2026-10-23.
 
 | Suite | Result |
 |-------|--------|
@@ -17,6 +17,22 @@ Linux (Ubuntu 26.04, Vulkan) is the only platform where the test suites have bee
 | Expression tests `mbgl-expression-test` | 332 pass, 17 ignored, 0 fail |
 | Qt `ctest` (`test_mln_quick`, Release, Vulkan, rebuilt with patch 0055) | pass, needs `QT_QPA_PLATFORM=xcb`; `offscreen` aborts |
 | Gesture logic `tests/gesture/run.sh` | 35 QtQuickTest cases pass |
+
+## Re-verification 2026-10-23 (patches 0057–0058)
+
+Applied **0057** (Metal symbol `ProjectionUBO`, Metal-only) and **0058** (test-only) to the vendored
+core, rebuilt both library configs + installs and both core test trees, then re-ran everything:
+
+| Suite | Result |
+|---|---|
+| Core unit, Vulkan | **1110/1110** pass |
+| Core unit, OpenGL | **1145/1145** pass |
+| Expression tests | **332 pass, 17 ignored, 0 fail** (Vulkan and OpenGL) |
+| Qt `ctest` (`test_mln_quick`) | pass in **both** Release and Debug |
+| Render tests, Vulkan | 175 groups — only `fill-extrusion-pattern/tile-buffer` (fail) and `text-font/{burmese,khmer,devanagari}` (error) |
+| Render tests, OpenGL | 175 groups — the documented five: the above plus `icon-text-fit/textFit-grid-long` (fail) |
+
+Identical to the 2026-10-18/19 results: the two new patches do not touch Linux, as expected.
 
 Baselines: pristine upstream `c7506d6` was built for OpenGL and Vulkan (reverse-applied patches in `~/dev/tmp/maplibre-native-pristine`). Pristine Vulkan: 1025 unit tests pass, 0 fail. Run the suites **one at a time**: the unit tests use a fixed HTTP test server port (3000), so two runners at once hang.
 
