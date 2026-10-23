@@ -73,9 +73,16 @@ public:
         settings.setValue(QStringLiteral("ui/scaleFactor"), scale);
         settings.sync();
 
+#if defined(Q_OS_IOS)
+        // iOS apps cannot relaunch themselves, and Qt omits
+        // QProcess::startDetached there; the scale factor is a desktop concern
+        // anyway, so the persisted value is all we apply.
+        return;
+#else
         QProcess::startDetached(QCoreApplication::applicationFilePath(),
                                 {QStringLiteral("--scale"), QString::number(scale, 'f', 2)});
         QCoreApplication::quit();
+#endif
     }
 
 private:
