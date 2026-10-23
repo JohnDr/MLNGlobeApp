@@ -515,7 +515,7 @@ pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` 
    [macOS verification](../verification/macos.md#4534s-ios-test-build-mapboxh--reproduced-and-fixed-2026-10-23).
    Still to do when GitHub scope re-opens: hand it to the author and ask a maintainer to approve that PR's
    pending runs (all `action_required` since 2026-10-21).
-5. **Post one consolidated test report — ready to draft** (nothing has been posted yet — GitHub activity is on
+5. **Post one consolidated test report — drafted at [upstream-report-drafts](../references/upstream-report-drafts.md), awaiting John's review/go** (nothing has been posted yet — GitHub activity is on
    hold until John says go). All platform data is in: Windows, Android, Linux Vulkan, **Linux WebGPU incl. the
    \#4533 control**, macOS (Metal from CI; WebGPU reproduced and fixed). Include the `Mapbox.h` iOS fix, the
    `TINT_BUILD_TESTS` fix and the missing `platform-linux-webgpu.json` as separate findings. Content: #4533 (seams + platform), #4534 (Windows Vulkan render pass; the two WGSL bugs; the `Mapbox.h` iOS build failure — now reproduced and fixed locally, suite green), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests; iOS Dawn failure is pre-existing on `main`).

@@ -14,6 +14,7 @@ Background and preserved sources.
 - [Downstream patches](./fork-patches.md) — the two patches applied to the vendored core.
 - [Upstream pull requests](./upstream-prs.md) — the five draft PRs.
 - [Upstream issues](./upstream-issues.md) — the MapLibre Native style-spec gaps.
+- [Consolidated upstream report drafts](./upstream-report-drafts.md) — one text-only comment per PR (#4533/#4534/#4190), awaiting review before posting.
 
 ## Related
 
