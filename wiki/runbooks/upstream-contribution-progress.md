@@ -32,7 +32,7 @@ done item looking pending) and [Open questions](#open-questions). In [Next steps
 | Effort | Owner | Branch / base | State | Notes |
 |---|---|---|---|---|
 | Globe #4533 | johncarmack1984 | `phased/12h` → `main` | open, not draft, `MERGEABLE`/`BLOCKED` (review required); CI green — 53 pass, 0 fail (`gh` read 2026-10-23) | Issue #3161; design proposal #4525 closed; 673 files. |
-| Sky #4534 | ClayWarren | `codex/sky-style-spec-4414`, stacked on globe | open, not draft, `MERGEABLE`/`BLOCKED` (**no longer `DIRTY`**); CI stuck since 2026-10-21 — all 10 workflows `action_required`, nothing has run on this head (`gh` read 2026-10-23) | Issue #4414; Metal/Vulkan render pass. Two WebGPU WGSL bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Last *executed* head (2026-10-16): only `ios-build` failed, because the new `MLNSkyTest.mm.ejs` imports `<Mapbox.h>` (`ios_test` failed to build) — one-line PR bug, below; Android CI passed. Stacked on an **older globe head** — `phased/12h...codex/sky-style-spec-4414` is `diverged` (5 globe commits behind). |
+| Sky #4534 | ClayWarren | `codex/sky-style-spec-4414`, stacked on globe | open, not draft, `MERGEABLE`/`BLOCKED` (**no longer `DIRTY`**); CI stuck since 2026-10-21 — all 10 workflows `action_required`, nothing has run on this head (`gh` read 2026-10-23) | Issue #4414; Metal/Vulkan render pass. Two WebGPU WGSL bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Linux/Vulkan executed at the **current head `38dac5b8`** (2026-10-23): unit 1245/1245, render 1337 passed / 2 failed over 184 groups — unchanged from `2a85b5d`. Last *CI*-executed head (2026-10-16): only `ios-build` failed, because the new `MLNSkyTest.mm.ejs` imports `<Mapbox.h>` (`ios_test` failed to build) — one-line PR bug, below; Android CI passed. Stacked on an **older globe head** — `phased/12h...codex/sky-style-spec-4414` is `diverged` (5 globe commits behind). |
 | Terrain #4190 | NathanMOlson | `feature/terrain-3d` → `main` | **draft**, `CONFLICTING`/`DIRTY` (`gh` read 2026-10-23: unchanged) | Maintainer `louwers` coordinating; follow-ups #4558, #4790, #4791, #4801, #4809, #4810 target `feature/terrain-3d`; issue #252. Three WebGPU bugs found + fixed locally 2026-10-22 (wgpu **and** Dawn now green locally, below). Its iOS Dawn CI failure is pre-existing on `main` (below). |
 | Overlap #4752 | JohnDr | `mln-icon-text-overlap` → `main` | **draft**, `BLOCKED`, pre-commit green | Our icon/text-overlap implementation; build workflows await approval; refs #251. |
 | Qt #323–#326 | JohnDr | fork branches → `maplibre-native-qt` `main` | #323 draft; #324/#325/#326 ready | #323 Metal fix at `91297dd`, CI approval pending; #326 has empty-style fallback + `styleChanged` NOTIFY at `5d1077a`. |
@@ -67,16 +67,18 @@ Built from the PR CI `android-ui-test-vulkan` artifacts (package `org.maplibre.a
 - **#4190**: `TerrainActivity` renders pitched 3D terrain with draped imagery. **PASS**.
 - **#4534**: no Sky activity; `GlobeActivity` shows no atmosphere. Not visually verifiable; CI failures above stand.
 
-### Linux (Ubuntu 26.04, Vulkan/RADV, AMD Radeon 780M) — 2026-10-21
+### Linux (Ubuntu 26.04, Vulkan/RADV, AMD Radeon 780M) — 2026-10-21, re-run at the #4534 head 2026-10-23
 
 All three branches built as worktrees of the local clone (`~/dev/tmp/mln-pr4533|pr4534|pr4190`), submodules populated from the shared object store (no re-download), Release + `MLN_WITH_VULKAN=ON`/X11 (no GLFW/OpenGL), Ninja, build trees `~/dev/tmp/build-pr45xx-vk`. Core build ≈2.5 min; the existing [Linux tests](../verification/linux-tests.md) path works unchanged for PR branches.
+
+**Environment (for the report's reproducibility note):** RADV `AMD Radeon 780M (RADV PHOENIX)`, Mesa **26.0.8-1ubuntu0.3**, Vulkan **1.4.335**, LLVM 21.1.8; lavapipe = `llvmpipe` in the same Mesa package, selected with `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json`; Ubuntu 26.04, 16 cores.
 
 **Unit tests** (`mbgl-test-runner`, Vulkan, RADV; one runner at a time — fixed HTTP test port 3000):
 
 | Branch | Head | Result |
 |---|---|---|
 | #4533 globe | `ff96700` | **1243 tests / 145 suites — all pass**, 4 disabled |
-| #4534 sky | `2a85b5d` | **1245 tests — all pass**, 4 disabled |
+| #4534 sky | `2a85b5d` → **`38dac5b8`** (2026-10-23) | **1245 tests — all pass**, 4 disabled (same count at the new head; the merge from `main` added no tests in this configuration) |
 | #4190 terrain | `c6b31b7` | **1145 tests — all pass**, 30 tests named `*Terrain*` included |
 
 The Windows-only stops (`OnlineFileSource.ConnectionError`, `LocalFileSource.InvalidUTF8Path`) did **not** reproduce on Linux.
@@ -90,6 +92,7 @@ The Windows-only stops (`OnlineFileSource.ConnectionError`, `LocalFileSource.Inv
 - `terrain/` (6 tests): **6/6 ignored** (all-platform ignore, graded against GL JS) — same as Windows.
 - Full suite, #4533 (all 184 groups, ≈38 min): only two failing groups — `projection` (the checkerboard test above) and `fill-extrusion-pattern/tile-buffer`, the pre-existing upstream Linux/Vulkan baseline failure also present on pristine `c7506d6`. `text-font` 7/7 pass here (pristine had `burmese`/`khmer`/`devanagari` errors).
 - Full suite, #4534 (184 groups): the **same two failures** as #4533 — `projection/globe/fill-seams/checkerboard` and `fill-extrusion-pattern/tile-buffer`.
+- **#4534 re-run at the current head `38dac5b8` (2026-10-23)**: unit **1245/1245**, full suite **1337 passed / 2 failed / 62 ignored** over 184 groups — still only `fill-extrusion-pattern/tile-buffer` (pre-existing) and `checkerboard`. `actual.png` md5 is again `127999d3…`, i.e. the merge from `main` did not change the rendered frame; `sky/` stays **3/3**. Build tree `~/dev/tmp/build-pr4534-vk`, per-group logs `~/dev/tmp/pr4534-head-render/summary.txt`.
 - Full suite, #4190 (184 groups): **only** `fill-extrusion-pattern/tile-buffer` (the pre-existing baseline failure). This branch is based on `main` and carries no globe (`projection/globe`) or `sky/` fixtures, so those groups do not exist here — its `projection` group is the pre-globe four tests, all passing.
 
 ### macOS (from the PR CI logs, 2026-10-21)
