@@ -262,6 +262,27 @@ are byte-identical 106 KB all-black PNGs. `Simulator.app` belongs to the Xcode b
 `xcodebuild -downloadPlatform iOS`, so inspectable simulator runs need a repaired/reinstalled Xcode. A
 test-only simulator run (textual output) is unaffected.
 
+### QMapLibre (Qt wrapper) for iOS simulator — 2026-10-23
+
+The wrapper's iOS path had never been built on this Mac; it builds. With the `ios_simulator_arm64` Qt
+kit, `cmake --preset iOS-ccache -DCMAKE_OSX_ARCHITECTURES=arm64` configures in 6.1 s and
+`cmake --build … --config Release` finishes **551 steps with 0 warnings and 0 errors**, producing
+**static** libraries — `libQMapLibre.a`, `libQMapLibreQuickPrivate.a`, `libQMapLibreLocation.a`,
+`libQMapLibreWidgets.a` — plus the QML module `src/quick/plugins/MapLibre/`
+(`libdeclarative_maplibre.a`, `qmldir`, `declarative_maplibre.qmltypes`) and the location plugin. Objects
+are `platform IOSSIMULATOR, minos 17.0, sdk 27.1`, arm64, and the wrapper's Metal backend
+(`metal_renderer_backend.mm`, `texture_node_metal.mm`) compiles in.
+
+Two caveats found: the preset's default `CMAKE_OSX_ARCHITECTURES=arm64;x86_64` is **not buildable
+against the Qt-installer iOS kits**, which are single-arch (only the macOS host kit is fat) — configure
+accepts it, then the link fails (`ld: warning: ignoring file …/QtCore …: found architecture 'arm64',
+required architecture 'x86_64'` → `Undefined symbols … _qt_main_wrapper`), so override to the kit's arch;
+and `MLN_WITH_GLFW` stays **ON** (harmless — nothing references it and no test target is built).
+Upstream's `iOS CI` is green with the preset defaults, but it gets Qt from `aqtinstall`, so check that
+packaging difference before calling either an upstream bug.
+
+Canonical tree and commands: [Build (macOS) → iOS simulator library tree](../runbooks/build-macos.md#ios-simulator-library-tree--2026-10-23).
+
 ### Dawn's TINT_BUILD_TESTS — main's red iOS Dawn job (2026-10-23)
 
 `main`'s `ios-build-webgpu-dawn` job fails in **configure**, before any compilation:

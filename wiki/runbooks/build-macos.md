@@ -129,6 +129,42 @@ qml/MapLibre/                        MapLibre QML module (plugin dylib + qmldir 
 include/                             headers
 ```
 
+### iOS (simulator) library tree — 2026-10-23
+
+There was no iOS library tree before; the canonical one is now
+`~/dev/tmp/build-maplibre-native-qt-ios-sim`, built from the repo's own `iOS` preset against the
+**simulator** kit:
+
+```bash
+export QT_ROOT_DIR="$HOME/Qt/6.12.0/ios_simulator_arm64"
+cmake --preset iOS-ccache -B "$HOME/dev/tmp/build-maplibre-native-qt-ios-sim" \
+  -DCMAKE_OSX_ARCHITECTURES=arm64
+cmake --build "$HOME/dev/tmp/build-maplibre-native-qt-ios-sim" --config Release
+```
+
+- **The `-DCMAKE_OSX_ARCHITECTURES=arm64` override is required on this Mac.** The preset asks for
+  `arm64;x86_64`, but the Qt-installer iOS kits are single-arch (verified with `lipo`: `ios_device`
+  arm64, `ios_simulator_arm64` arm64, `ios_simulator_x86_64` x86_64) while only the macOS host kit is
+  fat. Configure accepts `arm64;x86_64` and then the **link** fails
+  (`ld: warning: ignoring file …/QtCore …: found architecture 'arm64', required architecture 'x86_64'`
+  → `Undefined symbols … _qt_main_wrapper`). Use the arch that matches the kit. Upstream's own
+  `iOS CI` is green with the preset defaults because it installs Qt via `aqtinstall`
+  (`target: ios`), so check the aqt-vs-Qt-installer packaging before calling this an upstream bug.
+- Cross-compiling normally wants the host tools (`QT_HOST_PATH`; upstream CI sets
+  `readlink -f "$QT_ROOT_DIR/../macos"`). Not needed here — Qt's iOS toolchain found
+  `~/Qt/6.12.0/macos` by itself — but set it if a moc/uic error appears.
+- Result 2026-10-23 (Release only): configure 6.1 s; build **551 steps, 0 warnings, 0 errors**.
+  Artifacts are **static** libraries (Qt for iOS is static here), not the frameworks the macOS tree
+  installs — `src/core/Release/libQMapLibre.a`, `src/quick/Release/libQMapLibreQuickPrivate.a`,
+  `src/location/Release/libQMapLibreLocation.a`, `src/widgets/Release/libQMapLibreWidgets.a`, plus the
+  QML module `src/quick/plugins/MapLibre/{libdeclarative_maplibre.a,qmldir,declarative_maplibre.qmltypes}`
+  and the location plugin. Objects are `platform IOSSIMULATOR, minos 17.0, sdk 27.1`, arm64.
+- `MLN_WITH_GLFW` stays **ON** in this configuration. Harmless for the libraries (nothing references
+  GLFW and no test target is built), but a GLFW-linked test/benchmark target could not link for iOS —
+  add `-DMLN_WITH_GLFW=OFF` if that ever matters.
+- Not done yet: no `cmake --install`, no Debug configuration, no device build (that would use
+  `QT_ROOT_DIR="$HOME/Qt/6.12.0/ios_device"`, also arm64-only).
+
 ## 3. Build the app (command line)
 
 The **Qt Creator MCP policy is Windows-only**, so on macOS the app is built and run from a shell.
