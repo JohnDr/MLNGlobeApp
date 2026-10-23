@@ -57,10 +57,10 @@ Build setup now works (see [pickup](#pickup-after-restart--os-switch)):
 - **#4533 globe** (full 53-group sweep through #4534 `38dac5b8`, 2026-10-23; #4533 itself is `ff96700`): **2 unique failures** at the new head, the head merge added none:
   - `projection/globe/fill-seams/checkerboard`
   - `projection/globe/raster-warped`
-  Ignored: `debug-tile-borders`, `fill-planet-pole`, `fill-planet-pole-top`, `fill-planet-tiles`, 2 in `antimeridian-overdraw`. All other groups pass.
+    Ignored: `debug-tile-borders`, `fill-planet-pole`, `fill-planet-pole-top`, `fill-planet-tiles`, 2 in `antimeridian-overdraw`. All other groups pass.
 - **Windows `raster-warped` quantified**: 284 mismatched pixels of 262144 (`allowed` 39.32, 7.2×); passes on Linux/RADV. The diff is horizontal edge lines — a Windows/Vulkan (Intel Iris Xe) rasterization difference, not AA-only.
 - **Windows `checkerboard` quantified**: independent mapbox pixelmatch (JS 5.3.0, threshold 0.1285) counts 8–9 of 65536 against `allowed` 9.83; the runner's C++ pixelmatch crosses the threshold (Linux JS counted 10), so this is a one-pixel threshold miss, not a visible seam. Diffs saved in `%LOCALAPPDATA%\Temp\opencode\consolidated-report\windows`.
-- **Full unit suite**: stops on platform tests, not PR-related — `OnlineFileSource.ConnectionError` (backoff timing) and `LocalFileSource.InvalidUTF8Path`.
+- **Server suites** (`USE_CPP_TEST_SERVER` is defined on WIN32): HTTPFileSource **11/11**, MainResourceLoader **20/20**, MapSnapshotter **6/6**, OnlineFileSource **21/23** — `ConnectionError` and `NetworkStatusChangePreempt` fail with `Reason::Temporary` instead of `Connection` and then hang; **58/60 pass**, a Windows/libcurl mapping issue, not a PR regression. The full suite also stops on `LocalFileSource.InvalidUTF8Path` (platform).
 
 ### Android (S23, serial `RFCW910087W`)
 
@@ -112,7 +112,7 @@ first Linux runs of the WebGPU backends for all three PR branches. They were bui
 **Build notes (Linux-specific):**
 
 - Dawn: the fork fetches `vendor/dawn` through `FetchContent` from GitHub; the clone aborted three times
-  (`early EOF` / `invalid index-pack`) and codeload tarballs truncated at ~22 MB. A **googlesource archive**
+  (`early EOF` / `invalid index-pack`) and codeload tarballs truncated at \~22 MB. A **googlesource archive**
   of the same tag (`v20260210.203301`, commit `c20ab4b…`) over HTTP/1.1 worked; one checkout is symlinked
   into both worktrees.
 - Configure needs `-DMLN_WITH_GLFW=OFF -DDAWN_USE_GLFW=OFF -DDAWN_USE_X11=OFF` on this box (no
@@ -143,27 +143,31 @@ first Linux runs of the WebGPU backends for all three PR branches. They were bui
 | #4190 `c6b31b7` | wgpu | **1160/1160** | **1243 / 28 / 3 / 66** |
 
 - **#4533 is the control** (no WebGPU changes): its Dawn failure set is a **strict subset** of #4534's —
-  #4534 adds only `feature-state/symbol-paint`, #4190 adds `feature-state/composite-expression` and
+  \#4534 adds only `feature-state/symbol-paint`, #4190 adds `feature-state/composite-expression` and
   `global-state/with-feature-state/basic` on top. The **14 "not ignored anywhere" diffs are identical on
-  #4533**, so they are baseline Linux-WebGPU behaviour, not caused by either PR. Those three extras are also
+  \#4533**, so they are baseline Linux-WebGPU behaviour, not caused by either PR. Those three extras are also
   **flaky, not branch-specific**: re-running them 3× per branch gave e.g. #4534 `symbol-paint` 3,0,0 and
-  #4190 `composite-expression` 3,3,0 (they flip between runs; all three pass 3/3 on #4533).
+  \#4190 `composite-expression` 3,3,0 (they flip between runs; all three pass 3/3 on #4533).
+
 - `projection/globe/fill-seams/checkerboard` **passes on Linux WebGPU** (both backends), where RADV Vulkan
   fails it by 10 px — the WebGPU output matches the Metal-rendered expectation.
 
 - **Unit suites are fully green on both backends.** With wgpu the suite must be run in per-suite processes:
-  in one process it aborts around test ~90 with `radv/amdgpu: Not enough memory for command submission` →
+  in one process it aborts around test \~90 with `radv/amdgpu: Not enough memory for command submission` →
   `wgpuQueueSubmit: Validation Error … Parent device is lost` — a wgpu-native/RADV per-process resource
   leak, not a failing test. Every one of the 145 (#4534) / 140 (#4190) suites passes in a fresh process
   (`[       OK ]` count equals the full test count). Dawn runs end-to-end in one process.
+
 - The **3 errors** in all six runs are `text-font/{burmese,khmer,devanagari}` — the same pre-existing Linux
   glyph-range gap (`Failed to load glyph range 4096-4351 for font stack Noto Sans Regular`) as the
   Vulkan/OpenGL baseline.
+
 - The same wgpu leak also hit **render**: #4190's `combinations` group (127 tests in one process) aborted
   twice with `amdgpu: The CS has been rejected … (-12)` (re-run one test per process: 121 passed / 3 failed /
   3 ignored, identical to Dawn), and #4533's `combinations` and `projection` groups aborted once each — both
   completed when run on their own (combinations 124 passed / 3 failed, projection 74 passed + 1 ignored). The
   counts above include those re-runs.
+
 - **Failures split in two.** (a) Tests already ignored on another platform, i.e. what the missing
   `platform-linux-webgpu.json` presumably carries: `fill-extrusion-pattern/*` (8),
   `fill-outline-color/{property,zoom-and-property}-function`, `fill-extrusion-color/function`,
@@ -173,10 +177,12 @@ first Linux runs of the WebGPU backends for all three PR branches. They were bui
   `fill-extrusion-translate-anchor/{map,viewport}`, `within/{filter-with-inlined-geojson,paint-line}`,
   `combinations/{heatmap,hillshade,raster}-translucent--*` and the three `text-font` errors; wgpu adds the two
   flaky `fill-pattern/{uneven-pattern,wrapping-with-interpolation}`.
+
 - The same tests **pass on Vulkan** on this machine and on macOS WebGPU, so this is a **Linux-WebGPU image
   mismatch** (alpha/AA compositing of translucent layers and extrusions against the shared
   `expectations/platform-linux`), not a branch regression. It must be investigated before anyone claims
   Linux WebGPU parity; macOS hides part of the same class behind `platform-macos-webgpu.json`.
+
 - Both backends log `maxDynamicUniformBuffersPerPipelineLayout artificially reduced from 500000 to 16`
   (portability clamp; harmless, but worth knowing).
 
@@ -322,7 +328,7 @@ build/run path in [Build (macOS)](./build-macos.md)).
 | Core render tests, all 175 groups | **175/175 pass** (`metrics/macos-xcode11-release-style.json`, one process per group) |
 | Expression tests | **332 pass, 18 ignored, 0 fail** |
 | Core unit tests, `-Map.*` and the 4 server suites | **991 pass, 0 fail** (991 tests / 130 suites; patch 0058 fixed the last test) |
-| `Map.*` | **hangs** — headless command buffers are allocated per pass and never committed, so the Metal queue's in-flight slots run out after ~32 frames and `-[MTLCommandQueue commandBuffer]` blocks. Root-caused and filed as [#4822](https://github.com/maplibre/maplibre-native/issues/4822); the local `if (!commandBuffer)` guard makes `Map.*` 55/55, not shipped as a fork patch |
+| `Map.*` | **hangs** — headless command buffers are allocated per pass and never committed, so the Metal queue's in-flight slots run out after \~32 frames and `-[MTLCommandQueue commandBuffer]` blocks. Root-caused and filed as [#4822](https://github.com/maplibre/maplibre-native/issues/4822); the local `if (!commandBuffer)` guard makes `Map.*` 55/55, not shipped as a fork patch |
 | Server suites (60 tests: `HTTPFileSource`, `OnlineFileSource`, `MainResourceLoader`, `MapSnapshotter`) | **60 pass, 0 fail** — suite-per-process with a local `USE_CPP_TEST_SERVER` build (upstream defines it only for Windows/Linux/WebGPU); not a fork patch. A single combined process trips `OnlineFileSource.TemporaryError` (keep-alive/4-thread server pool) |
 
 **Fork regression found and fixed — patch 0057** (`maplibre-native-0057-globe-symbols-metal.patch`).
@@ -456,10 +462,10 @@ portable copy of the whole fix set is now **in the wiki** —
 Machine changes on the Mac mini (one-off; repeat if this Mac is reimaged):
 `xcodebuild -runFirstLaunch` — it had been returning **69**, Xcode's components were never installed, so
 `CoreSimulator.framework` was missing and every iOS CMake preset died in compiler detection — then
-`xcodebuild -downloadPlatform iOS` (iOS 27.0 + 27.1 simulator runtimes, ~16 min, disk 88 → 71 GB); and
+`xcodebuild -downloadPlatform iOS` (iOS 27.0 + 27.1 simulator runtimes, \~16 min, disk 88 → 71 GB); and
 `brew install bazelisk`, because two iOS phase scripts shell out to `bazel` (the repo's `.bazelversion`
 pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` → 0,
-`xcrun simctl list runtimes` → 27.0/27.1, `cmake --preset ios-webgpu-dawn` configures in ~78 s.
+`xcrun simctl list runtimes` → 27.0/27.1, `cmake --preset ios-webgpu-dawn` configures in \~78 s.
 
 - Build from worktree `~/dev/tmp/mln-pr4190` (presets default to the **simulator**):
   `cmake --preset ios-metal` / `ios-webgpu-dawn`, then
@@ -479,7 +485,7 @@ pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` 
 ## Next actions (ordered)
 
 1. ~~**Linux**: build/test #4533/#4534/#4190; run `fill-seams` and `raster-warped`~~ **Done 2026-10-21**: all three build, unit tests all pass; `raster-warped` is Windows-only; `fill-seams/checkerboard` fails on both Windows and Linux/RADV but by one pixel (10 mismatched vs 9.83 allowed) against the Metal expectation, and passes on lavapipe. Diffs saved. Full render suites also finished: #4534 matches #4533's two failures; #4190 has only the pre-existing `fill-extrusion-pattern/tile-buffer`.
-2. ~~**macOS WebGPU**~~ **Done 2026-10-22**: rebuilt all three PR branches locally (wgpu **and** Dawn). Five bugs fixed in the PR worktrees — #4534: `target` reserved keyword + duplicate `PI` (abort → full render suite 1485/0); #4190: duplicate `GlobalPaintParamsUBO` in `circle.hpp` (abort), stray `drape_tile` fields bloating the WebGPU `line.hpp` drawable/props structs (17 of 18 image diffs), and missing texture-upload stats in `src/mln/webgpu/texture2d.cpp` (last unit failure) → unit 1157/0, render 1368/0. Both also built against Dawn (`macos-webgpu-dawn`): CI's 14 unit failures and `sky/atmosphere-globe` pass, totals identical to wgpu. #4533 on Metal: globe group 71 passed + 1 ignored, `fill-seams/checkerboard` passes. Uncommitted, nothing pushed; see [macOS WebGPU](#macos-webgpu--reproduced-and-fixed-2026-10-22).
+2. **~~macOS WebGPU~~** **Done 2026-10-22**: rebuilt all three PR branches locally (wgpu **and** Dawn). Five bugs fixed in the PR worktrees — #4534: `target` reserved keyword + duplicate `PI` (abort → full render suite 1485/0); #4190: duplicate `GlobalPaintParamsUBO` in `circle.hpp` (abort), stray `drape_tile` fields bloating the WebGPU `line.hpp` drawable/props structs (17 of 18 image diffs), and missing texture-upload stats in `src/mln/webgpu/texture2d.cpp` (last unit failure) → unit 1157/0, render 1368/0. Both also built against Dawn (`macos-webgpu-dawn`): CI's 14 unit failures and `sky/atmosphere-globe` pass, totals identical to wgpu. #4533 on Metal: globe group 71 passed + 1 ignored, `fill-seams/checkerboard` passes. Uncommitted, nothing pushed; see [macOS WebGPU](#macos-webgpu--reproduced-and-fixed-2026-10-22).
 3. **Unblock `main`'s red `ios-build-webgpu-dawn`** (found 2026-10-22, **verified locally 2026-10-23**):
    add `set(TINT_BUILD_TESTS OFF CACHE BOOL "Disable Tint tests" FORCE)` to `vendor/dawn.cmake` beside the
    existing `DAWN_BUILD_TESTS OFF`. Dawn defaults `TINT_BUILD_TESTS` to **ON**
@@ -511,13 +517,13 @@ pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` 
    pending runs (all `action_required` since 2026-10-21).
 5. **Post one consolidated test report — ready to draft** (nothing has been posted yet — GitHub activity is on
    hold until John says go). All platform data is in: Windows, Android, Linux Vulkan, **Linux WebGPU incl. the
-   #4533 control**, macOS (Metal from CI; WebGPU reproduced and fixed). Include the `Mapbox.h` iOS fix, the
+   \#4533 control**, macOS (Metal from CI; WebGPU reproduced and fixed). Include the `Mapbox.h` iOS fix, the
    `TINT_BUILD_TESTS` fix and the missing `platform-linux-webgpu.json` as separate findings. Content: #4533 (seams + platform), #4534 (Windows Vulkan render pass; the two WGSL bugs; the `Mapbox.h` iOS build failure — now reproduced and fixed locally, suite green), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests; iOS Dawn failure is pre-existing on `main`).
 6. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
 7. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
 8. **Existing PRs**: #4752 review/CI, #323 CI approval, #326.
 9. **Design proposal only** if `TerrainPass`/`terrain_stitch` is materially better than `RenderTerrain`; write a comparison for the TSC first.
-10. **iPhone (deferred; iOS toolchain fixed 2026-10-23)**: QMapLibre *does* have upstream iOS support (`cmake/presets/iOS.json`, Qt6 toolchain, `MLN_WITH_METAL=ON`, deployment target 17.0) and the Mac has Qt's `ios_device` kit, so MapLibreEarth-on-device (real device Metal for the fork) and upstream's bazel-built `RenderTest`/`CppUnitTests` iOS schemes are both plausible. The Xcode gap is **fixed** (`xcodebuild -runFirstLaunch` + `-downloadPlatform iOS` → iOS 27.0/27.1 simulator runtimes, `ios-*` presets configure in ~78 s) and **bazel is now installed** (`brew install bazelisk`, 2026-10-23; the repo pins bazel 8.6.0), so the CMake iOS build runs: `ios-metal` builds core + SDK + demo app, `ios-webgpu-dawn` builds once the missing include in item 11(a) is applied. The **Qt wrapper itself** now builds for iOS as well (2026-10-23): `cmake --preset iOS-ccache` with the `ios_simulator_arm64` kit plus `-DCMAKE_OSX_ARCHITECTURES=arm64` → **551 steps, 0 warnings, 0 errors**, producing static `libQMapLibre*.a` libs and the `MapLibre` QML module (objects `platform IOSSIMULATOR, minos 17.0, sdk 27.1`); canonical tree `~/dev/tmp/build-maplibre-native-qt-ios-sim`, so the wrapper-side prerequisite for MapLibreEarth-on-iPhone is done — [build-macos](../runbooks/build-macos.md#ios-simulator-library-tree--2026-10-23). The **app** builds and runs there too: a flat, fully static ~54 MB `MapLibreEarth.app` installs and launches on the `iPhone Duo` simulator (stays alive, core Metal shaders compile, `import MapLibre 4.0` resolves from the static plugin), needing one app-side guard — `QProcess::startDetached` does not exist on iOS — and it exposed the wrapper bug in item 12. Both halves also **build for the device** (`ios_device` kit, arm64; trees `~/dev/tmp/build-maplibre-native-qt-ios-device` and `~/dev/tmp/build-MapLibreEarth-ios-device`, installed prefix `~/dev/tmp/install-maplibre-native-qt-ios-device`; the app is `platform IOS, minos 18.0`, unsigned). Deploying is blocked on three things: (i) **no signing identity** on this Mac (`security find-identity -v -p codesigning` → 0, no profiles), (ii) **no iPhone visible** on USB/`devicectl`, and (iii) a hard floor — Qt 6.12's prebuilt iOS libs are `minos 18.0`, so an **iPhone 6 (iOS 12.5.7) cannot run this build**; details in [macOS verification](../verification/macos.md#ios-device-build--2026-10-23). Still missing for a *device* run: Apple ID signing (not set up as of 2026-10-23 — a free personal team would do). For a *simulator* run there is no visual capture on this Mac yet (no `Simulator.app`, item 11). Details: [macOS verification](../verification/macos.md#ios-on-this-mac-toolchain-fixed-2026-10-23).
+10. **iPhone (deferred; iOS toolchain fixed 2026-10-23)**: QMapLibre *does* have upstream iOS support (`cmake/presets/iOS.json`, Qt6 toolchain, `MLN_WITH_METAL=ON`, deployment target 17.0) and the Mac has Qt's `ios_device` kit, so MapLibreEarth-on-device (real device Metal for the fork) and upstream's bazel-built `RenderTest`/`CppUnitTests` iOS schemes are both plausible. The Xcode gap is **fixed** (`xcodebuild -runFirstLaunch` + `-downloadPlatform iOS` → iOS 27.0/27.1 simulator runtimes, `ios-*` presets configure in \~78 s) and **bazel is now installed** (`brew install bazelisk`, 2026-10-23; the repo pins bazel 8.6.0), so the CMake iOS build runs: `ios-metal` builds core + SDK + demo app, `ios-webgpu-dawn` builds once the missing include in item 11(a) is applied. The **Qt wrapper itself** now builds for iOS as well (2026-10-23): `cmake --preset iOS-ccache` with the `ios_simulator_arm64` kit plus `-DCMAKE_OSX_ARCHITECTURES=arm64` → **551 steps, 0 warnings, 0 errors**, producing static `libQMapLibre*.a` libs and the `MapLibre` QML module (objects `platform IOSSIMULATOR, minos 17.0, sdk 27.1`); canonical tree `~/dev/tmp/build-maplibre-native-qt-ios-sim`, so the wrapper-side prerequisite for MapLibreEarth-on-iPhone is done — [build-macos](../runbooks/build-macos.md#ios-simulator-library-tree--2026-10-23). The **app** builds and runs there too: a flat, fully static \~54 MB `MapLibreEarth.app` installs and launches on the `iPhone Duo` simulator (stays alive, core Metal shaders compile, `import MapLibre 4.0` resolves from the static plugin), needing one app-side guard — `QProcess::startDetached` does not exist on iOS — and it exposed the wrapper bug in item 12. Both halves also **build for the device** (`ios_device` kit, arm64; trees `~/dev/tmp/build-maplibre-native-qt-ios-device` and `~/dev/tmp/build-MapLibreEarth-ios-device`, installed prefix `~/dev/tmp/install-maplibre-native-qt-ios-device`; the app is `platform IOS, minos 18.0`, unsigned). Deploying is blocked on three things: (i) **no signing identity** on this Mac (`security find-identity -v -p codesigning` → 0, no profiles), (ii) **no iPhone visible** on USB/`devicectl`, and (iii) a hard floor — Qt 6.12's prebuilt iOS libs are `minos 18.0`, so an **iPhone 6 (iOS 12.5.7) cannot run this build**; details in [macOS verification](../verification/macos.md#ios-device-build--2026-10-23). Still missing for a *device* run: Apple ID signing (not set up as of 2026-10-23 — a free personal team would do). For a *simulator* run there is no visual capture on this Mac yet (no `Simulator.app`, item 11). Details: [macOS verification](../verification/macos.md#ios-on-this-mac-toolchain-fixed-2026-10-23).
 11. **iOS gaps found while building locally 2026-10-23** (all pre-existing on `main`, each hidden by another blocker; details in [macOS verification](../verification/macos.md#what-the-ios-build-revealed-2026-10-23)): (a) `platform/ios/src/MLNMapView+WebGPU.mm` never includes `mln/gfx/context.hpp`, so `context.reset()` on `unique_ptr<mln::gfx::Context>` cannot compile — one-line fix, applied **locally, uncommitted** in the `#4190` worktree; worth upstreaming together with the Dawn configure fix (item 3), since that configure failure is the only reason CI has not seen it; (b) `platform/ios/app` cannot build with `MLN_WITH_WEBGPU` — it needs the `platform/darwin/app` include directory that only `custom-layer-examples` provides, and `darwin.cmake` skips that target for WebGPU; (c) the CMake ObjC demo `app` crashes on launch against the iOS 27.1 SDK (legacy lifecycle, `_UIApplicationRuntimeIssueForNoSceneLifecycleAdoption`) — upstream's current iOS app is the Swift `app-swift` built by bazel. Also: this Xcode 27.1 install has **no `Simulator.app`**, so simulator screenshots are all-black; repairing Xcode is separate work.
 12. **Wrapper iOS bug: `TextureNodeMetal` mutates UIKit off the main thread** (found 2026-10-23 running the app on the simulator; **wrapper-side, not upstream core**): `TextureNodeMetal::render()` (`maplibre-native-qt/src/quick/texture_node_metal.mm:93`) creates its own `CAMetalLayer` and calls `[view.layer addSublayer:]` on `window->winId()`, but `render()` runs on the Qt Quick **render thread**, so iOS logs `[com.apple.UIKit:Assert] Modifying properties of a view's layer off the main thread is not allowed: view <QUIMetalView …>` once per launch (backtrace: `-[CALayer addSublayer:]` → `QMapLibre::TextureNodeMetal::render(QQuickWindow*)` → `MapQuickItem::updatePaintNode`). Only iOS is affected: Qt's `QSGRendererInterface` supplies no `"MetalLayer"` resource there, forcing the wrapper's `m_ownsLayer` fallback, which macOS's AppKit tolerates off-thread. Not fixed; any fix must create/attach the layer on the GUI thread. Details: [macOS verification](../verification/macos.md#maplibreearth-on-the-ios-simulator--2026-10-23).
 
