@@ -304,7 +304,7 @@ to look at, the evidence that the map really initialises is:
 - the log shows the core compiling its Metal shaders and a scene-graph path
   `MapQuickItem::updatePaintNode` → `MapQuickItem::updateMapNode` → `QMapLibre::TextureNodeMetal::render`.
 
-App-side portability fix required (uncommitted): `main.cpp`'s `applyAndRestart()` called
+App-side portability fix required (commit `8fae924`): `main.cpp`'s `applyAndRestart()` called
 `QProcess::startDetached`, which Qt omits on iOS → compile error; now guarded with
 `#if defined(Q_OS_IOS)` (persist the scale, skip the relaunch). Desktop behaviour unchanged.
 

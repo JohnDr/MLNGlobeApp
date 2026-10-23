@@ -233,7 +233,7 @@ xcrun simctl launch --stdout=/tmp/o.log --stderr=/tmp/e.log booted com.yourcompa
   `QMapLibre::PluginQml` when Core is a static library), so `import MapLibre 4.0` resolves with no
   `QML_IMPORT_PATH` — the app writes a `.qmlc` cache under `Library/Caches/MapLibre/MapLibreEarth/qmlcache`
   in its container, which is the quickest proof the QML side really loaded.
-- **App-side portability fix required** (2026-10-23, uncommitted): `main.cpp`'s `applyAndRestart()`
+- **App-side portability fix required** (2026-10-23, commit `8fae924`): `main.cpp`'s `applyAndRestart()`
   called `QProcess::startDetached`, which Qt omits on iOS → build error. It is now guarded with
   `#if defined(Q_OS_IOS)` (persist the scale, skip the relaunch). Desktop behaviour is unchanged.
 - Set `QT_HOST_PATH` only if a moc/uic error appears; the toolchain found `~/Qt/6.12.0/macos` alone.
