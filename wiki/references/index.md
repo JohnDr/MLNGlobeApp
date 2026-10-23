@@ -14,7 +14,8 @@ Background and preserved sources.
 - [Downstream patches](./fork-patches.md) — the two patches applied to the vendored core.
 - [Upstream pull requests](./upstream-prs.md) — the five draft PRs.
 - [Upstream issues](./upstream-issues.md) — the MapLibre Native style-spec gaps.
-- [Consolidated upstream report drafts](./upstream-report-drafts.md) — one text-only comment per PR (#4533/#4534/#4190), awaiting review before posting.
+- [Consolidated upstream report drafts](./upstream-report-drafts.md) — one text-only comment per PR (#4533/#4534/#4190), posted 2026-10-23.
+- [Terrain camera/elevation API proposal](./terrain-camera-api-proposal.md) — internal outline for the upstream elevation query and GL JS camera helpers.
 
 ## Related
 
