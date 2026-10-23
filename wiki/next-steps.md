@@ -47,9 +47,10 @@ the command line (Qt Creator itself is optional), libraries from the command lin
 installs.
 
 **Open / next**
-1. **Debug app build** has not been rebuilt or run since the sky/drape work (build it from the command line on
-   Linux); the Debug libraries are rebuilt and `test_mln_quick` passes only with `QSG_RENDER_LOOP=basic`
-   (pre-existing threaded-loop assertion in `MapRenderer::updateRenderer`).
+1. **Debug app build** — done 2026-10-23: rebuilt from the command line against the Debug install and run for
+   60 s with no QML/GL errors or assertions (style `gljs-3d-terrain-example` loads). The Debug
+   `test_mln_quick` still needs `QSG_RENDER_LOOP=basic` (pre-existing threaded-loop assertion in
+   `MapRenderer::updateRenderer`) — test-only, not an app problem.
 2. **Pointer gestures** (patch 0053 + `main.qml`, see [gesture page](./references/gesture-gljs-alignment.md)):
    open are keyboard handlers and shift-drag box zoom; globe-drawing pan/zoom still uses the old
    centre-offset code; wheel zoom, rotate/pitch and double-click are not yet numerically checked on terrain
