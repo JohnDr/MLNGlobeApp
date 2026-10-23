@@ -1032,3 +1032,9 @@ Fix (recommended, not a departure): apply the -0.5 cell-centre offset once, in t
 - Toolchain: Dawn from a googlesource archive over HTTP/1.1 (the GitHub `FetchContent` clone failed repeatedly), `-DMLN_WITH_GLFW=OFF -DDAWN_USE_GLFW=OFF -DDAWN_USE_X11=OFF`; wgpu-native with Rust 1.91.1 (pinned) and `BINDGEN_EXTRA_CLANG_ARGS` for bindgen.
 - **#4533 control** (no WebGPU changes): unit **1258/1258** on both backends; render **1334/25/3/56** (Dawn) and **1331/28/3/56** (wgpu, after re-running the `combinations` and `projection` groups that aborted in-process). Its failure set is a strict subset of #4534's and the 14 residual diffs are identical, so they are **baseline Linux-WebGPU behaviour**, not caused by #4534/#4190. The `feature-state`/`global-state` extras are flaky (3 reruns each: e.g. #4534 `symbol-paint` 3,0,0; #4190 `composite-expression` 3,3,0). `checkerboard` **passes** on WebGPU where RADV Vulkan fails it.
 - Evidence: `~/dev/tmp/upstream-report-evidence/webgpu/` (summaries + failing lists).
+
+## 2026-10-23 — Consolidated upstream report posted
+
+- Posted one text-only comment per upstream PR: #4533 https://github.com/maplibre/maplibre-native/pull/4533#issuecomment-6376827154, #4534 https://github.com/maplibre/maplibre-native/pull/4534#issuecomment-6376827512, #4190 https://github.com/maplibre/maplibre-native/pull/4190#issuecomment-6376827810.
+- Draft bodies: [upstream report drafts](./references/upstream-report-drafts.md); tracker Next action 5 marked done.
+- Next: Qt wrapper PRs (#323–#326), terrain-camera question; separate follow-ups for the `Mapbox.h` iOS fix, `TINT_BUILD_TESTS` and the missing `platform-linux-webgpu.json`.

@@ -515,10 +515,7 @@ pins 8.6.0, fetched on first use). Verify: `xcodebuild -checkFirstLaunchStatus` 
    [macOS verification](../verification/macos.md#4534s-ios-test-build-mapboxh--reproduced-and-fixed-2026-10-23).
    Still to do when GitHub scope re-opens: hand it to the author and ask a maintainer to approve that PR's
    pending runs (all `action_required` since 2026-10-21).
-5. **Post one consolidated test report — drafted at [upstream-report-drafts](../references/upstream-report-drafts.md), awaiting John's review/go** (nothing has been posted yet — GitHub activity is on
-   hold until John says go). All platform data is in: Windows, Android, Linux Vulkan, **Linux WebGPU incl. the
-   \#4533 control**, macOS (Metal from CI; WebGPU reproduced and fixed). Include the `Mapbox.h` iOS fix, the
-   `TINT_BUILD_TESTS` fix and the missing `platform-linux-webgpu.json` as separate findings. Content: #4533 (seams + platform), #4534 (Windows Vulkan render pass; the two WGSL bugs; the `Mapbox.h` iOS build failure — now reproduced and fixed locally, suite green), #4190 (Windows terrain tests pass; CI Windows job failures are platform tests; iOS Dawn failure is pre-existing on `main`).
+5. **~~Post one consolidated test report~~ Posted 2026-10-23** — #4533 [comment](https://github.com/maplibre/maplibre-native/pull/4533#issuecomment-6376827154) · #4534 [comment](https://github.com/maplibre/maplibre-native/pull/4534#issuecomment-6376827512) · #4190 [comment](https://github.com/maplibre/maplibre-native/pull/4190#issuecomment-6376827810). Bodies in [drafts](../references/upstream-report-drafts.md).
 6. **Qt wrapper**: adapt the 63-commit QMapLibre API to the upstream core, split into focused `maplibre-native-qt` PRs, coordinate with maintainers.
 7. **Unique core pieces**: verify the terrain-camera ray scan against #4190's `TerrainCamera`/#4711; then RTT pool/pole caps if still gaps. Target `feature/terrain-3d`.
 8. **Existing PRs**: #4752 review/CI, #323 CI approval, #326.

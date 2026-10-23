@@ -11,7 +11,7 @@ status: draft
 ---
 # Consolidated upstream test report — drafts
 
-> **Status: drafts only. Nothing has been posted.** One comment per PR, text only, posted only after John reviews this document and gives the explicit "post" go.
+> **Status: posted 2026-10-23.** One text-only comment per PR: [#4533](https://github.com/maplibre/maplibre-native/pull/4533#issuecomment-6376827154), [#4534](https://github.com/maplibre/maplibre-native/pull/4534#issuecomment-6376827512), [#4190](https://github.com/maplibre/maplibre-native/pull/4190#issuecomment-6376827810). The bodies are kept for the record.
 >
 > Each `POST` block below is the exact comment body. Evidence notes outside the markers are for us and are not posted.
 >
@@ -82,7 +82,7 @@ Method: built the branch, ran `mbgl-test-runner` per suite and `mbgl-render-test
 | iOS | `ios-build` fails because the new `MLNSkyTest.mm.ejs` imports `<Mapbox.h>`; I have a local one-line fix. |
 | Android | CI OpenGL instrumentation/render tests fail; the APK has no Sky activity, so this is not visually verified. |
 
-CI has been stuck in `action_required` since 2026-10-21, so nothing has run on this head. The branch is also stacked on an older globe (five commits behind #4533).
+The build workflows have not run on this head yet (awaiting approval). The branch is also stacked on an older globe (five commits behind #4533).
 
 I can open a small PR against this branch for the two WGSL fixes and the iOS test include, or attach a patch — whichever you prefer. No changes have been pushed.
 
@@ -129,8 +129,8 @@ AI assistance: this report was prepared with AI assistance; every result was ver
 
 ## Review status
 
-- [ ] John reviewed
-- [ ] Explicit post go received
-- [ ] #4533 posted
-- [ ] #4534 posted
-- [ ] #4190 posted
+- [x] John reviewed
+- [x] Explicit post go received
+- [x] #4533 posted — https://github.com/maplibre/maplibre-native/pull/4533#issuecomment-6376827154
+- [x] #4534 posted — https://github.com/maplibre/maplibre-native/pull/4534#issuecomment-6376827512
+- [x] #4190 posted — https://github.com/maplibre/maplibre-native/pull/4190#issuecomment-6376827810

@@ -48,12 +48,7 @@ Vulkan fails it. Details in
 Also found: the Linux WebGPU metric profiles reference a missing
 `metrics/ignores/platform-linux-webgpu.json`, so they exit 5 as committed (still 404 on upstream `main`).
 
-**Next, on the Windows PC:** the Linux work is finished (fork suites and the upstream PR branches, including
-Linux WebGPU with the #4533 control). The immediate task is to **draft and post the consolidated upstream
-test report** — all platform data is in, and the tracker's Next actions item 5 lists what it must cover
-(Windows, Android, Linux Vulkan + WebGPU, macOS/Metal + WebGPU, plus the `Mapbox.h` iOS fix, the
-`TINT_BUILD_TESTS` fix and the missing `platform-linux-webgpu.json`). GitHub writes are still on hold until
-you say go. After that: Qt wrapper PRs (#323–#326) and the terrain-camera question.
+**Consolidated report posted (2026-10-23):** one comment per upstream PR — #4533, #4534 and #4190; the bodies live in the tracker's [report drafts](./references/upstream-report-drafts.md). **Next:** Qt wrapper PRs (#323–#326) and the terrain-camera question.
 
 **Decisions taken (do not re-litigate):** keep the 192-tile drape cap (no byte memory budget); keep drape
 mipmaps; keep GL JS hillshade zoom dependence; accept the remaining ~5-15 % hillshade sharpness gap vs GL JS
