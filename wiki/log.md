@@ -1038,3 +1038,8 @@ Fix (recommended, not a departure): apply the -0.5 cell-centre offset once, in t
 - Posted one text-only comment per upstream PR: #4533 https://github.com/maplibre/maplibre-native/pull/4533#issuecomment-6376827154, #4534 https://github.com/maplibre/maplibre-native/pull/4534#issuecomment-6376827512, #4190 https://github.com/maplibre/maplibre-native/pull/4190#issuecomment-6376827810.
 - Draft bodies: [upstream report drafts](./references/upstream-report-drafts.md); tracker Next action 5 marked done.
 - Next: Qt wrapper PRs (#323–#326), terrain-camera question; separate follow-ups for the `Mapbox.h` iOS fix, `TINT_BUILD_TESTS` and the missing `platform-linux-webgpu.json`.
+
+## 2026-10-23 — GitHub repository renamed to MLNGlobeApp
+
+- `JohnDr/MapLibreEarth` → `JohnDr/MLNGlobeApp` (public); the local `origin` remote was updated.
+- Wiki branding updated in OVERVIEW and the modules index/app page. Code/build identifiers (CMake target, QML URI, build directories, APK/package names) still use `MapLibreEarth` until the code rename.

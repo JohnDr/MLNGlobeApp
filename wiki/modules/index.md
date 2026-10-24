@@ -1,7 +1,7 @@
 ---
 type: Module
 title: Modules
-description: Index of the code modules — the MapLibreEarth app and the QMapLibre / MapLibre Native layers it builds on.
+description: Index of the code modules — the MLNGlobeApp app and the QMapLibre / MapLibre Native layers it builds on.
 tags: [ wiki, module ]
 status: draft
 ---
@@ -9,7 +9,7 @@ status: draft
 
 The code, by layer.
 
-- [MapLibreEarth app](./mapplibrerearth-app.md) — the application target `MapLibreEarth`.
+- [MLNGlobeApp app](./mapplibrerearth-app.md) — the application; the code target is still `MapLibreEarth`.
 - [QMapLibre Core](./qmaplibre-core.md) — the `QMapLibre::Core` library (`Map`, `Settings`, `MapRenderer`).
 - [QMapLibre Quick](./qmaplibre-quick.md) — the Qt Quick map item and the `MapLibre` QML plugin.
 - [MapLibre Native core](./maplibre-native-core.md) — the vendored `mbgl-core` engine.

@@ -1,13 +1,13 @@
 ---
 type: Module
-title: MapLibreEarth app
-description: The MapLibreEarth application target — its files, its QMapLibre dependency and its build behaviour.
+title: MLNGlobeApp app
+description: The MLNGlobeApp application target — its files, its QMapLibre dependency and its build behaviour. The CMake target still uses MapLibreEarth.
 tags: [ module, app ]
 status: draft
 ---
 ## Summary
 
-`MapLibreEarth` is the application target: a Qt Quick app that finds an installed `QMapLibre` package and renders a map. Source: `C:\hda\dev\Projects\MapLibreEarth`.
+`MLNGlobeApp` is the application target: a Qt Quick app that finds an installed `QMapLibre` package and renders a map. The GitHub repository is now `JohnDr/MLNGlobeApp`; the local clone path (`C:\hda\dev\Projects\MapLibreEarth`), CMake target and QML URI still use `MapLibreEarth` until the code rename. Source: `C:\hda\dev\Projects\MapLibreEarth`.
 
 ## Files
 

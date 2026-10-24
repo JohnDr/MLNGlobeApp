@@ -1,15 +1,17 @@
 ---
-title: MapLibreEarth — Overview
-description: "Navigation hub for the MapLibreEarth wiki: the standalone map app and the MapLibre Native / MapLibre Native Qt work behind it."
+title: MLNGlobeApp — Overview
+description: "Navigation hub for the MLNGlobeApp wiki: the standalone map app and the MapLibre Native / MapLibre Native Qt work behind it."
 tags: [ wiki, overview ]
 ---
 # Overview
 
-The home and navigation hub for the `MapLibreEarth` wiki. MapLibreEarth is a standalone Qt Quick / QML map application built on [MapLibre Native Qt](https://github.com/maplibre/maplibre-native-qt); it began as that repo's `quick-standalone` example and is now its own project. This wiki also records the work done in MapLibre Native and MapLibre Native Qt that the app depends on.
+The home and navigation hub for the `MLNGlobeApp` wiki. MLNGlobeApp is a standalone Qt Quick / QML map application built on [MapLibre Native Qt](https://github.com/maplibre/maplibre-native-qt); it began as that repo's `quick-standalone` example and is now its own project. This wiki also records the work done in MapLibre Native and MapLibre Native Qt that the app depends on.
+
+> **Renamed 2026-10-23:** the repository and project are now **MLNGlobeApp** (formerly MapLibreEarth). The local clone path, CMake target, build directories and APK/package names still use `MapLibreEarth` until the code rename; runbook commands are unchanged.
 
 ## What this is
 
-MapLibreEarth is one QML app ([`main.qml`](./entry-points/main-qml.md), `main.cpp`) built against an installed `QMapLibre` package. That package is itself built from a fork of [MapLibre Native Qt](./concepts/maplibre-native-qt.md), which vendors [MapLibre Native](./concepts/maplibre-native.md) as a git submodule. Because the app targets the [Open Waters](./flows/open-waters-rendering.md) nautical style, the project carries a small set of [downstream patches](./references/fork-patches.md) to the vendored core.
+MLNGlobeApp is one QML app ([`main.qml`](./entry-points/main-qml.md), `main.cpp`) built against an installed `QMapLibre` package. That package is itself built from a fork of [MapLibre Native Qt](./concepts/maplibre-native-qt.md), which vendors [MapLibre Native](./concepts/maplibre-native.md) as a git submodule. Because the app targets the [Open Waters](./flows/open-waters-rendering.md) nautical style, the project carries a small set of [downstream patches](./references/fork-patches.md) to the vendored core.
 
 ## Start here
 
@@ -30,7 +32,7 @@ MapLibreEarth is one QML app ([`main.qml`](./entry-points/main-qml.md), `main.cp
 
 ### Modules
 
-- [Modules index](./modules/index.md) — [MapLibreEarth app](./modules/mapplibrerearth-app.md), [`QMapLibre::Core`](./modules/qmaplibre-core.md), [`QMapLibre` Quick](./modules/qmaplibre-quick.md), [MapLibre Native core](./modules/maplibre-native-core.md).
+- [Modules index](./modules/index.md) — [MLNGlobeApp app](./modules/mapplibrerearth-app.md), [`QMapLibre::Core`](./modules/qmaplibre-core.md), [`QMapLibre` Quick](./modules/qmaplibre-quick.md), [MapLibre Native core](./modules/maplibre-native-core.md).
 
 ### Entry points
 
