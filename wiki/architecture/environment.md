@@ -1,7 +1,7 @@
 ---
 type: Architecture
 title: Environment
-description: Repositories, install prefixes, build directories, SDKs and devices for the MapLibreEarth project.
+description: Repositories, install prefixes, build directories, SDKs and devices for the MLNGlobeApp project.
 tags: [ architecture, environment ]
 status: draft
 ---
@@ -13,12 +13,12 @@ Where everything lives on the build machine. Build directories are all under `C:
 
 | Repo | Local path | Remote |
 |------|-----------|--------|
-| MapLibreEarth | `C:\hda\dev\Projects\MapLibreEarth` | `JohnDr/MapLibreEarth` (private) |
+| MLNGlobeApp | `C:\hda\dev\Projects\MapLibreEarth` | `JohnDr/MLNGlobeApp` (public) |
 | MapLibre Native Qt | `C:\hda\dev\Projects\maplibre-native-qt` | `origin` = `maplibre/maplibre-native-qt`; `fork` = `JohnDr/maplibre-native-qt` |
 | MapLibre Native | submodule of the above | fork `JohnDr/maplibre-native` |
 | Handover doc | `C:\hda\dev\Projects\JDReadmeMapLibreNativeQt.txt` | (outside any repo) |
 
-## QMapLibre installs (what MapLibreEarth builds against)
+## QMapLibre installs (what MLNGlobeApp builds against)
 
 | Config | Prefix |
 |--------|--------|
@@ -31,7 +31,7 @@ Each install has `lib/cmake/QMapLibre/QMapLibreConfig.cmake`, `bin/QMapLibre*.dl
 
 ## Build directories
 
-- **MapLibreEarth**: `C:\hda\dev\tmp\build-MapLibreEarth-Desktop_Qt_6_12_0_MSVC2022_64bit-{Debug,Release}`; Android `C:\hda\dev\tmp\build-maplibreearth-android`.
+- **MLNGlobeApp**: `C:\hda\dev\tmp\build-MLNGlobeApp-Desktop_Qt_6_12_0_MSVC2022_64bit-{Debug,Release}`; Android `C:\hda\dev\tmp\build-maplibreearth-android`.
 - **MapLibre Native Qt**: `C:\hda\dev\tmp\build-maplibre-native-qt-Desktop_Qt_6_12_0_MSVC2022_64bit-{Release,Debug}`; Android `build-maplibre-native-qt-Android-Vulkan`, `build-maplibre-native-qt-Android-x86_64`.
 
 ## SDKs

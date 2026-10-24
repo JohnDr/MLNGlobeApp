@@ -1,12 +1,12 @@
 #!/bin/bash
-# Safety net for MapLibreEarth runs: logs memory every 2 s to a PERSISTENT file and kills the app (after a short gdb stack dump)
+# Safety net for MLNGlobeApp runs: logs memory every 2 s to a PERSISTENT file and kills the app (after a short gdb stack dump)
 # before runaway GPU/system memory can take the machine down. Start BEFORE launching the app.
 log=$HOME/dev/tmp/memguard.log; stacks=$HOME/dev/tmp/memguard_stacks.txt
 RSS_LIMIT_KB=$((8*1024*1024)); AVAIL_LIMIT_KB=$((5*1024*1024)); GTT_LIMIT_MB=9000
 gtt=/sys/class/drm/card1/device/mem_info_gtt_used
 echo "memguard started $(date +%T)" >> $log
 while true; do
-  pid=$(pgrep -x MapLibreEarth | head -1)
+  pid=$(pgrep -x MLNGlobeApp | head -1)
   if [ -n "$pid" ]; then
     rss=$(awk '/VmRSS/{print $2}' /proc/$pid/status 2>/dev/null); rss=${rss:-0}
     avail=$(awk '/MemAvailable/{print $2}' /proc/meminfo)

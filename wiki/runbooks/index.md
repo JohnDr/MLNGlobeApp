@@ -1,7 +1,7 @@
 ---
 type: Runbook
 title: Runbooks
-description: Index of the operational runbooks — building and running MapLibreEarth and the QMapLibre library.
+description: Index of the operational runbooks — building and running MLNGlobeApp and the QMapLibre library.
 tags: [ wiki, runbook ]
 status: draft
 ---
@@ -9,8 +9,8 @@ status: draft
 
 How to build and run the project.
 
-- [Build QMapLibre + MapLibreEarth (Windows)](./build-windows.md)
-- [Build QMapLibre + MapLibreEarth (macOS)](./build-macos.md) — Metal backend on the Mac mini.
+- [Build QMapLibre + MLNGlobeApp (Windows)](./build-windows.md)
+- [Build QMapLibre + MLNGlobeApp (macOS)](./build-macos.md) — Metal backend on the Mac mini.
 - [Build the library + APK (Android)](./build-android.md)
 - [Deploy to the S23](./deploy-android.md)
 - [Qt Creator Debug/Release](./qt-creator-debug-release.md)

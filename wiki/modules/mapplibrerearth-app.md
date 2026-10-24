@@ -1,13 +1,13 @@
 ---
 type: Module
 title: MLNGlobeApp app
-description: The MLNGlobeApp application target — its files, its QMapLibre dependency and its build behaviour. The CMake target still uses MapLibreEarth.
+description: The MLNGlobeApp application target — its files, its QMapLibre dependency and its build behaviour. The CMake target and QML URI are MLNGlobeApp; the local clone path still uses MapLibreEarth.
 tags: [ module, app ]
 status: draft
 ---
 ## Summary
 
-`MLNGlobeApp` is the application target: a Qt Quick app that finds an installed `QMapLibre` package and renders a map. The GitHub repository is now `JohnDr/MLNGlobeApp`; the local clone path (`C:\hda\dev\Projects\MapLibreEarth`), CMake target and QML URI still use `MapLibreEarth` until the code rename. Source: `C:\hda\dev\Projects\MapLibreEarth`.
+`MLNGlobeApp` is the application target: a Qt Quick app that finds an installed `QMapLibre` package and renders a map. The GitHub repository is now `JohnDr/MLNGlobeApp`; the CMake target and QML URI are `MLNGlobeApp`; the local clone path (`C:\hda\dev\Projects\MapLibreEarth`) still uses `MapLibreEarth`. Source: `C:\hda\dev\Projects\MapLibreEarth`.
 
 ## Files
 
@@ -15,7 +15,7 @@ status: draft
 |------|------|
 | [`main.cpp`](../entry-points/mapplibrerearth.md) | Entry point: sets the graphics API, engine, loads the QML. |
 | [`main.qml`](../entry-points/main-qml.md) | The entire UI — the map, the dialogs and the gestures. |
-| `CMakeLists.txt` | The build: a single `qt_add_executable` + `qt_add_qml_module` (URI `MapLibreEarth`). |
+| `CMakeLists.txt` | The build: a single `qt_add_executable` + `qt_add_qml_module` (URI `MLNGlobeApp`). |
 | `CMakePresets.json` | A `default` desktop preset reading `QT_ROOT_DIR` / `QMapLibre_DIR`. |
 
 ## Dependency

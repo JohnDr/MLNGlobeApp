@@ -1,4 +1,4 @@
-# AGENTS.md — MapLibreEarth
+# AGENTS.md — MLNGlobeApp (formerly MapLibreEarth)
 
 ## Build & run policy (agreed with John)
 
@@ -37,8 +37,8 @@ plugin:
 
 | Config  | `QMapLibre_DIR` prefix | App build dir |
 |---------|------------------------|---------------|
-| Release | `C:\hda\dev\tmp\install\maplibre-native-qt` | `C:\hda\dev\tmp\build-MapLibreEarth-Desktop_Qt_6_12_0_MSVC2022_64bit-Release` |
-| Debug   | `C:\hda\dev\tmp\install-maplibre-native-qt-debug` | `C:\hda\dev\tmp\build-MapLibreEarth-Desktop_Qt_6_12_0_MSVC2022_64bit-Debug` |
+| Release | `C:\hda\dev\tmp\install\maplibre-native-qt` | `C:\hda\dev\tmp\build-MLNGlobeApp-Desktop_Qt_6_12_0_MSVC2022_64bit-Release` |
+| Debug   | `C:\hda\dev\tmp\install-maplibre-native-qt-debug` | `C:\hda\dev\tmp\build-MLNGlobeApp-Desktop_Qt_6_12_0_MSVC2022_64bit-Debug` |
 
 Before handing back, after any library change:
 1. Refresh **both** QMapLibre installs (Release **and** Debug) —
@@ -83,5 +83,5 @@ Any deviation must be justified and agreed with John BEFORE it is implemented:
 - Temporary stop-gaps agreed with John must be recorded in the alignment audit with the
   intended GL JS-aligned replacement.
 
-Deviations already in the code are listed in `wiki/references/gljs-alignment.md` (MapLibreEarth
+Deviations already in the code are listed in `wiki/references/gljs-alignment.md` (MLNGlobeApp
 repo); new work must not add to that list without agreement.

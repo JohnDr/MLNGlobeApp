@@ -7,8 +7,8 @@ status: draft
 ---
 # Architecture
 
-The shape of the project: MapLibreEarth and the MapLibre stack it sits on, the toolchain it is built from and the machine it builds on.
+The shape of the project: MLNGlobeApp and the MapLibre stack it sits on, the toolchain it is built from and the machine it builds on.
 
-- [Overview](./overview.md) — MapLibreEarth and the four layers beneath it.
+- [Overview](./overview.md) — MLNGlobeApp and the four layers beneath it.
 - [Technology](./technology.md) — Qt, MSVC, Vulkan/OpenGL, the Android NDK and the build systems.
 - [Environment](./environment.md) — machine paths, SDKs, install prefixes and devices.

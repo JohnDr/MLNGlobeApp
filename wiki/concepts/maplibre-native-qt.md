@@ -7,7 +7,7 @@ status: draft
 ---
 ## Summary
 
-**MapLibre Native Qt** ([repo](https://github.com/maplibre/maplibre-native-qt)) is the Qt wrapper around [MapLibre Native](./maplibre-native.md). It builds the `QMapLibre` C++ library, a Qt Quick map item and (optionally) widget and location modules. MapLibreEarth links against it.
+**MapLibre Native Qt** ([repo](https://github.com/maplibre/maplibre-native-qt)) is the Qt wrapper around [MapLibre Native](./maplibre-native.md). It builds the `QMapLibre` C++ library, a Qt Quick map item and (optionally) widget and location modules. MLNGlobeApp links against it.
 
 ## What it produces
 
@@ -25,7 +25,7 @@ The build options used here: `MLN_QT_WITH_WIDGETS=OFF`, `MLN_QT_WITH_LOCATION=OF
 
 ## This project's fork
 
-The fork `JohnDr/maplibre-native-qt` is used to build a `QMapLibre` that MapLibreEarth consumes. It carries:
+The fork `JohnDr/maplibre-native-qt` is used to build a `QMapLibre` that MLNGlobeApp consumes. It carries:
 
 - the [13.6.1 upgrade](../decisions/d2-upgrade-13-6-1.md), and
 - two fork-only [patches](../references/fork-patches.md) to the vendored core.

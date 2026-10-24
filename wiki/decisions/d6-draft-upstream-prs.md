@@ -11,7 +11,7 @@ Accepted (2026-10-11).
 
 ## Context
 
-Five PRs were opened early — MapLibre Native Qt **#323–#326** and MapLibre Native **#4752**. Work continued afterwards (the [MapLibreEarth split](./d1-standalone-app.md), Debug support, the assert-relaxation patch). That post-PR work is local/fork-only and does not change the PR contents.
+Five PRs were opened early — MapLibre Native Qt **#323–#326** and MapLibre Native **#4752**. Work continued afterwards (the [MLNGlobeApp split](./d1-standalone-app.md), Debug support, the assert-relaxation patch). That post-PR work is local/fork-only and does not change the PR contents.
 
 ## Decision
 

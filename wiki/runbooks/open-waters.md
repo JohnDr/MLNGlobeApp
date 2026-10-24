@@ -11,7 +11,7 @@ status: draft
 
 ## Select it
 
-In the **Maps** dialog, click **Open Waters**. The choice is persisted (Windows: `HKCU\Software\MapLibre\MapLibreEarth\map\styleUrl` → `https://tiles.openwaters.io/seamap/style.json`).
+In the **Maps** dialog, click **Open Waters**. The choice is persisted (Windows: `HKCU\Software\MapLibre\MLNGlobeApp\map\styleUrl` → `https://tiles.openwaters.io/seamap/style.json`).
 
 ## Requirements
 

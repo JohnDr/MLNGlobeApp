@@ -92,7 +92,7 @@ private:
 
 int main(int argc, char *argv[]) {
     QCoreApplication::setOrganizationName(QStringLiteral("MapLibre"));
-    QCoreApplication::setApplicationName(QStringLiteral("MapLibreEarth"));
+    QCoreApplication::setApplicationName(QStringLiteral("MLNGlobeApp"));
 
     // The application scale must be known before QGuiApplication exists, because
     // Qt reads QT_SCALE_FACTOR (and the high-DPI policy) during its construction.
@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
         engine.load(QUrl::fromLocalFile(argv[1]));
     } else {
         qDebug() << "Loading QML from resources...";
-        engine.load(QUrl(QStringLiteral("qrc:/MapLibreEarth/main.qml")));
+        engine.load(QUrl(QStringLiteral("qrc:/MLNGlobeApp/main.qml")));
     }
 
     qDebug() << "Checking root objects...";

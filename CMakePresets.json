@@ -8,7 +8,7 @@
   "configurePresets": [
     {
       "name": "default",
-      "displayName": "MapLibreEarth configuration",
+      "displayName": "MLNGlobeApp configuration",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
       "toolchainFile": "$penv{QT_ROOT_DIR}/lib/cmake/Qt6/qt.toolchain.cmake",
@@ -23,21 +23,21 @@
   "buildPresets": [
     {
       "name": "default",
-      "displayName": "MapLibreEarth build",
+      "displayName": "MLNGlobeApp build",
       "configurePreset": "default"
     }
   ],
   "packagePresets": [
     {
       "name": "default",
-      "displayName": "MapLibreEarth package",
+      "displayName": "MLNGlobeApp package",
       "configurePreset": "default"
     }
   ],
   "workflowPresets": [
     {
       "name": "default",
-      "displayName": "MapLibreEarth workflow",
+      "displayName": "MLNGlobeApp workflow",
       "steps": [
         {
           "type": "configure",

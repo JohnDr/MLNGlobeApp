@@ -1,7 +1,7 @@
 ---
 type: Architecture
 title: Technology
-description: The languages, libraries, toolchains and build systems MapLibreEarth and MapLibre Native Qt are built from.
+description: The languages, libraries, toolchains and build systems MLNGlobeApp and MapLibre Native Qt are built from.
 tags: [ architecture, technology ]
 status: draft
 ---
@@ -33,7 +33,7 @@ MapLibre Native is built with **Vulkan** (`MLN_WITH_VULKAN=ON`) on Windows and A
 ## Build systems
 
 - **MapLibre Native Qt** — CMake, with bundled `CMakePresets.json`. Built in Qt Creator **kit mode** (generator `NMake Makefiles JOM`) or on the command line.
-- **MapLibreEarth** — its own standalone CMake project; locates the library with `find_package(QMapLibre COMPONENTS Core Quick)`, built with Ninja locally.
+- **MLNGlobeApp** — its own standalone CMake project; locates the library with `find_package(QMapLibre COMPONENTS Core Quick)`, built with Ninja locally.
 
 ## Upstream CI
 

@@ -1,6 +1,6 @@
 ---
 type: ADR
-title: D1 — Standalone MapLibreEarth app
+title: D1 — Standalone MLNGlobeApp app
 description: Splitting the heavily-modified quick-standalone example out of the MapLibre Native Qt repo into its own CMake project.
 tags: [ adr, project ]
 status: accepted
@@ -15,14 +15,14 @@ The `quick-standalone` example inside the MapLibre Native Qt repo was developed 
 
 ## Decision
 
-Extract the modified example into its own standalone CMake project at `C:\hda\dev\Projects\MapLibreEarth` (private repo `JohnDr/MapLibreEarth`), rename it to **MapLibreEarth**, and leave the upstream `examples/quick-standalone` untouched in any PR. The project keeps the upstream example's structure (a `find_package(QMapLibre COMPONENTS Core Quick)` CMake project), so it builds against an installed `QMapLibre` rather than from inside the Native Qt tree.
+Extract the modified example into its own standalone CMake project at `C:\hda\dev\Projects\MapLibreEarth` (public repo `JohnDr/MLNGlobeApp`), rename it to **MLNGlobeApp**, and leave the upstream `examples/quick-standalone` untouched in any PR. The project keeps the upstream example's structure (a `find_package(QMapLibre COMPONENTS Core Quick)` CMake project), so it builds against an installed `QMapLibre` rather than from inside the Native Qt tree.
 
 ## Consequences
 
 - The app is a first-class project; the example in the fork can be discarded.
-- MapLibreEarth depends on a `QMapLibre` install that has the two [fork patches](../references/fork-patches.md); once the [library-fix PRs](../references/upstream-prs.md) land upstream, it can build against releases.
-- The app was renamed throughout (`project()`, the CMake target, the QML module URI `Example` → `MapLibreEarth`, `qrc:/MapLibreEarth/main.qml`, `setApplicationName`).
+- MLNGlobeApp depends on a `QMapLibre` install that has the two [fork patches](../references/fork-patches.md); once the [library-fix PRs](../references/upstream-prs.md) land upstream, it can build against releases.
+- The app was renamed throughout (`project()`, the CMake target, the QML module URI `Example` → `MLNGlobeApp`, `qrc:/MLNGlobeApp/main.qml`, `setApplicationName`).
 
 ## Related
 
-- [Entry points](../entry-points/index.md) · [D6](./d6-draft-upstream-prs.md) · [MapLibreEarth module](../modules/mapplibrerearth-app.md)
+- [Entry points](../entry-points/index.md) · [D6](./d6-draft-upstream-prs.md) · [MLNGlobeApp module](../modules/mapplibrerearth-app.md)

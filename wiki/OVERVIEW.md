@@ -7,7 +7,7 @@ tags: [ wiki, overview ]
 
 The home and navigation hub for the `MLNGlobeApp` wiki. MLNGlobeApp is a standalone Qt Quick / QML map application built on [MapLibre Native Qt](https://github.com/maplibre/maplibre-native-qt); it began as that repo's `quick-standalone` example and is now its own project. This wiki also records the work done in MapLibre Native and MapLibre Native Qt that the app depends on.
 
-> **Renamed 2026-10-23:** the repository and project are now **MLNGlobeApp** (formerly MapLibreEarth). The local clone path, CMake target, build directories and APK/package names still use `MapLibreEarth` until the code rename; runbook commands are unchanged.
+> **Renamed 2026-10-23:** the repository and project are now **MLNGlobeApp** (formerly MapLibreEarth). The CMake target, QML URI and app name are `MLNGlobeApp`; the local clone path (`C:\hda\dev\Projects\MapLibreEarth`) and existing build directories still use `MapLibreEarth`. The Android package is `org.qtproject.example.MLNGlobeApp`.
 
 ## What this is
 

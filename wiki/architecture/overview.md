@@ -1,19 +1,19 @@
 ---
 type: Architecture
 title: Overview
-description: MapLibreEarth and the four layers it sits on — the app, the QMapLibre bindings, the MapLibre Native core and the GPU.
+description: MLNGlobeApp and the four layers it sits on — the app, the QMapLibre bindings, the MapLibre Native core and the GPU.
 tags: [ architecture, mapplibrerearth ]
 status: draft
 ---
 ## Summary
 
-MapLibreEarth is a single Qt Quick application. It renders maps through an installed **`QMapLibre`** package, which is the [MapLibre Native Qt](../concepts/maplibre-native-qt.md) bindings; those bindings wrap the vendored [MapLibre Native](../concepts/maplibre-native.md) core, which draws through a GPU backend. Only the top layer — the app — is written here; the other three are built from a fork of MapLibre Native Qt.
+MLNGlobeApp is a single Qt Quick application. It renders maps through an installed **`QMapLibre`** package, which is the [MapLibre Native Qt](../concepts/maplibre-native-qt.md) bindings; those bindings wrap the vendored [MapLibre Native](../concepts/maplibre-native.md) core, which draws through a GPU backend. Only the top layer — the app — is written here; the other three are built from a fork of MapLibre Native Qt.
 
 ## Diagram
 
 ```mermaid
 flowchart TB
-    App["MapLibreEarth\nQML app (main.qml + main.cpp)"]
+    App["MLNGlobeApp\nQML app (main.qml + main.cpp)"]
     Bind["QMapLibre Qt bindings\nQMapLibre.dll / declarative_maplibre.dll"]
     Core["MapLibre Native core (mln)\nstyle parser + renderer"]
     GPU["GPU backend\nVulkan / OpenGL"]
@@ -26,7 +26,7 @@ flowchart TB
 
 | Layer | What | Source |
 |-------|------|--------|
-| MapLibreEarth app | The QML UI and the C++ entry point | `C:\hda\dev\Projects\MapLibreEarth` |
+| MLNGlobeApp app | The QML UI and the C++ entry point | `C:\hda\dev\Projects\MapLibreEarth` |
 | [`QMapLibre`](../modules/qmaplibre-core.md) bindings | `QMapLibre::Map`, `Settings`, `MapRenderer`; the `MapLibre` QML item and its texture nodes | `maplibre-native-qt` `src/core`, `src/quick` |
 | [MapLibre Native](../concepts/maplibre-native.md) core | Style parsing, tile loading, symbol/layer rendering (`mbgl-core` target) | `vendor/maplibre-native` (namespace `mln`) |
 | GPU backend | Vulkan (`MLN_WITH_VULKAN=ON`) or OpenGL | The core's renderer |

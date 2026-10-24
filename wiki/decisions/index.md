@@ -1,7 +1,7 @@
 ---
 type: ADR
 title: Decisions
-description: Index of the architecture decision records for MapLibreEarth and the MapLibre work.
+description: Index of the architecture decision records for MLNGlobeApp and the MapLibre work.
 tags: [ wiki, adr ]
 status: draft
 ---
@@ -11,7 +11,7 @@ Architecture decision records: the context, decision and consequences behind the
 
 ## Project
 
-- [D1 — Standalone MapLibreEarth app](./d1-standalone-app.md) — splitting the example into its own CMake project.
+- [D1 — Standalone MLNGlobeApp app](./d1-standalone-app.md) — splitting the example into its own CMake project.
 - [D6 — Hold upstream PRs as drafts](./d6-draft-upstream-prs.md) — no upstreaming until the project stabilises.
 
 ## MapLibre stack

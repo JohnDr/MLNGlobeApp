@@ -26,7 +26,7 @@ Five PRs were prepared for the MapLibre projects. All are **Draft** as of 2026-1
 
 ## Notes
 
-- Only `src/` and the submodule pointer change in the Native Qt PRs; examples are untouched (they now live in MapLibreEarth, [D1](../decisions/d1-standalone-app.md)).
+- Only `src/` and the submodule pointer change in the Native Qt PRs; examples are untouched (they now live in MLNGlobeApp, [D1](../decisions/d1-standalone-app.md)).
 - The fork-only [patches](./fork-patches.md) are **not** part of any PR.
 - CI: platform builds on Qt 6.11.2 + `pre-commit.ci` (clang-format v23). PR #4752 discloses AI usage per MapLibre policy.
 

@@ -1,20 +1,20 @@
 ---
 type: Runbook
 title: Qt Creator Debug/Release
-description: How MapLibreEarth's Debug and Release build configurations are set up in Qt Creator and why each needs its own QMapLibre install.
+description: How MLNGlobeApp's Debug and Release build configurations are set up in Qt Creator and why each needs its own QMapLibre install.
 tags: [ runbook, qtcreator ]
 status: draft
 ---
 ## Summary
 
-MapLibreEarth has two Qt Creator build configurations (Debug, Release) for the **Desktop Qt 6.12.0 MSVC2022 64bit** kit, stored in `MapLibreEarth\.qtcreator\CMakeLists.txt.user`. Each configuration passes a different `-DQMapLibre_DIR`.
+MLNGlobeApp has two Qt Creator build configurations (Debug, Release) for the **Desktop Qt 6.12.0 MSVC2022 64bit** kit, stored in `MapLibreEarth\.qtcreator\CMakeLists.txt.user` (local clone). Each configuration passes a different `-DQMapLibre_DIR`.
 
 ## The configurations
 
 | Config | `QMapLibre_DIR` | Build dir |
 |--------|------------------|-----------|
-| Debug | `C:\hda\dev\tmp\install-maplibre-native-qt-debug\lib\cmake\QMapLibre` | `...\build-MapLibreEarth-...-Debug` |
-| Release | `C:\hda\dev\tmp\install\maplibre-native-qt\lib\cmake\QMapLibre` | `...\build-MapLibreEarth-...-Release` |
+| Debug | `C:\hda\dev\tmp\install-maplibre-native-qt-debug\lib\cmake\QMapLibre` | `...\build-MLNGlobeApp-...-Debug` |
+| Release | `C:\hda\dev\tmp\install\maplibre-native-qt\lib\cmake\QMapLibre` | `...\build-MLNGlobeApp-...-Release` |
 
 ## Why two installs
 
@@ -39,7 +39,7 @@ The app's POST_BUILD step copies the correct QMapLibre runtime next to the execu
 - The **QMapLibre library** (and other dependencies) are built **from the command line** into the canonical trees, not through the MCP, on every platform.
 - **Handoff guarantee:** before returning, refresh **both** QMapLibre installs when the library changed — `%LOCALAPPDATA%\Temp\opencode\build-libs-both.bat` — then rebuild the app in the config(s) being handed back so the POST_BUILD copy is current. A stale install is why the app aborts with `Cannot assign to non-existent property "terrainExaggeration"`.
 
-The Windows-only scope is mirrored in `MapLibreEarth/AGENTS.md` and `maplibre-native-qt/AGENTS.md`, which are loaded every agent session.
+The Windows-only scope is mirrored in `MLNGlobeApp/AGENTS.md` and `maplibre-native-qt/AGENTS.md`, which are loaded every agent session.
 
 ## Related
 

@@ -1043,3 +1043,9 @@ Fix (recommended, not a departure): apply the -0.5 cell-centre offset once, in t
 
 - `JohnDr/MapLibreEarth` → `JohnDr/MLNGlobeApp` (public); the local `origin` remote was updated.
 - Wiki branding updated in OVERVIEW and the modules index/app page. Code/build identifiers (CMake target, QML URI, build directories, APK/package names) still use `MapLibreEarth` until the code rename.
+
+## 2026-10-23 — Code renamed to MLNGlobeApp
+
+- CMake project/target, QML URI, application name, qrc path, README and tools renamed. The local clone path and existing build directories keep `MapLibreEarth`.
+- Android: `MLNGlobeApp.apk`, package `org.qtproject.example.MLNGlobeApp` (a new install; the old app remains until removed).
+- Windows: Qt Creator imported the renamed project and created `build-MLNGlobeApp-...-{Debug,Release}`; both build clean.

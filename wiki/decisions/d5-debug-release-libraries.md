@@ -11,7 +11,7 @@ Accepted (2026-10-11).
 
 ## Context
 
-Running MapLibreEarth **Debug**, Qt refused the Release MapLibre QML plugin:
+Running MLNGlobeApp **Debug**, Qt refused the Release MapLibre QML plugin:
 
 ```
 The plugin '.../declarative_maplibre.dll' uses incompatible Qt library.
@@ -23,7 +23,7 @@ After switching to a Debug plugin, it could not find its sibling `QMapLibreQuick
 ## Decision
 
 - Build and install a **Debug** `QMapLibre` (`C:\hda\dev\tmp\install-maplibre-native-qt-debug`) and point the Debug build config at it.
-- Add a **POST_BUILD** step in `MapLibreEarth/CMakeLists.txt` that copies the QMapLibre runtime next to the executable (Windows), so the app and the QML plugin resolve their DLLs without QMapLibre's `bin` on `PATH`.
+- Add a **POST_BUILD** step in `MLNGlobeApp/CMakeLists.txt` that copies the QMapLibre runtime next to the executable (Windows), so the app and the QML plugin resolve their DLLs without QMapLibre's `bin` on `PATH`.
 - Fix the Android WebP plugin path with `file(TO_CMAKE_PATH)`.
 
 ## Consequences

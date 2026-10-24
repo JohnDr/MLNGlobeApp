@@ -1,7 +1,7 @@
 ---
 type: Concept
 title: Concepts
-description: Index of the core concepts behind MapLibreEarth — the MapLibre stack, the style spec and the QML map item.
+description: Index of the core concepts behind MLNGlobeApp — the MapLibre stack, the style spec and the QML map item.
 tags: [ wiki, concept ]
 status: draft
 ---

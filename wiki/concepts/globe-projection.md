@@ -28,7 +28,7 @@ From the [GL JS globe guide](./../external-sources/maplibre-gl-js-globe-guide.md
 
 So the globe is a unit sphere from the projection's point of view. Geometry is projected onto the sphere **in the vertex shader**, which keeps the same vector polygons and lines as Mercator.
 
-The **morph back to flat** is not a mode switch — it is a shader-interpolated blend. Globe and Mercator converge at high zoom, so around **zoom 12** the shader fades a `globeness` scalar from 1 to 0, and the map becomes ordinary Mercator with no visible jump. This is the behavior we want in MapLibreEarth.
+The **morph back to flat** is not a mode switch — it is a shader-interpolated blend. Globe and Mercator converge at high zoom, so around **zoom 12** the shader fades a `globeness` scalar from 1 to 0, and the map becomes ordinary Mercator with no visible jump. This is the behavior we want in MLNGlobeApp.
 
 ## Why this is not a port from GL JS
 
@@ -76,11 +76,11 @@ Each phase ships with existing render tests **pixel-identical** (no behavior cha
 
 - **Vendored core** — `vendor/maplibre-native` (submodule, pinned `android-v13.6.1`). This is where the globe renderer goes. See [MapLibre Native](./maplibre-native.md) and the [Downstream patches](../references/fork-patches.md) mechanism: because this repo pins a submodule rather than a fork, large changes are carried as **patches under `patches/`**, applied idempotently at configure time. The globe is far too large for that route, so the practical options are (a) advance the submodule to an upstream release once globe lands, or (b) build against the PR #4533 branch.
 - **Qt bindings** — `src/core` and `src/quick` of `maplibre-native-qt`. Need to expose the projection so an app can switch it: a `mln::Map` / `MapOptions` setter, then `QMapLibre::Map` and the QML `MapLibre` item ([QMapLibre core](../modules/qmaplibre-core.md), [QMapLibre Quick](../modules/qmaplibre-quick.md)).
-- **App** — MapLibreEarth. Add a control (toggle/button) that flips the projection and observe the zoom morph.
+- **App** — MLNGlobeApp. Add a control (toggle/button) that flips the projection and observe the zoom morph.
 
 ### QRhi vs the Native backend
 
-Qt's `QRhi` is the **compositing** abstraction, not the map renderer. The Widgets path (`MapWidget : QRhiWidget`) uses it, but MapLibreEarth is QML: `MapQuickItem` renders through per-backend `QSGSimpleTextureNode`s (`TextureNode{OpenGL,Vulkan,Metal}`), selected at compile time by `MLN_RENDER_BACKEND_*`. In **all** paths the map is rasterized by MapLibre Native's own GPU backend (the `*_renderer_backend` wrappers); QRhi only decides where the finished texture lands. So globe — which is about *geometry projection* — must live in Native regardless of QRhi, and QRhi removes none of the backend work.
+Qt's `QRhi` is the **compositing** abstraction, not the map renderer. The Widgets path (`MapWidget : QRhiWidget`) uses it, but MLNGlobeApp is QML: `MapQuickItem` renders through per-backend `QSGSimpleTextureNode`s (`TextureNode{OpenGL,Vulkan,Metal}`), selected at compile time by `MLN_RENDER_BACKEND_*`. In **all** paths the map is rasterized by MapLibre Native's own GPU backend (the `*_renderer_backend` wrappers); QRhi only decides where the finished texture lands. So globe — which is about *geometry projection* — must live in Native regardless of QRhi, and QRhi removes none of the backend work.
 
 Native's shaders are authored **once** in GLSL (`shaders/*.glsl` + a shared `_prelude.vertex.glsl`) and transpiled per backend, so the globe *algorithm* is written once; the per-backend work is the UBO/prelude/clip-mask plumbing (phases 4, 10a–c). This project runs **Vulkan** on Windows/Android, so **phase 10b (Vulkan) is the path that matters** here.
 
@@ -118,7 +118,7 @@ Sixteen increments have landed:
 
 ## Verification
 
-- **Upstream oracle:** the ported GL JS globe render tests (per phase). Locally these run through MapLibre Native's render-test harness; MapLibreEarth's own verification is manual (see the [Verification](../verification/index.md) section).
+- **Upstream oracle:** the ported GL JS globe render tests (per phase). Locally these run through MapLibre Native's render-test harness; MLNGlobeApp's own verification is manual (see the [Verification](../verification/index.md) section).
 - **Windows/Vulkan and Android** are this project's targets; phase 10b (Vulkan) is therefore on the critical path, not an optional extra.
 - **In-app check** for the morph: zoom through level 11–12 in globe mode and confirm no visible jump; see the [Gestures](../flows/gestures.md) flow for the zoom inputs.
 

@@ -1,4 +1,4 @@
-# MapLibreEarth
+# MLNGlobeApp
 
 A Qt Quick / QML map application built on [MapLibre Native Qt](https://github.com/maplibre/maplibre-native-qt).
 
@@ -40,12 +40,12 @@ cmake --build build
 Or open `CMakeLists.txt` in Qt Creator (the bundled `CMakePresets.json`
 provides a `default` preset that reads `QT_ROOT_DIR` and `QMapLibre_DIR`).
 
-Run: `build\MapLibreEarth.exe`. If the DLLs are not found, put the
+Run: `build\MLNGlobeApp.exe`. If the DLLs are not found, put the
 `QMapLibre` `bin` directory (and Qt's `bin`) on `PATH`.
 
 ## Dependency
 
-MapLibreEarth relies on two `QMapLibre` library behaviours that live in
+MLNGlobeApp relies on two `QMapLibre` library behaviours that live in
 `maplibre-native-qt`:
 
 - runtime `setStyle` reload (so the Maps dialog switches styles immediately), and

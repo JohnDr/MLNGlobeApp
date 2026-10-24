@@ -1,13 +1,13 @@
 ---
 type: Runbook
 title: Build (Android)
-description: Build the QMapLibre library and the MapLibreEarth APK for Android (arm64-v8a).
+description: Build the QMapLibre library and the MLNGlobeApp APK for Android (arm64-v8a).
 tags: [ runbook, android, build ]
 status: draft
 ---
 ## Summary
 
-Build the [`QMapLibre`](../concepts/maplibre-native-qt.md) library for Android, then the [MapLibreEarth](../modules/mapplibrerearth-app.md) APK. arm64-v8a shown; x86_64 is analogous.
+Build the [`QMapLibre`](../concepts/maplibre-native-qt.md) library for Android, then the [MLNGlobeApp](../modules/mapplibrerearth-app.md) APK. arm64-v8a shown; x86_64 is analogous.
 
 ## Prerequisites (environment)
 
@@ -45,9 +45,9 @@ cmake -S C:\hda\dev\Projects\MapLibreEarth -B C:\hda\dev\tmp\build-maplibreearth
 cmake --build C:\hda\dev\tmp\build-maplibreearth-android --target apk
 ```
 
-The APK lands at `build-maplibreearth-android\android-build\MapLibreEarth.apk` (package `org.qtproject.example.MapLibreEarth`).
+The APK lands at `build-maplibreearth-android\android-build\MLNGlobeApp.apk` (package `org.qtproject.example.MLNGlobeApp`).
 
-> Qt Creator cannot build this yet — it has no Android kit config for MapLibreEarth. See [Next steps](../next-steps.md).
+> Qt Creator cannot build this yet — it has no Android kit config for MLNGlobeApp. See [Next steps](../next-steps.md).
 
 ## Related
 

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19...3.21)
 
-project(MapLibreEarth VERSION 1.0.0 LANGUAGES CXX)
+project(MLNGlobeApp VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,23 +16,23 @@ endif()
 find_package(QMapLibre COMPONENTS Core Quick REQUIRED)
 
 qt_add_executable(
-    MapLibreEarth
+    MLNGlobeApp
     main.cpp
 )
 
 qt_add_qml_module(
-    MapLibreEarth
-    URI MapLibreEarth
+    MLNGlobeApp
+    URI MLNGlobeApp
     VERSION 1.0
     RESOURCE_PREFIX "/"
-    OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qml/MapLibreEarth"
+    OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qml/MLNGlobeApp"
     QML_FILES
         main.qml
 )
 
 # Terrain styles, embedded so they are available on every platform (Android
 # cannot read the developer-machine paths used for the desktop file:// URLs).
-qt_add_resources(MapLibreEarth map_styles
+qt_add_resources(MLNGlobeApp map_styles
     PREFIX "/"
     FILES
         terrain-style.json
@@ -40,7 +40,7 @@ qt_add_resources(MapLibreEarth map_styles
 )
 
 set_target_properties(
-    MapLibreEarth
+    MLNGlobeApp
     PROPERTIES
         WIN32_EXECUTABLE ON
         MACOSX_BUNDLE ON
@@ -48,7 +48,7 @@ set_target_properties(
 )
 
 target_link_libraries(
-    MapLibreEarth
+    MLNGlobeApp
     PRIVATE
         Qt::Quick
         Qt::QuickControls2
@@ -63,9 +63,9 @@ if(WIN32)
     file(GLOB _QMapLibre_runtime_dlls "${_QMapLibre_prefix}/bin/*.dll")
     if(_QMapLibre_runtime_dlls)
         add_custom_command(
-            TARGET MapLibreEarth POST_BUILD
+            TARGET MLNGlobeApp POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    ${_QMapLibre_runtime_dlls} "$<TARGET_FILE_DIR:MapLibreEarth>/"
+                    ${_QMapLibre_runtime_dlls} "$<TARGET_FILE_DIR:MLNGlobeApp>/"
             COMMENT "Copying QMapLibre runtime next to the executable"
         )
     endif()
@@ -73,23 +73,23 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     target_link_options(
-        MapLibreEarth
+        MLNGlobeApp
         PRIVATE
             -sTEXTDECODER=0
     )
 endif()
 
-qmaplibre_quick_setup_plugins(MapLibreEarth)
+qmaplibre_quick_setup_plugins(MLNGlobeApp)
 
 install(
-    TARGETS MapLibreEarth
+    TARGETS MLNGlobeApp
     BUNDLE DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 qt_generate_deploy_qml_app_script(
-    TARGET MapLibreEarth
+    TARGET MLNGlobeApp
     OUTPUT_SCRIPT deploy_script
     MACOS_BUNDLE_POST_BUILD
     NO_UNSUPPORTED_PLATFORM_ERROR
@@ -112,7 +112,7 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Android")
     FetchContent_MakeAvailable(android_openssl)
     include(${android_openssl_SOURCE_DIR}/android_openssl.cmake)
 
-    add_android_openssl_libraries(MapLibreEarth)
+    add_android_openssl_libraries(MLNGlobeApp)
 
     # Bundle Qt's WebP imageformats plugin, which the Qt CI deployment omits by
     # default. Without it QImage/QImageReader cannot decode WebP, so WebP raster
@@ -122,7 +122,7 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Android")
         set(_qmaplibre_webp_plugin
             "${_qmaplibre_qt_root}/plugins/imageformats/libplugins_imageformats_qwebp_${ANDROID_ABI}.so")
         if(EXISTS "${_qmaplibre_webp_plugin}")
-            set_property(TARGET MapLibreEarth APPEND PROPERTY
+            set_property(TARGET MLNGlobeApp APPEND PROPERTY
                 QT_ANDROID_EXTRA_LIBS "${_qmaplibre_webp_plugin}")
         endif()
     endif()

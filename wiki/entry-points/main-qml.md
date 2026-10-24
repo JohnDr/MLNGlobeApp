@@ -1,7 +1,7 @@
 ---
 type: Entry Point
 title: main.qml
-description: The MapLibreEarth QML UI — the map, its dialogs, its gestures and the persisted settings.
+description: The MLNGlobeApp QML UI — the map, its dialogs, its gestures and the persisted settings.
 tags: [ entry-point, qml ]
 status: draft
 ---
@@ -22,7 +22,7 @@ Implemented as QML pointer handlers — see [Gestures](../flows/gestures.md): tw
 
 ## Persistence
 
-`QSettings` (Windows: `HKCU\Software\MapLibre\MapLibreEarth`) stores window size/position, map camera, app scale, presets, map styles and dark mode.
+`QSettings` (Windows: `HKCU\Software\MapLibre\MLNGlobeApp`) stores window size/position, map camera, app scale, presets, map styles and dark mode.
 
 ## Related
 

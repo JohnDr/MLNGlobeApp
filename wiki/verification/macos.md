@@ -326,23 +326,23 @@ packaging difference before calling either an upstream bug.
 
 Canonical tree and commands: [Build (macOS) → iOS simulator library tree](../runbooks/build-macos.md#ios-simulator-library-tree--2026-10-23).
 
-### MapLibreEarth on the iOS simulator — 2026-10-23
+### MLNGlobeApp on the iOS simulator — 2026-10-23
 
 The app builds and runs on the simulator (no visible window, see below). Same `default` preset with
 `QT_ROOT_DIR="$HOME/Qt/6.12.0/ios_simulator_arm64"`,
 `QMapLibre_DIR="$HOME/dev/tmp/install-maplibre-native-qt-ios-sim"` and
-`-DCMAKE_OSX_ARCHITECTURES=arm64`: configure 1.6 s, then a **flat** `MapLibreEarth.app`
+`-DCMAKE_OSX_ARCHITECTURES=arm64`: configure 1.6 s, then a **flat** `MLNGlobeApp.app`
 (`Info.plist` + `LaunchScreen.storyboard` + a ~54 MB single binary of static Qt, static QMapLibre and the
 fork's core), `platform IOSSIMULATOR, minos 17.0, sdk 27.1`.
 
 `xcrun simctl install` + `launch` on `iPhone Duo` (iOS 27.1): the process starts and **stays alive**
-(`launchctl` lists `UIKitApplication:com.yourcompany.MapLibreEarth[…][rb-legacy]`, status 0). With nothing
+(`launchctl` lists `UIKitApplication:com.yourcompany.MLNGlobeApp[…][rb-legacy]`, status 0). With nothing
 to look at, the evidence that the map really initialises is:
 
-- the container gains `Library/Application Support/MapLibre/MapLibreEarth/` (the core's cache/settings
-  dir) and `Library/Caches/MapLibre/MapLibreEarth/qmlcache/*.qmlc` — the app's QML **and**
+- the container gains `Library/Application Support/MapLibre/MLNGlobeApp/` (the core's cache/settings
+  dir) and `Library/Caches/MapLibre/MLNGlobeApp/qmlcache/*.qmlc` — the app's QML **and**
   `import MapLibre 4.0` were compiled and loaded;
-- `QSettings` (`com.maplibre.MapLibreEarth.plist`) holds the map list with the terrain `file://` style URLs
+- `QSettings` (`com.maplibre.MLNGlobeApp.plist`) holds the map list with the terrain `file://` style URLs
   rewritten to the container path, i.e. the app's mobile path was taken;
 - the log shows the core compiling its Metal shaders and a scene-graph path
   `MapQuickItem::updatePaintNode` → `MapQuickItem::updateMapNode` → `QMapLibre::TextureNodeMetal::render`.
@@ -357,7 +357,7 @@ App-side portability fix required (commit `8fae924`): `main.cpp`'s `applyAndRest
 which iOS forbids:
 
 ```text
-E  MapLibreEarth[24253:1fe01] [com.apple.UIKit:Assert] Modifying properties of a view's layer off the main
+E  MLNGlobeApp[24253:1fe01] [com.apple.UIKit:Assert] Modifying properties of a view's layer off the main
    thread is not allowed: view <QUIMetalView: 0x106c61e20> with nearest ancestor view controller
    <QIOSViewController: 0x107a0c000>; backtrace: … -[CALayer addSublayer:] …
    QMapLibre::TextureNodeMetal::render(QQuickWindow*) + 312 … MapQuickItem::updatePaintNode …
@@ -382,7 +382,7 @@ Both halves compile for a physical iPhone, unsigned:
 | Step | Result |
 |---|---|
 | QMapLibre, `ios_device` kit | 551 steps, **0 warnings, 0 errors**; static libs + QML module; objects `platform IOS, minos 17.0, sdk 27.1`; installed to `~/dev/tmp/install-maplibre-native-qt-ios-device` |
-| MapLibreEarth | 22 steps → `~/dev/tmp/build-MapLibreEarth-ios-device/MapLibreEarth.app`, flat, 53.5 MB, `platform IOS, minos 18.0, sdk 27.1`, arm64, unsigned |
+| MLNGlobeApp | 22 steps → `~/dev/tmp/build-MapLibreEarth-ios-device/MLNGlobeApp.app`, flat, 53.5 MB, `platform IOS, minos 18.0, sdk 27.1`, arm64, unsigned |
 
 **Deployment is blocked, and one blocker is fundamental:**
 

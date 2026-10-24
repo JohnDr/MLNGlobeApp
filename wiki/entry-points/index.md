@@ -14,4 +14,4 @@ The two files that make up the app.
 
 ## Related
 
-- [MapLibreEarth module](../modules/mapplibrerearth-app.md)
+- [MLNGlobeApp module](../modules/mapplibrerearth-app.md)

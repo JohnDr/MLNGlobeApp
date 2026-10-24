@@ -1,7 +1,7 @@
 ---
 type: Runbook
 title: Build (macOS)
-description: Build and install QMapLibre (Metal) on the Mac mini, then build and run MapLibreEarth against it.
+description: Build and install QMapLibre (Metal) on the Mac mini, then build and run MLNGlobeApp against it.
 tags:
   - runbook
   - macos
@@ -11,7 +11,7 @@ status: current
 ## Summary
 
 Two stages: the [`QMapLibre`](../concepts/maplibre-native-qt.md) library is built and installed from
-the command line, then the [MapLibreEarth app](../modules/mapplibrerearth-app.md) is built and run
+the command line, then the [MLNGlobeApp app](../modules/mapplibrerearth-app.md) is built and run
 from the command line too. The **Qt Creator MCP requirement is Windows-only**, so on macOS no IDE
 round-trip is needed (`AGENTS.md`; policy in
 [Qt Creator Debug/Release](./qt-creator-debug-release.md#agent-policy)).
@@ -181,14 +181,14 @@ cmake --preset default \
   -B "$HOME/dev/tmp/build-MapLibreEarth-macos" \
   -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"   # current canonical build; use arm64 for a quick loop
 cmake --build "$HOME/dev/tmp/build-MapLibreEarth-macos"
-open "$HOME/dev/tmp/build-MapLibreEarth-macos/MapLibreEarth.app"
+open "$HOME/dev/tmp/build-MapLibreEarth-macos/MLNGlobeApp.app"
 ```
 
 - `QMapLibre_DIR` is the **prefix** here — the preset appends `/lib/cmake/QMapLibre` itself. A
   hand-written configure (`-DQMapLibre_DIR=...`) must point at the `lib/cmake/QMapLibre`
   directory instead.
 - `CMAKE_PREFIX_PATH` comes from the Qt toolchain file that the preset loads via `QT_ROOT_DIR`.
-- The app calls `qmaplibre_quick_setup_plugins(MapLibreEarth)`, which publishes the install's `qml/`
+- The app calls `qmaplibre_quick_setup_plugins(MLNGlobeApp)`, which publishes the install's `qml/`
   directory as `QML_IMPORT_PATH`, so `import MapLibre 4.0` resolves without extra setup.
   `qt_generate_deploy_qml_app_script(... MACOS_BUNDLE_POST_BUILD)` deploys Qt into the `.app` after
   each build, so the bundle in the build dir is directly runnable.
@@ -224,17 +224,17 @@ cmake --build "$HOME/dev/tmp/build-MapLibreEarth-ios-sim"
 
 # run it (no Simulator.app on this Mac, so there is no visible window — see the verification page)
 xcrun simctl boot 841FAFD2-A2A2-4AB3-886C-BD21CE7D95C3        # "iPhone Duo", iOS 27.1
-xcrun simctl install booted "$HOME/dev/tmp/build-MapLibreEarth-ios-sim/MapLibreEarth.app"
-xcrun simctl launch --stdout=/tmp/o.log --stderr=/tmp/e.log booted com.yourcompany.MapLibreEarth
+xcrun simctl install booted "$HOME/dev/tmp/build-MapLibreEarth-ios-sim/MLNGlobeApp.app"
+xcrun simctl launch --stdout=/tmp/o.log --stderr=/tmp/e.log booted com.yourcompany.MLNGlobeApp
 ```
 
 - Configure 1.6 s; the build produces a **flat iOS bundle** (Ninja handles this correctly):
-  `MapLibreEarth.app/{Info.plist, LaunchScreen.storyboard, MapLibreEarth}`, a ~54 MB single binary
+  `MLNGlobeApp.app/{Info.plist, LaunchScreen.storyboard, MLNGlobeApp}`, a ~54 MB single binary
   (static Qt + static QMapLibre + the fork's core). `Info.plist` comes from Qt's default iOS support
-  (bundle id `com.yourcompany.MapLibreEarth`).
+  (bundle id `com.yourcompany.MLNGlobeApp`).
 - The QMapLibre QML plugin is linked statically (`qmaplibre_quick_setup_plugins` links
   `QMapLibre::PluginQml` when Core is a static library), so `import MapLibre 4.0` resolves with no
-  `QML_IMPORT_PATH` — the app writes a `.qmlc` cache under `Library/Caches/MapLibre/MapLibreEarth/qmlcache`
+  `QML_IMPORT_PATH` — the app writes a `.qmlc` cache under `Library/Caches/MapLibre/MLNGlobeApp/qmlcache`
   in its container, which is the quickest proof the QML side really loaded.
 - **App-side portability fix required** (2026-10-23, commit `8fae924`): `main.cpp`'s `applyAndRestart()`
   called `QProcess::startDetached`, which Qt omits on iOS → build error. It is now guarded with
@@ -351,4 +351,4 @@ suite is now 991/991.
 ## Related
 
 - [Build (Windows)](./build-windows.md) · [Qt Creator Debug/Release](./qt-creator-debug-release.md) · [Upstream contribution progress](./upstream-contribution-progress.md)
-- [QMapLibre](../concepts/maplibre-native-qt.md) · [MapLibreEarth app](../modules/mapplibrerearth-app.md) · [macOS tests](../verification/macos.md) · [Verification](../verification/index.md)
+- [QMapLibre](../concepts/maplibre-native-qt.md) · [MLNGlobeApp app](../modules/mapplibrerearth-app.md) · [macOS tests](../verification/macos.md) · [Verification](../verification/index.md)

@@ -1,7 +1,7 @@
 ---
 type: Status
 title: Next steps
-description: What to do next on MapLibreEarth and the MapLibre Native / Native Qt work, in order.
+description: What to do next on MLNGlobeApp and the MapLibre Native / Native Qt work, in order.
 tags: [ status, project, handover ]
 status: draft
 ---
@@ -22,7 +22,7 @@ alignment from 2026-10-18 still hold. Since that block was written:
 - **macOS Metal verified**: core render tests **175/175 groups**, server suites **60/60**, app builds and
   runs with the per-config libraries — [macOS verification](./verification/macos.md),
   [build-macos runbook](./runbooks/build-macos.md).
-- **iOS**: QMapLibre and MapLibreEarth build for simulator and device (arm64, `minos 18.0`; the device build
+- **iOS**: QMapLibre and MLNGlobeApp build for simulator and device (arm64, `minos 18.0`; the device build
   is **unsigned**); simulator run verified, device run blocked (no signing identity, no iPhone on USB). Not a
   Linux concern — see [macOS verification](./verification/macos.md#ios-device-build--2026-10-23).
 - **Upstream contribution testing** (#4533/#4534/#4190) is a *separate* effort with its own tracker
@@ -127,7 +127,7 @@ installs.
 
 ## Where things stand (2026-10-11)
 
-- MapLibreEarth builds and runs on Windows (Release **and** Debug) and Android arm64-v8a; deployed to a Galaxy S23 (serial `RFCW910087W`).
+- MLNGlobeApp builds and runs on Windows (Release **and** Debug) and Android arm64-v8a; deployed to a Galaxy S23 (serial `RFCW910087W`).
 - [`QMapLibre`](./concepts/maplibre-native-qt.md) is built from a fork of MapLibre Native Qt, with the MapLibre Native submodule at `android-v13.6.1` plus two [downstream patches](./references/fork-patches.md).
 - Five upstream PRs are open as **Drafts** ([references/upstream-prs.md](./references/upstream-prs.md)); **hold** further upstream work until the project stabilises ([D6](./decisions/d6-draft-upstream-prs.md)).
 
@@ -150,8 +150,8 @@ See [Fork patches](./references/fork-patches.md) and the [globe log](./log.md).
 - [ ] Decide whether to keep the `line-dasharray` data-expression part of the [style-spec patch](./references/fork-patches.md). It is non-conformant (the spec marks `line-dasharray` cross-faded / zoom-only) and is what forced the [assert-relaxation patch](./decisions/d3-downstream-patches.md).
 - [ ] Take the draft PRs out of Draft and merge when stable; rebase #324–#326 after #323.
 - [ ] Optional: raise the style-spec gaps upstream — [`icon-overlap`/`text-overlap`](./references/upstream-issues.md) (issue #251), data-driven `line-dasharray`, and the Open Waters `resampling` misuse.
-- [ ] Optional: add a Qt Creator **Android** kit / CMake preset with `QMapLibre_DIR` so MapLibreEarth builds for Android from the IDE (currently command-line only — see [Android build](./runbooks/build-android.md)).
-- [ ] Optional: provide a fork branch/tag that produces the exact `QMapLibre` install MapLibreEarth consumes (the fork `personal` branch does this today).
+- [ ] Optional: add a Qt Creator **Android** kit / CMake preset with `QMapLibre_DIR` so MLNGlobeApp builds for Android from the IDE (currently command-line only — see [Android build](./runbooks/build-android.md)).
+- [ ] Optional: provide a fork branch/tag that produces the exact `QMapLibre` install MLNGlobeApp consumes (the fork `personal` branch does this today).
 
 ## 3D terrain — in progress (2026-10-12)
 
@@ -206,7 +206,7 @@ The section above (2026-10-13 "per-target projection matrix never reaches the ra
 
 1. **The original "no imagery" root cause (fixed, patch 0036 / fork `6037bd2`).** The per-tile drape ortho mapped the tile's `z = 0` to the **near plane**; `LayerTweaker::multiplyWithProjectionMatrix` then applies a per-drawable depth offset (`projMatrix[14] -= K`), pushing `z_clip < 0`, and **Vulkan clips `z < 0`** — so *every* drape draw was discarded (leaving the patch-0032 fallback tint). Fix: `matrix::ortho(ortho, tx, tx+s, ty+s, ty, -1.5, 0.5)` (tile `z` → `0.5`). Imagery now drapes over the relief — verified zoom 12/14.
 2. **Orientation (fixed, patch 0037 / fork `4955ba4`).** The drape target stores north at `v = 0`, exactly what the terrain mesh's `v_uv` encodes, so the extra `1.0 - v_uv.y` in `terrain.hpp` was a spurious flip (rendered as a 180° rotation). Fix: `texture(drapeSampler, v_uv)`. Verified (world not mirrored, Alps upright, tilted CARTO watermark text reads correctly).
-3. **App camera reset (fixed, MapLibreEarth `e367b01`).** `main.qml`'s `applyCamera()` ran `map.easeTo({pitch, bearing})` **without a zoom** on every style load; a style load resets the camera, so the map's transform was left at ~1.323 while the QML `map.zoomLevel` read 15 — and the raster source's tile cover collapsed to **z2**. Fix: include `center` + `zoom` in the `easeTo`. Verified: raster source zoom now `15.000`, raster cover **z16**. **The app QML is compiled in (`qt_add_qml_module`), so an app rebuild via Qt Creator is required for QML changes to take effect.**
+3. **App camera reset (fixed, MLNGlobeApp `e367b01`).** `main.qml`'s `applyCamera()` ran `map.easeTo({pitch, bearing})` **without a zoom** on every style load; a style load resets the camera, so the map's transform was left at ~1.323 while the QML `map.zoomLevel` read 15 — and the raster source's tile cover collapsed to **z2**. Fix: include `center` + `zoom` in the `easeTo`. Verified: raster source zoom now `15.000`, raster cover **z16**. **The app QML is compiled in (`qt_add_qml_module`), so an app rebuild via Qt Creator is required for QML changes to take effect.**
 
 ### Open — drape empty at zoom >= 15
 
@@ -236,7 +236,7 @@ Instrument the raster drawable's render inside one drape target at zoom 15:
 ### Environment reminders
 
 - Library builds: `%LOCALAPPDATA%\Temp\opencode\build-libs-both.bat` (prints `LIB_REFRESH_OK`); Release install `C:\hda\dev\tmp\install\maplibre-native-qt`, Debug `…\install-maplibre-native-qt-debug`. App build/run via the **Qt Creator MCP** (project must be open).
-- App registry (camera/style): `HKCU:\Software\MapLibre\MapLibreEarth\map` (`styleUrl`, `coordinate` multi-sz, `zoomLevel`, `terrainEnabled`, `globe3D`). A style enables terrain only if `styleUrl` contains `terrain-style.json`.
+- App registry (camera/style): `HKCU:\Software\MapLibre\MLNGlobeApp\map` (`styleUrl`, `coordinate` multi-sz, `zoomLevel`, `terrainEnabled`, `globe3D`). A style enables terrain only if `styleUrl` contains `terrain-style.json`.
 - Test styles in the repo root: `terrain-style.json` (Esri), `osm-terrain-style.json` (OSM raster — **reliable, labelful**), `liberty-terrain.json`.
 - Diagnostics must be written to a file (e.g. `C:\hda\dev\tmp\*.log`) — MapLibre's `Log::` sink is not connected in this app, so `Log::Warning`/`Error` output is dropped.
 
@@ -285,7 +285,7 @@ Capture to use: `C:\Users\JohnD\OneDrive\Pictures\MapLibre.rdc` (a full drape fr
 
 **Tooling:** RenderDoc capture needs the app launched under RenderDoc (`renderdoccmd capture`) **and** the in-app API (`-DENABLE_RENDERDOC_FRAME_CAPTURE` + a trigger); the app renders on demand, so a forced-repaint (a temporary QML Timer nudging `map.pan`) is needed for a settled frame. `qrenderdoc --python` runs the script before the capture loads and `pyrenderdoc.LoadCapture(...)` blocks — analyse in the GUI. Diagnostics must go to files (MapLibre's `Log::` sink is dropped). Kept captures: `C:\hda\dev\tmp\z14_settled.rdc`, `z15_settled.rdc`.
 
-**Environment:** library builds via `%LOCALAPPDATA%\Temp\opencode\build-libs-both.bat` (prints `LIB_REFRESH_OK`); Release install `C:\hda\dev\tmp\install\maplibre-native-qt`, Debug `...\install-maplibre-native-qt-debug`; app build/run via the **Qt Creator MCP** (project must be open; `qt-creator_debug` launches non-blocking, `qt-creator_stop_debug` stops). Registry `HKCU:\Software\MapLibre\MapLibreEarth\map`. Test styles: `osm-terrain-style.json` (OSM, labelful — the reliable one), `terrain-style.json` (Esri).
+**Environment:** library builds via `%LOCALAPPDATA%\Temp\opencode\build-libs-both.bat` (prints `LIB_REFRESH_OK`); Release install `C:\hda\dev\tmp\install\maplibre-native-qt`, Debug `...\install-maplibre-native-qt-debug`; app build/run via the **Qt Creator MCP** (project must be open; `qt-creator_debug` launches non-blocking, `qt-creator_stop_debug` stops). Registry `HKCU:\Software\MapLibre\MLNGlobeApp\map`. Test styles: `osm-terrain-style.json` (OSM, labelful — the reliable one), `terrain-style.json` (Esri).
 
 **Tree state:** library worktree = patches 0001..0038 (all diagnostics removed); app `main.qml` at the committed state (no Timer); both installs + the app rebuilt clean.
 

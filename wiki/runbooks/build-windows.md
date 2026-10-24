@@ -1,13 +1,13 @@
 ---
 type: Runbook
 title: Build (Windows)
-description: Build and install QMapLibre and build MapLibreEarth on Windows (MSVC, Vulkan).
+description: Build and install QMapLibre and build MLNGlobeApp on Windows (MSVC, Vulkan).
 tags: [ runbook, windows, build ]
 status: draft
 ---
 ## Summary
 
-Two stages: build the [`QMapLibre`](../concepts/maplibre-native-qt.md) library, then build the [MapLibreEarth app](../modules/mapplibrerearth-app.md) against the install. Full original notes: [handover §1–5](../references/handover-jdreadme.md).
+Two stages: build the [`QMapLibre`](../concepts/maplibre-native-qt.md) library, then build the [MLNGlobeApp app](../modules/mapplibrerearth-app.md) against the install. Full original notes: [handover §1–5](../references/handover-jdreadme.md).
 
 ## Prerequisites
 

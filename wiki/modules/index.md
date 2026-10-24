@@ -9,7 +9,7 @@ status: draft
 
 The code, by layer.
 
-- [MLNGlobeApp app](./mapplibrerearth-app.md) — the application; the code target is still `MapLibreEarth`.
+- [MLNGlobeApp app](./mapplibrerearth-app.md) — the application; the code target is still `MLNGlobeApp`.
 - [QMapLibre Core](./qmaplibre-core.md) — the `QMapLibre::Core` library (`Map`, `Settings`, `MapRenderer`).
 - [QMapLibre Quick](./qmaplibre-quick.md) — the Qt Quick map item and the `MapLibre` QML plugin.
 - [MapLibre Native core](./maplibre-native-core.md) — the vendored `mbgl-core` engine.

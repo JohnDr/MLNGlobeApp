@@ -10,7 +10,7 @@ status: draft
 | Check | Result |
 |-------|--------|
 | Library for Android arm64-v8a | `libQMapLibre_arm64-v8a.so` + QML plugin built and installed. |
-| App APK (arm64-v8a) | `MapLibreEarth.apk` (~80 MB), package `org.qtproject.example.MapLibreEarth`. |
+| App APK (arm64-v8a) | `MLNGlobeApp.apk` (~80 MB), package `org.qtproject.example.MLNGlobeApp`. |
 | Sign + install | `zipalign` + `apksigner` (debug keystore) → `adb install` **Success**. |
 | Launch | `monkey … LAUNCHER 1` → pid live, map + UI render. |
 | Style warnings | **0** `ParseStyle`, 0 *data expressions*, 0 *doesn't support property* on the device. |
