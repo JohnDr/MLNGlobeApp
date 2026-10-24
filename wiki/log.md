@@ -1049,3 +1049,9 @@ Fix (recommended, not a departure): apply the -0.5 cell-centre offset once, in t
 - CMake project/target, QML URI, application name, qrc path, README and tools renamed. The local clone path and existing build directories keep `MapLibreEarth`.
 - Android: `MLNGlobeApp.apk`, package `org.qtproject.example.MLNGlobeApp` (a new install; the old app remains until removed).
 - Windows: Qt Creator imported the renamed project and created `build-MLNGlobeApp-...-{Debug,Release}`; both build clean.
+
+## 2026-10-23 — Author replies posted
+
+- #4533: replied with the public MLNGlobeApp app and QMapLibre fork background; raster-warped is expected platform variance, no code offered.
+- #4190: replied that #4558 already provides the elevation query; the camera helpers can follow as an adapted PR.
+- URLs: https://github.com/maplibre/maplibre-native/pull/4533#issuecomment-6378257221 and https://github.com/maplibre/maplibre-native/pull/4190#issuecomment-6378257541.

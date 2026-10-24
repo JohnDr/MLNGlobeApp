@@ -60,3 +60,5 @@ Reproduced the globe problems with scripted sweeps on both terrain styles and co
 **2026-10-23 — repository renamed to MLNGlobeApp.** The public GitHub repository moved from `JohnDr/MapLibreEarth` to `JohnDr/MLNGlobeApp`; the local remote and the wiki branding were updated. The code target, build directories and package names keep `MapLibreEarth` until the code rename.
 
 **2026-10-23 — code renamed to MLNGlobeApp.** The CMake project/target, QML URI, app name, qrc path and README now use `MLNGlobeApp`; the local clone path and build directories keep `MapLibreEarth`. The Android package became `org.qtproject.example.MLNGlobeApp`, and Qt Creator built both Windows configurations in new `build-MLNGlobeApp-...` trees.
+
+**2026-10-23 — author replies posted.** #4533 received the public MLNGlobeApp/QMapLibre background and confirmed raster-warped is expected platform variance; #4190 was pointed at #4558's elevation query with an offer to adapt the camera helpers. No code was pushed.
