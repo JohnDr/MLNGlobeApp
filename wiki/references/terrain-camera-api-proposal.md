@@ -28,14 +28,15 @@ GL JS has these as `Transform` camera operations (`screenPointToLocation`, `setL
 ## Upstream state (2026-10-23)
 
 - #4190 provides terrain rendering (`RenderTerrain`, `style::Terrain`) and the centre anchor (#4711, `TerrainCamera` tests), but **no elevation query** (`queryTerrainElevation`, `elevationAt`, `terrainElevation` are absent).
+- **Update 2026-10-23:** #4558 (open) already adds `Renderer::queryTerrainElevation` / `Map::getTerrainElevation`; no new query API is needed. The camera helpers sit on top of it.
 - There is no `Map::setLocationAtPoint`, `TransformState::raycastTerrain`, or `atElevation` on the branch.
 - Our camera code depends on the fork's `TerrainTileManager`/`TransformState`; it cannot be ported line-for-line.
 
 ## Minimal API to propose
 
-1. **Terrain elevation query**
-   - A map/renderer-safe call, e.g. `Map::queryTerrainElevation(const LatLng&) -> std::optional<double>`.
-   - Back it with the DEM tiles already held by #4190's `RenderTerrain`/terrain cache; expose a read-only query rather than the fork's tile manager.
+1. **Terrain elevation query — already provided by #4558**
+   - Use `Map::getTerrainElevation` / `Renderer::queryTerrainElevation` from #4558; do not propose a second query.
+   - The camera helpers below only need that query.
 2. **Camera helpers** (in `Transform`/`TransformState`, following GL JS):
    - `screenPointToLocation(const ScreenCoordinate&) -> std::optional<LatLng>` at the terrain surface.
    - `atElevation(const LatLng&, double elevation) -> ScreenCoordinate`.
@@ -45,10 +46,10 @@ GL JS has these as `Transform` camera operations (`screenPointToLocation`, `setL
 
 ## Why not port 0053/0054 as-is
 
-- No upstream elevation query to call.
+- No elevation query until #4558 lands.
 - Different terrain/render architecture (`RenderTerrain` vs `TerrainTileManager`).
-- #4711 already covers the centre-anchor behaviour; only the query + camera API is new.
+- #4711 already covers the centre-anchor behaviour; only the camera helpers are new once #4558 provides the query.
 
 ## Next
 
-Review this outline, then ask the #4190 author/maintainer whether they want the query + camera API as a follow-up PR against `feature/terrain-3d`, or as a separate proposal. Do not post the outline or open a PR without that go.
+nickvellios confirmed the camera helpers sound useful and pointed to #4558 for the elevation query. Ask whether to prepare them against #4558's branch now or after #4558/#4190 land, then wait for a go before opening a PR.
